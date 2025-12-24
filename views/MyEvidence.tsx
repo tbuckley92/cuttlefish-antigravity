@@ -12,6 +12,7 @@ interface MyEvidenceProps {
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
+  onCreateEvidence?: () => void;
   maxSelection?: number;
 }
 
@@ -19,6 +20,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   selectionMode = false, 
   onConfirmSelection, 
   onCancel,
+  onCreateEvidence,
   maxSelection = 5 
 }) => {
   const [evidence, setEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
@@ -77,7 +79,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           <p className="text-sm text-slate-500 dark:text-white/40">Overview of all your workplace-based assessments and reflections</p>
         </div>
         {!selectionMode && (
-          <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
+          <button onClick={onCreateEvidence} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
             <Plus size={18} /> Create Evidence
           </button>
         )}

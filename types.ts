@@ -16,7 +16,16 @@ export enum EvidenceType {
   Reflection = 'Reflection',
   CRS = 'CRS',
   Other = 'Other',
-  EPA = 'EPA'
+  EPA = 'EPA',
+  QIP = 'Quality Improvement and Audit',
+  Award = 'Prizes/Awards',
+  Course = 'Courses',
+  SignificantEvent = 'Significant Event',
+  Research = 'Research',
+  Leadership = 'Leadership, management and teamwork',
+  Logbook = 'Eye Logbook',
+  Additional = 'Additional evidence',
+  Compliment = 'Compliments'
 }
 
 export enum EvidenceStatus {
@@ -55,6 +64,13 @@ export interface EvidenceItem {
   date: string;
   status: EvidenceStatus;
   notes?: string;
+  // Dynamic fields for specific types
+  projectTitle?: string;
+  provider?: string;
+  location?: string;
+  hours?: string;
+  procedureType?: string;
+  role?: string;
 }
 
 export interface CurriculumRequirement {

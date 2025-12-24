@@ -4,7 +4,9 @@ import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
 import DOPsForm from './views/DOPsForm';
-import { LayoutDashboard, Database, ClipboardCheck, Sun, Moon } from './components/Icons';
+import OSATSForm from './views/OSATSForm';
+import AddEvidence from './views/AddEvidence';
+import { LayoutDashboard, Database, ClipboardCheck, Sun, Moon, Plus } from './components/Icons';
 import { INITIAL_SIAS } from './constants';
 import { SIA } from './types';
 
@@ -12,7 +14,9 @@ enum View {
   Dashboard = 'dashboard',
   Evidence = 'evidence',
   EPAForm = 'epa-form',
-  DOPsForm = 'dops-form'
+  DOPsForm = 'dops-form',
+  OSATSForm = 'osats-form',
+  AddEvidence = 'add-evidence'
 }
 
 interface FormParams {
@@ -54,6 +58,20 @@ const App: React.FC = () => {
   const handleNavigateToDOPs = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
     setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
     setCurrentView(View.DOPsForm);
+  };
+
+  const handleNavigateToOSATS = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
+    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    setCurrentView(View.OSATSForm);
+  };
+
+  const handleNavigateToAddEvidence = (sia?: string, level?: number) => {
+    if (sia && level) {
+      setSelectedFormParams({ sia, level });
+    } else {
+      setSelectedFormParams(null);
+    }
+    setCurrentView(View.AddEvidence);
   };
 
   const handleRemoveSIA = (id: string) => {
@@ -146,13 +164,10 @@ const App: React.FC = () => {
               <NavTab active={currentView === View.Dashboard} onClick={() => setCurrentView(View.Dashboard)} icon={<LayoutDashboard size={14} />} label="Dashboard" />
               <NavTab active={currentView === View.Evidence} onClick={() => setCurrentView(View.Evidence)} icon={<Database size={14} />} label="My Evidence" />
               <NavTab 
-                active={currentView === View.EPAForm || currentView === View.DOPsForm} 
-                onClick={() => {
-                  if (!selectedFormParams) setSelectedFormParams({ sia: 'Oculoplastics', level: 1 });
-                  setCurrentView(View.EPAForm);
-                }}
-                icon={<ClipboardCheck size={14} />} 
-                label="Forms" 
+                active={currentView === View.AddEvidence || currentView === View.EPAForm || currentView === View.DOPsForm || currentView === View.OSATSForm} 
+                onClick={() => setCurrentView(View.AddEvidence)}
+                icon={<Plus size={14} />} 
+                label="Add Evidence" 
               />
             </div>
 
@@ -169,11 +184,11 @@ const App: React.FC = () => {
 
       <main className="pt-8 pb-20">
         {currentView === View.Dashboard && (
-          <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToEvidence={() => setCurrentView(View.Evidence)} />
+          <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} />
         )}
         
         {currentView === View.Evidence && (
-          <MyEvidence selectionMode={isSelectionMode} onConfirmSelection={handleConfirmSelection} onCancel={handleCancelSelection} />
+          <MyEvidence selectionMode={isSelectionMode} onConfirmSelection={handleConfirmSelection} onCancel={handleCancelSelection} onCreateEvidence={() => setCurrentView(View.AddEvidence)} />
         )}
         
         {currentView === View.EPAForm && (
@@ -182,6 +197,14 @@ const App: React.FC = () => {
 
         {currentView === View.DOPsForm && (
           <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.Dashboard)} />
+        )}
+
+        {currentView === View.OSATSForm && (
+          <OSATSForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.Dashboard)} />
+        )}
+
+        {currentView === View.AddEvidence && (
+          <AddEvidence sia={selectedFormParams?.sia} level={selectedFormParams?.level} onBack={() => setCurrentView(View.Evidence)} onCreated={() => setCurrentView(View.Evidence)} />
         )}
       </main>
     </div>

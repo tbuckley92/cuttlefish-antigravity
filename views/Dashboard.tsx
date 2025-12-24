@@ -15,10 +15,11 @@ interface DashboardProps {
   onAddSIA: (specialty: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
   onNavigateToEPA: (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
   onNavigateToDOPs: (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
+  onNavigateToOSATS: (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
   onNavigateToEvidence: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, onAddSIA, onNavigateToEPA, onNavigateToDOPs, onNavigateToEvidence }) => {
+const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, onAddSIA, onNavigateToEPA, onNavigateToDOPs, onNavigateToOSATS, onNavigateToEvidence }) => {
   const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [tempProfile, setTempProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [isEditing, setIsEditing] = useState(false);
@@ -213,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, o
                   <div className="grid grid-cols-3 gap-2 mb-6">
                     <EvidenceChip type={EvidenceType.CbD} />
                     <EvidenceChip type={EvidenceType.DOPs} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.OSATs} />
+                    <EvidenceChip type={EvidenceType.OSATs} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
                     <EvidenceChip type={EvidenceType.Reflection} />
                     <EvidenceChip type={EvidenceType.CRS} />
                     <EvidenceChip type={EvidenceType.Other} />
