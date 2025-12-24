@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
+// Added Database to the imports
 import { 
   User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus, 
-  ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2
+  ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
+  FileText, Database
 } from '../components/Icons';
 import { INITIAL_PROFILE, SPECIALTIES } from '../constants';
 import { TrainingGrade, EvidenceType, UserProfile, SIA } from '../types';
@@ -17,9 +19,22 @@ interface DashboardProps {
   onNavigateToDOPs: (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
   onNavigateToOSATS: (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
   onNavigateToEvidence: () => void;
+  onNavigateToRecordForm: () => void;
+  onNavigateToAddEvidence: (sia?: string, level?: number, type?: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, onAddSIA, onNavigateToEPA, onNavigateToDOPs, onNavigateToOSATS, onNavigateToEvidence }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  sias, 
+  onRemoveSIA, 
+  onUpdateSIA, 
+  onAddSIA, 
+  onNavigateToEPA, 
+  onNavigateToDOPs, 
+  onNavigateToOSATS, 
+  onNavigateToEvidence, 
+  onNavigateToRecordForm,
+  onNavigateToAddEvidence
+}) => {
   const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [tempProfile, setTempProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [isEditing, setIsEditing] = useState(false);
@@ -83,15 +98,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, o
     setTempProfile(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleSIASelection = (sia: string) => {
-    const current = [...tempProfile.predictedSIAs];
-    if (current.includes(sia)) {
-      handleInputChange('predictedSIAs', current.filter(item => item !== sia));
-    } else if (current.length < 3) {
-      handleInputChange('predictedSIAs', [...current, sia]);
-    }
-  };
-
   const handleQuickAddSIA = () => {
     if (sias.find(s => s.specialty === newSiaSpecialty)) {
       setAddError("This specialty is already in your list.");
@@ -101,8 +107,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, o
     setIsAddingSIA(false);
     setAddError(null);
   };
-
-  const isDuplicate = sias.some(s => s.specialty === newSiaSpecialty);
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -177,9 +181,16 @@ const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, o
       <div className="lg:col-span-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-medium text-slate-900 dark:text-white/90">Current SIAs</h2>
-          <div className="flex gap-4">
-            <button onClick={onNavigateToEvidence} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors">My Evidence</button>
-            <button onClick={openAddSIA} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-600/20"><Plus size={16} /> Add SIA</button>
+          <div className="flex gap-3">
+            <button onClick={onNavigateToEvidence} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm">
+              <Database size={16} /> My Evidence
+            </button>
+            <button onClick={onNavigateToRecordForm} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm font-medium text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm">
+              <FileText size={16} /> Record Form
+            </button>
+            <button onClick={openAddSIA} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20">
+              <Plus size={16} /> Add SIA
+            </button>
           </div>
         </div>
 
@@ -212,12 +223,12 @@ const Dashboard: React.FC<DashboardProps> = ({ sias, onRemoveSIA, onUpdateSIA, o
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mb-6">
-                    <EvidenceChip type={EvidenceType.CbD} />
+                    <EvidenceChip type={EvidenceType.CbD} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
                     <EvidenceChip type={EvidenceType.DOPs} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
                     <EvidenceChip type={EvidenceType.OSATs} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.Reflection} />
-                    <EvidenceChip type={EvidenceType.CRS} />
-                    <EvidenceChip type={EvidenceType.Other} />
+                    <EvidenceChip type={EvidenceType.Reflection} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level, 'Reflection')} />
+                    <EvidenceChip type={EvidenceType.CRS} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
+                    <EvidenceChip type={EvidenceType.Other} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
                   </div>
                   <div className="mt-auto pt-6 border-t border-slate-100 dark:border-white/10 flex flex-col gap-4">
                      <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-2 py-3 rounded-xl bg-teal-600/10 dark:bg-teal-600/20 border border-teal-500/20 dark:border-teal-500/30 text-teal-700 dark:text-teal-300 text-sm font-semibold hover:bg-teal-600/20 dark:hover:bg-teal-600/30 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>

@@ -13,6 +13,7 @@ import { EvidenceType } from '../types';
 interface AddEvidenceProps {
   sia?: string;
   level?: number;
+  initialType?: string;
   onBack: () => void;
   onCreated: () => void;
 }
@@ -30,8 +31,8 @@ const evidenceTypes = [
   { id: 'Compliment', label: 'Compliments', icon: <Heart size={18} />, description: 'Patient or peer feedback' },
 ];
 
-const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, onBack, onCreated }) => {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, onBack, onCreated }) => {
+  const [selectedType, setSelectedType] = useState<string | null>(initialType || null);
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
 

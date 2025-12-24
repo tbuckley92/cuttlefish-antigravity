@@ -2,8 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
-  Filter, Search, Plus, FileText, CheckCircle2, Clock, 
-  ChevronRight, ArrowLeft, MoreHorizontal, AlertCircle
+  Filter, Search, FileText, CheckCircle2, Clock, 
+  ArrowLeft, AlertCircle
 } from '../components/Icons';
 import { INITIAL_EVIDENCE, SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
@@ -12,7 +12,6 @@ interface MyEvidenceProps {
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
-  onCreateEvidence?: () => void;
   maxSelection?: number;
 }
 
@@ -20,7 +19,6 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   selectionMode = false, 
   onConfirmSelection, 
   onCancel,
-  onCreateEvidence,
   maxSelection = 5 
 }) => {
   const [evidence, setEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
@@ -78,11 +76,6 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">My Evidence</h1>
           <p className="text-sm text-slate-500 dark:text-white/40">Overview of all your workplace-based assessments and reflections</p>
         </div>
-        {!selectionMode && (
-          <button onClick={onCreateEvidence} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
-            <Plus size={18} /> Create Evidence
-          </button>
-        )}
       </div>
 
       <GlassCard className="p-1 flex flex-col md:flex-row gap-2">
