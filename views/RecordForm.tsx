@@ -3,7 +3,7 @@ import React from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ClipboardCheck, Activity, Scissors, 
-  BarChart2, FileText, Users, ChevronRight
+  BarChart2, FileText, Users, ChevronRight, BookOpen
 } from '../components/Icons';
 
 interface RecordFormProps {
@@ -18,6 +18,13 @@ const formTypes = [
     subtitle: 'Entrustable Professional Activity',
     icon: <ClipboardCheck size={32} />,
     color: 'text-teal-500'
+  },
+  { 
+    id: 'GSAT', 
+    label: 'GSAT', 
+    subtitle: 'Generic Skills Assessment Tool',
+    icon: <BookOpen size={32} />,
+    color: 'text-indigo-600'
   },
   { 
     id: 'DOPs', 
@@ -60,12 +67,12 @@ const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
       <div className="flex items-center gap-4 mb-12">
-        <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400 dark:text-white/40">
+        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900 dark:text-white/90">Record a new form</h1>
-          <p className="text-sm text-slate-500 dark:text-white/40 mt-1">Select the assessment type to start a new draft</p>
+          <h1 className="text-3xl font-semibold text-slate-900">Record a new form</h1>
+          <p className="text-sm text-slate-500 mt-1">Select the assessment type to start a new draft</p>
         </div>
       </div>
 
@@ -83,11 +90,11 @@ const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {
               {form.icon}
             </div>
             
-            <h3 className="text-xl font-black tracking-widest text-slate-800 dark:text-white/90 mb-2 uppercase">
+            <h3 className="text-xl font-black tracking-widest text-slate-800 mb-2 uppercase">
               {form.label}
             </h3>
             
-            <p className="text-xs text-slate-400 dark:text-white/30 font-medium uppercase tracking-tighter leading-tight opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-tighter leading-tight opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
               {form.subtitle}
             </p>
 
@@ -99,7 +106,7 @@ const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {
       </div>
 
       <div className="mt-16 text-center">
-        <p className="text-xs text-slate-400 dark:text-white/20 uppercase tracking-[0.2em] font-bold">
+        <p className="text-xs text-slate-400 uppercase tracking-[0.2em] font-bold">
           All forms are created as draft and can be linked later
         </p>
       </div>

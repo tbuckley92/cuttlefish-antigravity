@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
+import GSATForm from './views/GSATForm';
 import DOPsForm from './views/DOPsForm';
 import OSATSForm from './views/OSATSForm';
 import AddEvidence from './views/AddEvidence';
@@ -16,6 +17,7 @@ enum View {
   Dashboard = 'dashboard',
   Evidence = 'evidence',
   EPAForm = 'epa-form',
+  GSATForm = 'gsat-form',
   DOPsForm = 'dops-form',
   OSATSForm = 'osats-form',
   AddEvidence = 'add-evidence',
@@ -33,6 +35,12 @@ interface FormParams {
   type?: string;
 }
 
+interface ReturnTarget {
+  originView: View;
+  section: number;
+  index?: number;
+}
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
@@ -40,10 +48,14 @@ const App: React.FC = () => {
   
   // Selection mode for linking evidence
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [linkingReqIdx, setLinkingReqIdx] = useState<number | null>(null);
-  const [linkedEvidence, setLinkedEvidence] = useState<Record<number, string[]>>({});
+  const [linkingReqIdx, setLinkingReqIdx] = useState<string | null>(null); 
+  const [linkedEvidence, setLinkedEvidence] = useState<Record<string, string[]>>({});
+  
+  // Persistence state for returning to the correct outcome in a form
+  const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
+    setReturnTarget(null);
     setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
     setCurrentView(View.EPAForm);
   };
@@ -102,8 +114,15 @@ const App: React.FC = () => {
     setSias(prev => [...prev, newSia]);
   };
 
-  const handleLinkRequested = (reqIndex: number) => {
-    setLinkingReqIdx(reqIndex);
+  const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number) => {
+    // Generate a unique key for the linking requirement
+    const linkKey = domain ? `GSAT-${domain}-${reqIndex}` : `EPA-${reqIndex}`;
+    setLinkingReqIdx(linkKey);
+    setReturnTarget({ 
+      originView: origin,
+      section: sectionIndex ?? 0, 
+      index: typeof reqIndex === 'number' ? reqIndex : undefined 
+    });
     setIsSelectionMode(true);
     setCurrentView(View.Evidence);
   };
@@ -116,14 +135,29 @@ const App: React.FC = () => {
       }));
     }
     setIsSelectionMode(false);
+    if (returnTarget) {
+      setCurrentView(returnTarget.originView);
+    } else {
+      setCurrentView(View.Dashboard);
+    }
     setLinkingReqIdx(null);
-    setCurrentView(View.EPAForm);
   };
 
   const handleCancelSelection = () => {
     setIsSelectionMode(false);
+    if (returnTarget) {
+      setCurrentView(returnTarget.originView);
+    } else {
+      setCurrentView(View.Dashboard);
+    }
     setLinkingReqIdx(null);
-    setCurrentView(View.EPAForm);
+  };
+
+  const handleRemoveLinkedEvidence = (reqKey: string, evId: string) => {
+    setLinkedEvidence(prev => ({
+      ...prev,
+      [reqKey]: (prev[reqKey] || []).filter(id => id !== evId)
+    }));
   };
 
   const renderContent = () => {
@@ -141,6 +175,10 @@ const App: React.FC = () => {
             onNavigateToEvidence={() => setCurrentView(View.Evidence)} 
             onNavigateToRecordForm={() => setCurrentView(View.RecordForm)}
             onNavigateToAddEvidence={handleNavigateToAddEvidence}
+            onNavigateToGSAT={() => {
+              setReturnTarget(null);
+              setCurrentView(View.GSATForm);
+            }}
           />
         );
       case View.Evidence:
@@ -157,7 +195,9 @@ const App: React.FC = () => {
         );
       case View.RecordForm:
         return <RecordForm onBack={() => setCurrentView(View.Dashboard)} onSelectForm={(type) => {
+          setReturnTarget(null);
           if (type === 'EPA') setCurrentView(View.EPAForm);
+          else if (type === 'GSAT') setCurrentView(View.GSATForm);
           else if (type === 'DOPs') setCurrentView(View.DOPsForm);
           else if (type === 'OSATs') setCurrentView(View.OSATSForm);
           else if (type === 'CRS') setCurrentView(View.CRSForm);
@@ -165,7 +205,32 @@ const App: React.FC = () => {
           else if (type === 'MSF') setCurrentView(View.MSFForm);
         }} />;
       case View.EPAForm:
-        return <EPAForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialSupervisorName={selectedFormParams?.supervisorName} initialSupervisorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onLinkRequested={handleLinkRequested} linkedEvidenceData={linkedEvidence} />;
+        return (
+          <EPAForm 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialSupervisorName={selectedFormParams?.supervisorName} 
+            initialSupervisorEmail={selectedFormParams?.supervisorEmail} 
+            onBack={() => setCurrentView(View.RecordForm)} 
+            onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
+            linkedEvidenceData={linkedEvidence}
+            onRemoveLink={handleRemoveLinkedEvidence}
+            initialSection={returnTarget?.section}
+            autoScrollToIdx={returnTarget?.index}
+          />
+        );
+      case View.GSATForm:
+        return (
+          <GSATForm 
+            initialLevel={1} 
+            onBack={() => setCurrentView(View.RecordForm)} 
+            onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)} 
+            linkedEvidenceData={linkedEvidence}
+            onRemoveLink={handleRemoveLinkedEvidence}
+            initialSection={returnTarget?.section}
+            autoScrollToIdx={returnTarget?.index}
+          />
+        );
       case View.DOPsForm:
         return <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
       case View.OSATSForm:
@@ -177,11 +242,11 @@ const App: React.FC = () => {
       case View.MSFForm:
         return <PlaceholderForm title="MSF Initiation" subtitle="Multi-Source Feedback - Stub" onBack={() => setCurrentView(View.RecordForm)} />;
       default:
-        return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} />;
+        return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} />;
     }
   };
 
-  const isFormViewActive = [View.EPAForm, View.DOPsForm, View.OSATSForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
+  const isFormViewActive = [View.EPAForm, View.GSATForm, View.DOPsForm, View.OSATSForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-[#f8fafc] text-slate-900">

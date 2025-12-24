@@ -15,9 +15,12 @@ interface EPAFormProps {
   level?: number;
   initialSupervisorName?: string;
   initialSupervisorEmail?: string;
+  initialSection?: number;
+  autoScrollToIdx?: number;
   onBack: () => void;
-  onLinkRequested: (reqIndex: number) => void;
-  linkedEvidenceData: Record<number, string[]>;
+  onLinkRequested: (reqIndex: number, sectionIndex: number) => void;
+  onRemoveLink: (reqKey: string, evId: string) => void;
+  linkedEvidenceData: Record<string, string[]>;
 }
 
 const EPAForm: React.FC<EPAFormProps> = ({ 
@@ -25,11 +28,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
   level = 2, 
   initialSupervisorName = "",
   initialSupervisorEmail = "",
+  initialSection = 0,
+  autoScrollToIdx,
   onBack, 
   onLinkRequested,
+  onRemoveLink,
   linkedEvidenceData 
 }) => {
-  const [activeSection, setActiveSection] = useState(0);
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [comments, setComments] = useState<Record<number, string>>({});
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
@@ -62,13 +68,29 @@ const EPAForm: React.FC<EPAFormProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Handle auto-scrolling to linked outcome on return
+  useEffect(() => {
+    if (autoScrollToIdx !== undefined && activeSection === 0) {
+      const scrollTimer = setTimeout(() => {
+        const el = document.getElementById(`epa-outcome-${autoScrollToIdx}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight effect
+          el.classList.add('ring-2', 'ring-indigo-500/50');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500/50'), 2000);
+        }
+      }, 400);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [autoScrollToIdx, activeSection]);
+
   const handleCommentChange = (idx: number, text: string) => {
     setComments(prev => ({ ...prev, [idx]: text }));
   };
 
   const isSectionComplete = (idx: number) => {
     if (idx === 0) {
-      return requirements.every((_, i) => (comments[i] && comments[i].length > 5) || (linkedEvidenceData[i] && linkedEvidenceData[i].length > 0));
+      return requirements.every((_, i) => (comments[i] && comments[i].length > 5) || (linkedEvidenceData[`EPA-${i}`] && linkedEvidenceData[`EPA-${i}`].length > 0));
     }
     return false;
   };
@@ -206,40 +228,50 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 <p className="text-xs lg:text-sm text-slate-500 dark:text-white/40 mt-1">{sia} - Level {level}</p>
               </div>
               <div className="space-y-4">
-                {requirements.map((req, idx) => (
-                  <GlassCard key={idx} className="p-4 lg:p-6">
-                    <p className="text-sm leading-relaxed text-slate-700 dark:text-white/80 mb-6">{req.requirement}</p>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Trainee Comments</label>
-                        <textarea 
-                          value={comments[idx] || ''}
-                          onChange={(e) => handleCommentChange(idx, e.target.value)}
-                          placeholder="Reflect on your performance..."
-                          className="w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
-                        <div className="flex flex-wrap gap-2">
-                          {(linkedEvidenceData[idx] || []).map(evId => {
-                            const ev = INITIAL_EVIDENCE.find(e => e.id === evId);
-                            return (
-                              <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
-                                <LinkIcon size={12} />
-                                <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
-                                <button className="p-0.5 hover:bg-black/5 rounded-full"><Trash2 size={10} /></button>
-                              </div>
-                            );
-                          })}
-                          <button onClick={() => onLinkRequested(idx)} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 transition-all">
-                            <Plus size={14} /> Link
-                          </button>
+                {requirements.map((req, idx) => {
+                  const reqKey = `EPA-${idx}`;
+                  const linkedIds = linkedEvidenceData[reqKey] || [];
+                  
+                  return (
+                    <GlassCard key={idx} id={`epa-outcome-${idx}`} className="p-4 lg:p-6 transition-all duration-300">
+                      <p className="text-sm leading-relaxed text-slate-700 dark:text-white/80 mb-6">{req.requirement}</p>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Trainee Comments</label>
+                          <textarea 
+                            value={comments[idx] || ''}
+                            onChange={(e) => handleCommentChange(idx, e.target.value)}
+                            placeholder="Reflect on your performance..."
+                            className="w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
+                          <div className="flex flex-wrap gap-2">
+                            {linkedIds.map(evId => {
+                              const ev = INITIAL_EVIDENCE.find(e => e.id === evId);
+                              return (
+                                <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
+                                  <LinkIcon size={12} />
+                                  <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                                  <button 
+                                    onClick={() => onRemoveLink(reqKey, evId)}
+                                    className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                                  >
+                                    <Trash2 size={10} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            <button onClick={() => onLinkRequested(idx, activeSection)} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 transition-all">
+                              <Plus size={14} /> Link
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </GlassCard>
-                ))}
+                    </GlassCard>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -17,6 +17,7 @@ export enum EvidenceType {
   CRS = 'CRS',
   Other = 'Other',
   EPA = 'EPA',
+  GSAT = 'GSAT',
   QIP = 'Quality Improvement and Audit',
   Award = 'Prizes/Awards',
   Course = 'Courses',
