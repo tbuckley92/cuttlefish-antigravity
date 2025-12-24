@@ -1,0 +1,78 @@
+
+export enum TrainingGrade {
+  ST1 = 'ST1',
+  ST2 = 'ST2',
+  ST3 = 'ST3',
+  ST4 = 'ST4',
+  ST5 = 'ST5',
+  ST6 = 'ST6',
+  ST7 = 'ST7',
+}
+
+export enum EvidenceType {
+  CbD = 'CbD',
+  DOPs = 'DOPs',
+  OSATs = 'OSATs',
+  Reflection = 'Reflection',
+  CRS = 'CRS',
+  Other = 'Other',
+  EPA = 'EPA'
+}
+
+export enum EvidenceStatus {
+  Draft = 'Draft',
+  Submitted = 'Submitted',
+  SignedOff = 'Signed Off'
+}
+
+export interface UserProfile {
+  name: string;
+  grade: TrainingGrade;
+  location: string;
+  fte: number;
+  arcpMonth: string;
+  cctDate: string;
+  supervisorName: string;
+  supervisorEmail: string;
+  predictedSIAs: string[];
+}
+
+export interface SIA {
+  id: string;
+  specialty: string;
+  level: number;
+  supervisorInitials?: string;
+  supervisorName?: string;
+  supervisorEmail?: string;
+}
+
+export interface EvidenceItem {
+  id: string;
+  type: EvidenceType;
+  title: string;
+  sia?: string;
+  level?: number;
+  date: string;
+  status: EvidenceStatus;
+  notes?: string;
+}
+
+export interface CurriculumRequirement {
+  specialty: string;
+  domain: string;
+  formType: string;
+  level: number;
+  requirement: string;
+}
+
+export interface EPAForm {
+  id: string;
+  sia: string;
+  level: number;
+  date: string;
+  supervisorId: string;
+  status: 'Draft' | 'Submitted';
+  includeCurriculum: boolean;
+  linkedEvidence: Record<string, string[]>; // reqIndex -> evidenceIds
+  comments: Record<string, string>; // reqIndex -> commentText
+}
