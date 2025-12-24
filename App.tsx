@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
+import DOPsForm from './views/DOPsForm';
 import { LayoutDashboard, Database, ClipboardCheck, Sun, Moon } from './components/Icons';
 import { INITIAL_SIAS } from './constants';
 import { SIA } from './types';
@@ -10,10 +11,11 @@ import { SIA } from './types';
 enum View {
   Dashboard = 'dashboard',
   Evidence = 'evidence',
-  EPAForm = 'epa-form'
+  EPAForm = 'epa-form',
+  DOPsForm = 'dops-form'
 }
 
-interface EPAParams {
+interface FormParams {
   sia: string;
   level: number;
   supervisorName?: string;
@@ -22,7 +24,7 @@ interface EPAParams {
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
-  const [selectedEPAParams, setSelectedEPAParams] = useState<EPAParams | null>(null);
+  const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   
@@ -45,8 +47,13 @@ const App: React.FC = () => {
   };
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    setSelectedEPAParams({ sia, level, supervisorName, supervisorEmail });
+    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
     setCurrentView(View.EPAForm);
+  };
+
+  const handleNavigateToDOPs = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
+    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    setCurrentView(View.DOPsForm);
   };
 
   const handleRemoveSIA = (id: string) => {
@@ -57,7 +64,6 @@ const App: React.FC = () => {
     setSias(prev => prev.map(sia => {
       if (sia.id === id) {
         const newData = { ...sia, ...updatedData };
-        // Recalculate initials if name changed
         if (updatedData.supervisorName !== undefined) {
           newData.supervisorInitials = updatedData.supervisorName
             ? updatedData.supervisorName.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -126,7 +132,6 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Top Nav Bar */}
       {!isSelectionMode && (
         <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-6">
           <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
@@ -138,35 +143,21 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-white/[0.03] p-1 rounded-xl border border-slate-200 dark:border-white/5">
+              <NavTab active={currentView === View.Dashboard} onClick={() => setCurrentView(View.Dashboard)} icon={<LayoutDashboard size={14} />} label="Dashboard" />
+              <NavTab active={currentView === View.Evidence} onClick={() => setCurrentView(View.Evidence)} icon={<Database size={14} />} label="My Evidence" />
               <NavTab 
-                active={currentView === View.Dashboard} 
-                onClick={() => setCurrentView(View.Dashboard)}
-                icon={<LayoutDashboard size={14} />}
-                label="Dashboard" 
-              />
-              <NavTab 
-                active={currentView === View.Evidence} 
-                onClick={() => setCurrentView(View.Evidence)}
-                icon={<Database size={14} />}
-                label="My Evidence" 
-              />
-              <NavTab 
-                active={currentView === View.EPAForm} 
+                active={currentView === View.EPAForm || currentView === View.DOPsForm} 
                 onClick={() => {
-                  if (!selectedEPAParams) setSelectedEPAParams({ sia: 'Oculoplastics', level: 1 });
+                  if (!selectedFormParams) setSelectedFormParams({ sia: 'Oculoplastics', level: 1 });
                   setCurrentView(View.EPAForm);
                 }}
-                icon={<ClipboardCheck size={14} />}
-                label="EPAs" 
+                icon={<ClipboardCheck size={14} />} 
+                label="Forms" 
               />
             </div>
 
             <div className="flex items-center gap-3">
-              <button 
-                onClick={toggleTheme}
-                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60"
-                aria-label="Toggle Theme"
-              >
+              <button onClick={toggleTheme} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60">
                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </button>
               <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-white/10 mx-1"></div>
@@ -176,37 +167,21 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      {/* Main Content Area */}
       <main className="pt-8 pb-20">
         {currentView === View.Dashboard && (
-          <Dashboard 
-            sias={sias}
-            onRemoveSIA={handleRemoveSIA}
-            onUpdateSIA={handleUpdateSIA}
-            onAddSIA={handleAddSIA}
-            onNavigateToEPA={handleNavigateToEPA} 
-            onNavigateToEvidence={() => setCurrentView(View.Evidence)} 
-          />
+          <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToEvidence={() => setCurrentView(View.Evidence)} />
         )}
         
         {currentView === View.Evidence && (
-          <MyEvidence 
-            selectionMode={isSelectionMode} 
-            onConfirmSelection={handleConfirmSelection}
-            onCancel={handleCancelSelection}
-          />
+          <MyEvidence selectionMode={isSelectionMode} onConfirmSelection={handleConfirmSelection} onCancel={handleCancelSelection} />
         )}
         
         {currentView === View.EPAForm && (
-          <EPAForm 
-            sia={selectedEPAParams?.sia} 
-            level={selectedEPAParams?.level}
-            initialSupervisorName={selectedEPAParams?.supervisorName}
-            initialSupervisorEmail={selectedEPAParams?.supervisorEmail}
-            onBack={() => setCurrentView(View.Dashboard)}
-            onLinkRequested={handleLinkRequested}
-            linkedEvidenceData={linkedEvidence}
-          />
+          <EPAForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialSupervisorName={selectedFormParams?.supervisorName} initialSupervisorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.Dashboard)} onLinkRequested={handleLinkRequested} linkedEvidenceData={linkedEvidence} />
+        )}
+
+        {currentView === View.DOPsForm && (
+          <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.Dashboard)} />
         )}
       </main>
     </div>
@@ -214,13 +189,7 @@ const App: React.FC = () => {
 };
 
 const NavTab: React.FC<{ active: boolean; label: string; icon: React.ReactNode; onClick: () => void }> = ({ active, label, icon, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`
-      flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all
-      ${active ? 'bg-white dark:bg-white/10 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/60'}
-    `}
-  >
+  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${active ? 'bg-white dark:bg-white/10 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/60'}`}>
     {icon}
     {label}
   </button>
