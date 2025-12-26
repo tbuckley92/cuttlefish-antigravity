@@ -5,10 +5,11 @@ import {
   Filter, Search, FileText, CheckCircle2, Clock, 
   ArrowLeft, AlertCircle, ShieldCheck
 } from '../components/Icons';
-import { INITIAL_EVIDENCE, SPECIALTIES } from '../constants';
+import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
 
 interface MyEvidenceProps {
+  allEvidence: EvidenceItem[];
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
@@ -17,24 +18,24 @@ interface MyEvidenceProps {
 }
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({ 
+  allEvidence,
   selectionMode = false, 
   onConfirmSelection, 
   onCancel,
   onEditEvidence,
   maxSelection = 5 
 }) => {
-  const [evidence, setEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const filteredEvidence = useMemo(() => {
-    return evidence.filter(item => {
+    return allEvidence.filter(item => {
       const typeMatch = filterType === 'All' || item.type === filterType;
       const siaMatch = filterSIA === 'All' || item.sia === filterSIA;
       return typeMatch && siaMatch;
     });
-  }, [evidence, filterType, filterSIA]);
+  }, [allEvidence, filterType, filterSIA]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -126,7 +127,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             </tr>
           </thead>
           <tbody>
-            {filteredEvidence.map((item, idx) => {
+            {filteredEvidence.map((item) => {
               const isSelected = selectedIds.includes(item.id);
               return (
                 <tr 

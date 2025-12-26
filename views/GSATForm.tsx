@@ -9,14 +9,17 @@ import {
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, INITIAL_PROFILE } from '../constants';
-import { CurriculumRequirement, EvidenceItem, EvidenceStatus } from '../types';
+import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
 interface GSATFormProps {
+  id?: string;
   initialLevel?: number;
   initialSection?: number;
   autoScrollToIdx?: number;
+  initialStatus?: EvidenceStatus;
   onBack: () => void;
   onSubmitted?: () => void;
+  onSave: (evidence: Partial<EvidenceItem>) => void;
   onLinkRequested: (reqIndex: number, domain: string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>; // "domain-reqIndex" -> evidenceIds
@@ -32,15 +35,19 @@ const domains = [
 ];
 
 const GSATForm: React.FC<GSATFormProps> = ({ 
+  id,
   initialLevel = 1, 
   initialSection = 0,
   autoScrollToIdx,
+  initialStatus = EvidenceStatus.Draft,
   onBack, 
   onSubmitted,
+  onSave,
   onLinkRequested,
   onRemoveLink,
   linkedEvidenceData 
 }) => {
+  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
   const [level, setLevel] = useState(initialLevel);
   const [comments, setComments] = useState<Record<string, string>>({}); // "domain-idx" -> text
@@ -48,7 +55,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
-  const [status, setStatus] = useState<EvidenceStatus>(EvidenceStatus.Draft);
+  const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
   // Supervisor info is auto-filled from profile as per PRD
@@ -64,18 +71,32 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   const isLocked = status === EvidenceStatus.SignedOff;
 
-  // Autosave simulation
+  // Handle saving data to parent
+  const saveToParent = (newStatus: EvidenceStatus = status) => {
+    onSave({
+      id: formId,
+      title: `GSAT Matrix Level ${level}`,
+      type: EvidenceType.GSAT,
+      level: level,
+      status: newStatus,
+      date: new Date().toISOString().split('T')[0],
+      notes: `GSAT Assessment covering multiple domains. Overall completeness: ${completeness}%`
+    });
+  };
+
+  // Autosave logic
   useEffect(() => {
     if (isLocked) return;
     const timer = setInterval(() => {
       setIsSaving(true);
+      saveToParent();
       setTimeout(() => {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, [isLocked]);
+  }, [isLocked, level, comments, linkedEvidenceData]);
 
   // Handle auto-scrolling to linked outcome on return
   useEffect(() => {
@@ -95,6 +116,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   const handleSaveDraft = () => {
     setIsSaving(true);
+    saveToParent(EvidenceStatus.Draft);
     setTimeout(() => {
       setIsSaving(false);
       setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -105,12 +127,14 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   const handleEmailForm = () => {
     setStatus(EvidenceStatus.Submitted);
+    saveToParent(EvidenceStatus.Submitted);
     alert(`GSAT Form emailed to ${supervisorName}`);
     onSubmitted?.();
   };
 
   const handleSignOffConfirm = (gmc: string) => {
     setStatus(EvidenceStatus.SignedOff);
+    saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
     alert(`GSAT Signed Off by ${supervisorName} (GMC: ${gmc})`);
   };

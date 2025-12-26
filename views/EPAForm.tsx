@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
@@ -9,9 +9,10 @@ import {
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
-import { CurriculumRequirement, EvidenceItem, EvidenceStatus } from '../types';
+import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
 interface EPAFormProps {
+  id?: string;
   sia?: string;
   level?: number;
   initialSupervisorName?: string;
@@ -21,6 +22,7 @@ interface EPAFormProps {
   initialStatus?: EvidenceStatus;
   onBack: () => void;
   onSubmitted?: () => void;
+  onSave: (evidence: Partial<EvidenceItem>) => void;
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>;
@@ -78,6 +80,7 @@ const ENTRUSTMENT_LEVELS = [
 ];
 
 const EPAForm: React.FC<EPAFormProps> = ({ 
+  id,
   sia = "No attached SIA", 
   level = 1, 
   initialSupervisorName = "",
@@ -87,10 +90,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   onBack, 
   onSubmitted,
+  onSave,
   onLinkRequested,
   onRemoveLink,
   linkedEvidenceData 
 }) => {
+  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedLevel, setSelectedLevel] = useState(level);
   const [selectedSia, setSelectedSia] = useState(sia);
@@ -115,20 +120,36 @@ const EPAForm: React.FC<EPAFormProps> = ({
     }
   }, [selectedLevel]);
 
+  // Handle saving data to parent
+  const saveToParent = (newStatus: EvidenceStatus = status) => {
+    onSave({
+      id: formId,
+      title: `EPA Level ${selectedLevel}: ${selectedSia === 'No attached SIA' ? 'General' : selectedSia}`,
+      type: EvidenceType.EPA,
+      sia: selectedSia,
+      level: selectedLevel,
+      status: newStatus,
+      date: new Date().toISOString().split('T')[0],
+      notes: `EPA Assessment with ${supervisorName}. Overall Judgement: ${entrustment || 'N/A'}`
+    });
+  };
+
   useEffect(() => {
     if (isLocked) return;
     const timer = setInterval(() => {
       setIsSaving(true);
+      saveToParent();
       setTimeout(() => {
         setIsSaving(false);
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, [isLocked]);
+  }, [isLocked, selectedLevel, selectedSia, supervisorName, entrustment]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
+    saveToParent(EvidenceStatus.Draft);
     setTimeout(() => {
       setIsSaving(false);
       setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -143,12 +164,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
       return;
     }
     setStatus(EvidenceStatus.Submitted);
+    saveToParent(EvidenceStatus.Submitted);
     alert("Form emailed to supervisor");
     onSubmitted?.();
   };
 
   const handleSignOffConfirm = (gmc: string) => {
     setStatus(EvidenceStatus.SignedOff);
+    saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
     alert(`EPA Signed Off by ${supervisorName} (GMC: ${gmc})`);
   };

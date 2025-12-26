@@ -2,7 +2,7 @@
 import React from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { EvidenceItem, EvidenceType, EvidenceStatus } from '../types';
-import { CheckCircle2, Clock, AlertCircle } from '../components/Icons';
+import { CheckCircle2, Clock, AlertCircle, Activity } from '../components/Icons';
 
 interface ProgressProps {
   allEvidence: EvidenceItem[];
@@ -29,38 +29,64 @@ const LEVELS = [1, 2, 3, 4];
 export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
   
   const getStatus = (column: string, level: number): EvidenceStatus | null => {
-    let match: EvidenceItem | undefined;
-    
+    // 1. GSAT Logic: Stays domain-specific for all levels
     if (column === "GSAT") {
-      match = allEvidence.find(e => e.type === EvidenceType.GSAT && e.level === level);
-    } else {
-      match = allEvidence.find(e => {
-        if (e.type !== EvidenceType.EPA || e.level !== level) return false;
-        
-        const evidenceSia = e.sia?.toLowerCase().trim() || "";
-        const columnSia = column.toLowerCase().trim();
-        
-        if (columnSia === "cornea & ocular surface") {
-          return evidenceSia.includes("cornea") && evidenceSia.includes("surface");
-        }
-        
-        return evidenceSia === columnSia;
-      });
+      const match = allEvidence.find(e => e.type === EvidenceType.GSAT && e.level === level);
+      return match ? match.status : null;
     }
+
+    // 2. Generic EPA Logic for Levels 1 & 2
+    if (level === 1 || level === 2) {
+      const epas = allEvidence.filter(e => e.type === EvidenceType.EPA && e.level === level);
+      if (epas.length === 0) return null;
+
+      // Status Priority: SignedOff > Submitted > Draft
+      if (epas.some(e => e.status === EvidenceStatus.SignedOff)) return EvidenceStatus.SignedOff;
+      if (epas.some(e => e.status === EvidenceStatus.Submitted)) return EvidenceStatus.Submitted;
+      return EvidenceStatus.Draft;
+    }
+
+    // 3. Specialty-specific SIA Logic for Levels 3 & 4
+    const match = allEvidence.find(e => {
+      if (e.type !== EvidenceType.EPA || e.level !== level) return false;
+      
+      const evidenceSia = e.sia?.toLowerCase().trim() || "";
+      const columnSia = column.toLowerCase().trim();
+      
+      if (columnSia === "cornea & ocular surface") {
+        return evidenceSia.includes("cornea") && evidenceSia.includes("surface");
+      }
+      
+      return evidenceSia === columnSia;
+    });
 
     return match ? match.status : null;
   };
 
   const getCellColor = (status: EvidenceStatus | null) => {
-    if (status === EvidenceStatus.SignedOff) return "bg-emerald-500/80 dark:bg-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
-    if (status === EvidenceStatus.Submitted || status === EvidenceStatus.Draft) return "bg-amber-400/80 dark:bg-amber-400/60 shadow-[0_0_15px_rgba(251,191,36,0.2)]";
-    return "bg-slate-200/50 dark:bg-white/5";
+    switch (status) {
+      case EvidenceStatus.SignedOff:
+        return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+      case EvidenceStatus.Submitted:
+        return "bg-amber-400/90 dark:bg-amber-400/70 shadow-[0_0_15px_rgba(251,191,36,0.3)]";
+      case EvidenceStatus.Draft:
+        return "bg-sky-400/90 dark:bg-sky-400/70 shadow-[0_0_15px_rgba(56,189,248,0.3)]";
+      default:
+        return "bg-slate-200/50 dark:bg-white/5";
+    }
   };
 
   const getStatusIcon = (status: EvidenceStatus | null) => {
-    if (status === EvidenceStatus.SignedOff) return <CheckCircle2 size={14} className="text-white" />;
-    if (status === EvidenceStatus.Submitted || status === EvidenceStatus.Draft) return <Clock size={14} className="text-white" />;
-    return null;
+    switch (status) {
+      case EvidenceStatus.SignedOff:
+        return <CheckCircle2 size={14} className="text-white" />;
+      case EvidenceStatus.Submitted:
+        return <Activity size={14} className="text-white" />; // Representing "In Progress"
+      case EvidenceStatus.Draft:
+        return <Clock size={14} className="text-white" />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -71,8 +97,9 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
       </div>
 
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
-        <LegendItem color="bg-emerald-500" label="Signed Off" />
-        <LegendItem color="bg-amber-400" label="In Progress / Draft" />
+        <LegendItem color="bg-emerald-500" label="Signed Off" icon={<CheckCircle2 size={10} className="text-white" />} />
+        <LegendItem color="bg-amber-400" label="In Progress" icon={<Activity size={10} className="text-white" />} />
+        <LegendItem color="bg-sky-400" label="Draft" icon={<Clock size={10} className="text-white" />} />
         <LegendItem color="bg-slate-200 dark:bg-white/10" label="Not Started" />
       </div>
 
@@ -142,11 +169,11 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
          <GlassCard className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                <Clock size={18} />
+                <Activity size={18} />
               </div>
               <h3 className="font-bold text-sm text-slate-800 dark:text-white/90">In-Progress States</h3>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">Squares appear amber once you start an EPA or GSAT form. They remain amber until your supervisor provides a final GMC-validated sign-off.</p>
+            <p className="text-xs text-slate-500 leading-relaxed">Squares appear amber once you submit an EPA for review. They remain amber (In Progress) until your supervisor provides a final GMC-validated sign-off.</p>
          </GlassCard>
 
          <GlassCard className="p-6">
@@ -163,9 +190,11 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
   );
 };
 
-const LegendItem: React.FC<{ color: string, label: string }> = ({ color, label }) => (
+const LegendItem: React.FC<{ color: string, label: string, icon?: React.ReactNode }> = ({ color, label, icon }) => (
   <div className="flex items-center gap-2 whitespace-nowrap">
-    <div className={`w-3 h-3 rounded-full ${color}`}></div>
+    <div className={`w-5 h-5 rounded-md ${color} flex items-center justify-center shadow-sm`}>
+      {icon}
+    </div>
     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">{label}</span>
   </div>
 );
