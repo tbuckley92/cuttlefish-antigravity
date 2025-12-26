@@ -12,6 +12,7 @@ interface MyEvidenceProps {
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
+  onEditEvidence?: (item: EvidenceItem) => void;
   maxSelection?: number;
 }
 
@@ -19,6 +20,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   selectionMode = false, 
   onConfirmSelection, 
   onCancel,
+  onEditEvidence,
   maxSelection = 5 
 }) => {
   const [evidence, setEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
@@ -129,7 +131,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               return (
                 <tr 
                   key={item.id} 
-                  onClick={() => selectionMode && toggleSelection(item.id)}
+                  onClick={() => selectionMode ? toggleSelection(item.id) : onEditEvidence?.(item)}
                   className={`
                     group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer
                     ${selectionMode && isSelected ? 'bg-teal-500/5 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'}

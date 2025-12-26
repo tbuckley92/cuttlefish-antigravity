@@ -271,7 +271,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Supporting Evidence ({linkedIds.length}/10)</label>
+                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Supporting Evidence</label>
                         <div className="flex flex-wrap gap-2">
                           {linkedIds.map(evId => {
                             const ev = INITIAL_EVIDENCE.find(e => e.id === evId);

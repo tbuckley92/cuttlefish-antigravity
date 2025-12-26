@@ -3,7 +3,7 @@ import React from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ClipboardCheck, Activity, Scissors, 
-  BarChart2, FileText, Users, ChevronRight, BookOpen
+  BarChart2, FileText, Users, ChevronRight, BookOpen, Clipboard
 } from '../components/Icons';
 
 interface RecordFormProps {
@@ -25,6 +25,13 @@ const formTypes = [
     subtitle: 'Generic Skills Assessment Tool',
     icon: <BookOpen size={32} />,
     color: 'text-indigo-600'
+  },
+  { 
+    id: 'CBD', 
+    label: 'CBD', 
+    subtitle: 'Case-Based Discussion',
+    icon: <Clipboard size={32} />,
+    color: 'text-blue-500'
   },
   { 
     id: 'DOPs', 

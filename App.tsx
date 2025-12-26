@@ -6,12 +6,13 @@ import EPAForm from './views/EPAForm';
 import GSATForm from './views/GSATForm';
 import DOPsForm from './views/DOPsForm';
 import OSATSForm from './views/OSATSForm';
+import CBDForm from './views/CBDForm';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
 import { LayoutDashboard, Database, Plus, FileText } from './components/Icons';
 import { INITIAL_SIAS } from './constants';
-import { SIA } from './types';
+import { SIA, EvidenceItem } from './types';
 
 enum View {
   Dashboard = 'dashboard',
@@ -20,6 +21,7 @@ enum View {
   GSATForm = 'gsat-form',
   DOPsForm = 'dops-form',
   OSATSForm = 'osats-form',
+  CBDForm = 'cbd-form',
   AddEvidence = 'add-evidence',
   RecordForm = 'record-form',
   CRSForm = 'crs-form',
@@ -44,6 +46,7 @@ interface ReturnTarget {
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
+  const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   
   // Selection mode for linking evidence
@@ -70,12 +73,28 @@ const App: React.FC = () => {
     setCurrentView(View.OSATSForm);
   };
 
+  const handleNavigateToCBD = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
+    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    setCurrentView(View.CBDForm);
+  };
+
+  const handleNavigateToCRS = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
+    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    setCurrentView(View.CRSForm);
+  };
+
   const handleNavigateToAddEvidence = (sia?: string, level?: number, type?: string) => {
+    setEditingEvidence(null);
     if (sia && level) {
       setSelectedFormParams({ sia, level, type });
     } else {
       setSelectedFormParams(null);
     }
+    setCurrentView(View.AddEvidence);
+  };
+
+  const handleEditEvidence = (item: EvidenceItem) => {
+    setEditingEvidence(item);
     setCurrentView(View.AddEvidence);
   };
 
@@ -172,6 +191,8 @@ const App: React.FC = () => {
             onNavigateToEPA={handleNavigateToEPA} 
             onNavigateToDOPs={handleNavigateToDOPs} 
             onNavigateToOSATS={handleNavigateToOSATS} 
+            onNavigateToCBD={handleNavigateToCBD}
+            onNavigateToCRS={handleNavigateToCRS}
             onNavigateToEvidence={() => setCurrentView(View.Evidence)} 
             onNavigateToRecordForm={() => setCurrentView(View.RecordForm)}
             onNavigateToAddEvidence={handleNavigateToAddEvidence}
@@ -182,15 +203,29 @@ const App: React.FC = () => {
           />
         );
       case View.Evidence:
-        return <MyEvidence selectionMode={isSelectionMode} onConfirmSelection={handleConfirmSelection} onCancel={handleCancelSelection} />;
+        return (
+          <MyEvidence 
+            selectionMode={isSelectionMode} 
+            onConfirmSelection={handleConfirmSelection} 
+            onCancel={handleCancelSelection}
+            onEditEvidence={handleEditEvidence}
+          />
+        );
       case View.AddEvidence:
         return (
           <AddEvidence 
             sia={selectedFormParams?.sia} 
             level={selectedFormParams?.level} 
             initialType={selectedFormParams?.type}
-            onBack={() => setCurrentView(View.Evidence)} 
-            onCreated={() => setCurrentView(View.Evidence)} 
+            editingEvidence={editingEvidence || undefined}
+            onBack={() => {
+              setEditingEvidence(null);
+              setCurrentView(View.Evidence);
+            }} 
+            onCreated={() => {
+              setEditingEvidence(null);
+              setCurrentView(View.Evidence);
+            }} 
           />
         );
       case View.RecordForm:
@@ -200,6 +235,7 @@ const App: React.FC = () => {
           else if (type === 'GSAT') setCurrentView(View.GSATForm);
           else if (type === 'DOPs') setCurrentView(View.DOPsForm);
           else if (type === 'OSATs') setCurrentView(View.OSATSForm);
+          else if (type === 'CBD') setCurrentView(View.CBDForm);
           else if (type === 'CRS') setCurrentView(View.CRSForm);
           else if (type === 'MAR') setCurrentView(View.MARForm);
           else if (type === 'MSF') setCurrentView(View.MSFForm);
@@ -235,6 +271,8 @@ const App: React.FC = () => {
         return <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
       case View.OSATSForm:
         return <OSATSForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
+      case View.CBDForm:
+        return <CBDForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
       case View.CRSForm:
         return <PlaceholderForm title="CRS Form" subtitle="Clinical Rating Scale" onBack={() => setCurrentView(View.RecordForm)} />;
       case View.MARForm:
@@ -242,11 +280,11 @@ const App: React.FC = () => {
       case View.MSFForm:
         return <PlaceholderForm title="MSF Initiation" subtitle="Multi-Source Feedback - Stub" onBack={() => setCurrentView(View.RecordForm)} />;
       default:
-        return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} />;
+        return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} />;
     }
   };
 
-  const isFormViewActive = [View.EPAForm, View.GSATForm, View.DOPsForm, View.OSATSForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
+  const isFormViewActive = [View.EPAForm, View.GSATForm, View.DOPsForm, View.OSATSForm, View.CBDForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-[#f8fafc] text-slate-900">
