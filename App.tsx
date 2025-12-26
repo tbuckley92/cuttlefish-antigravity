@@ -188,7 +188,17 @@ const App: React.FC = () => {
   };
 
   const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number) => {
-    const linkKey = domain ? `GSAT-${domain}-${reqIndex}` : `EPA-${reqIndex}`;
+    // Determine the storage key. If domain exists, it's a GSAT. Otherwise it's an EPA.
+    // For EPAs, reqIndex is often passed as a full key string (e.g., "EPA-A-0").
+    let linkKey = '';
+    if (domain) {
+      linkKey = `GSAT-${domain}-${reqIndex}`;
+    } else {
+      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA-') 
+        ? reqIndex 
+        : `EPA-${reqIndex}`;
+    }
+    
     setLinkingReqIdx(linkKey);
     setReturnTarget({ 
       originView: origin,
