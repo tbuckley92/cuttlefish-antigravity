@@ -7,6 +7,7 @@ import GSATForm from './views/GSATForm';
 import DOPsForm from './views/DOPsForm';
 import OSATSForm from './views/OSATSForm';
 import CBDForm from './views/CBDForm';
+import CRSForm from './views/CRSForm';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
@@ -24,9 +25,9 @@ enum View {
   DOPsForm = 'dops-form',
   OSATSForm = 'osats-form',
   CBDForm = 'cbd-form',
+  CRSForm = 'crs-form',
   AddEvidence = 'add-evidence',
   RecordForm = 'record-form',
-  CRSForm = 'crs-form',
   MARForm = 'mar-form',
   MSFForm = 'msf-form',
   MSFSubmission = 'msf-submission',
@@ -365,7 +366,7 @@ const App: React.FC = () => {
       case View.CBDForm:
         return <CBDForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleSubmitted} />;
       case View.CRSForm:
-        return <PlaceholderForm title="CRS Form" subtitle="Clinical Rating Scale" onBack={() => setCurrentView(View.RecordForm)} />;
+        return <CRSForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleSubmitted} />;
       case View.MARForm:
         return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
       default:
