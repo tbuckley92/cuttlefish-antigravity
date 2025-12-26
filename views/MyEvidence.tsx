@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   Filter, Search, FileText, CheckCircle2, Clock, 
-  ArrowLeft, AlertCircle
+  ArrowLeft, AlertCircle, ShieldCheck
 } from '../components/Icons';
 import { INITIAL_EVIDENCE, SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
@@ -163,7 +163,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                       ${getStatusColors(item.status)}
                     `}>
                       {getStatusIcon(item.status)}
-                      {item.status}
+                      {item.status === EvidenceStatus.Complete ? 'Signed Off' : item.status}
                     </span>
                   </td>
                   {selectionMode && (
@@ -204,14 +204,18 @@ const getTypeColors = (type: EvidenceType) => {
     case EvidenceType.Reflection: return 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 dark:border-emerald-500/30';
     case EvidenceType.CRS: return 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30';
     case EvidenceType.EPA: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
+    case EvidenceType.MSF: return 'bg-indigo-600/10 text-indigo-600 border border-indigo-500/20';
     default: return 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 border border-slate-200 dark:border-white/20';
   }
 };
 
 const getStatusColors = (status: EvidenceStatus) => {
   switch (status) {
+    case EvidenceStatus.Complete:
     case EvidenceStatus.SignedOff: return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20';
     case EvidenceStatus.Submitted: return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20';
+    case EvidenceStatus.Active: return 'bg-teal-500/10 text-teal-600 border border-teal-500/20';
+    case EvidenceStatus.Closed: return 'bg-slate-500/10 text-slate-600 border border-slate-500/20';
     case EvidenceStatus.Draft: return 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10';
     default: return 'bg-white/5 text-white/40';
   }
@@ -219,8 +223,11 @@ const getStatusColors = (status: EvidenceStatus) => {
 
 const getStatusIcon = (status: EvidenceStatus) => {
   switch (status) {
-    case EvidenceStatus.SignedOff: return <CheckCircle2 size={12} />;
+    case EvidenceStatus.Complete:
+    case EvidenceStatus.SignedOff: return <ShieldCheck size={12} />;
     case EvidenceStatus.Submitted: return <Clock size={12} />;
+    case EvidenceStatus.Active: return <Clock size={12} />;
+    case EvidenceStatus.Closed: return <CheckCircle2 size={12} />;
     case EvidenceStatus.Draft: return <FileText size={12} />;
     default: return null;
   }

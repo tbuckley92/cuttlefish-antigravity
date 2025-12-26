@@ -15,6 +15,7 @@ interface GSATFormProps {
   initialSection?: number;
   autoScrollToIdx?: number;
   onBack: () => void;
+  onSubmitted?: () => void;
   onLinkRequested: (reqIndex: number, domain: string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>; // "domain-reqIndex" -> evidenceIds
@@ -34,6 +35,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
   initialSection = 0,
   autoScrollToIdx,
   onBack, 
+  onSubmitted,
   onLinkRequested,
   onRemoveLink,
   linkedEvidenceData 
@@ -105,6 +107,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
   };
 
   const completeness = (domains.filter((_, i) => isSectionComplete(i)).length / domains.length * 100).toFixed(0);
+
+  const handleSubmitForSignOff = () => {
+    alert("GSAT submitted for supervisor sign-off.");
+    onSubmitted?.();
+  };
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
@@ -211,7 +218,12 @@ const GSATForm: React.FC<GSATFormProps> = ({
             </div>
 
             <div className="pt-4 flex flex-col gap-3">
-              <button className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">Submit for Sign-off</button>
+              <button 
+                onClick={handleSubmitForSignOff}
+                className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+              >
+                Submit for Sign-off
+              </button>
               <button className="w-full py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all">Save Draft</button>
             </div>
           </div>
@@ -329,7 +341,10 @@ const GSATForm: React.FC<GSATFormProps> = ({
           </div>
 
           {activeSection === domains.length - 1 ? (
-             <button className="px-6 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20">
+             <button 
+              onClick={handleSubmitForSignOff}
+              className="px-6 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20"
+             >
                 Finish & Submit
              </button>
           ) : (

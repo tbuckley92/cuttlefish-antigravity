@@ -26,13 +26,17 @@ export enum EvidenceType {
   Leadership = 'Leadership, management and teamwork',
   Logbook = 'Eye Logbook',
   Additional = 'Additional evidence',
-  Compliment = 'Compliments'
+  Compliment = 'Compliments',
+  MSF = 'MSF'
 }
 
 export enum EvidenceStatus {
   Draft = 'Draft',
   Submitted = 'Submitted',
-  SignedOff = 'Signed Off'
+  Complete = 'Complete',
+  SignedOff = 'Signed Off', // Deprecating in favor of PRD 'Complete'
+  Active = 'Active',
+  Closed = 'Closed'
 }
 
 export interface UserProfile {
@@ -56,6 +60,16 @@ export interface SIA {
   supervisorEmail?: string;
 }
 
+export interface MSFRespondent {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Doctor' | 'Nurse' | 'AHP' | 'Non-clinical';
+  status: 'Awaiting response' | 'Completed';
+  inviteSent: boolean;
+  lastReminded?: string;
+}
+
 export interface EvidenceItem {
   id: string;
   type: EvidenceType;
@@ -65,6 +79,8 @@ export interface EvidenceItem {
   date: string;
   status: EvidenceStatus;
   notes?: string;
+  // MSF specific
+  msfRespondents?: MSFRespondent[];
   // Dynamic fields for specific types
   projectTitle?: string;
   provider?: string;

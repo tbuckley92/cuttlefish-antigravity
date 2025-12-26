@@ -5,10 +5,11 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
   Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2, 
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
-  FileText
+  FileText, Mail, ShieldCheck
 } from '../components/Icons';
-import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES } from '../constants';
-import { CurriculumRequirement, EvidenceItem } from '../types';
+import { SignOffDialog } from '../components/SignOffDialog';
+import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
+import { CurriculumRequirement, EvidenceItem, EvidenceStatus } from '../types';
 
 interface EPAFormProps {
   sia?: string;
@@ -17,7 +18,9 @@ interface EPAFormProps {
   initialSupervisorEmail?: string;
   initialSection?: number;
   autoScrollToIdx?: number;
+  initialStatus?: EvidenceStatus;
   onBack: () => void;
+  onSubmitted?: () => void;
   onLinkRequested: (reqIndex: number, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>;
@@ -30,7 +33,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
   initialSupervisorEmail = "",
   initialSection = 0,
   autoScrollToIdx,
+  initialStatus = EvidenceStatus.Draft,
   onBack, 
+  onSubmitted,
   onLinkRequested,
   onRemoveLink,
   linkedEvidenceData 
@@ -42,6 +47,10 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [supervisorName, setSupervisorName] = useState(initialSupervisorName);
   const [supervisorEmail, setSupervisorEmail] = useState(initialSupervisorEmail);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
+  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+
+  const isLocked = status === EvidenceStatus.Complete;
 
   const sections = [
     "Curriculum Requirements",
@@ -58,6 +67,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const requirements = CURRICULUM_DATA.filter(r => r.specialty === sia && r.level === level);
 
   useEffect(() => {
+    if (isLocked) return;
     const timer = setInterval(() => {
       setIsSaving(true);
       setTimeout(() => {
@@ -66,16 +76,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isLocked]);
 
-  // Handle auto-scrolling to linked outcome on return
   useEffect(() => {
     if (autoScrollToIdx !== undefined && activeSection === 0) {
       const scrollTimer = setTimeout(() => {
         const el = document.getElementById(`epa-outcome-${autoScrollToIdx}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Highlight effect
           el.classList.add('ring-2', 'ring-indigo-500/50');
           setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500/50'), 2000);
         }
@@ -84,7 +92,24 @@ const EPAForm: React.FC<EPAFormProps> = ({
     }
   }, [autoScrollToIdx, activeSection]);
 
+  const handleEmailForm = () => {
+    if (!supervisorName || !supervisorEmail) {
+      alert("Please provide supervisor name and email.");
+      return;
+    }
+    setStatus(EvidenceStatus.Submitted);
+    alert("Form emailed to supervisor");
+    onSubmitted?.();
+  };
+
+  const handleSignOffConfirm = (gmc: string, signature: string) => {
+    setStatus(EvidenceStatus.Complete);
+    setIsSignOffOpen(false);
+    alert(`EPA Signed Off by ${supervisorName} (GMC: ${gmc})`);
+  };
+
   const handleCommentChange = (idx: number, text: string) => {
+    if (isLocked) return;
     setComments(prev => ({ ...prev, [idx]: text }));
   };
 
@@ -100,6 +125,18 @@ const EPAForm: React.FC<EPAFormProps> = ({
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
       
+      <SignOffDialog 
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "EPA",
+          traineeName: INITIAL_PROFILE.name,
+          date: new Date().toLocaleDateString(),
+          supervisorName: supervisorName || "Supervisor"
+        }}
+      />
+
       {/* Mobile Metadata Summary & Editor */}
       <div className="lg:hidden mb-2">
         <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-4">
@@ -112,7 +149,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
           >
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{sia}</h2>
-              <p className="text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {status}
+                </span>
+              </div>
             </div>
             <div className={`transition-transform duration-300 ${isMetadataExpanded ? 'rotate-180' : ''}`}>
               <ChevronDown size={16} className="text-slate-400" />
@@ -122,36 +164,38 @@ const EPAForm: React.FC<EPAFormProps> = ({
           {isMetadataExpanded && (
             <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Specialty / SIA">
-                <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
                   {SPECIALTIES.map(s => <option key={s} value={s} selected={s === sia}>{s}</option>)}
                 </select>
               </MetadataField>
               <div className="grid grid-cols-2 gap-3">
                 <MetadataField label="Level">
-                  <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                  <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
                     {[1,2,3,4].map(l => <option key={l} value={l} selected={l === level}>Level {l}</option>)}
                   </select>
                 </MetadataField>
                 <MetadataField label="Date">
-                  <input type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
                 </MetadataField>
               </div>
               <MetadataField label="Supervisor">
                 <div className="space-y-2">
-                  <input type="text" placeholder="Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
-                  <input type="email" placeholder="Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="text" placeholder="Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="email" placeholder="Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
                 </div>
               </MetadataField>
-              <div className="flex items-center gap-2 pt-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
-                <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Autosaved {lastSaved}</span>
-              </div>
+              {!isLocked && (
+                <div className="flex items-center gap-2 pt-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
+                  <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Autosaved {lastSaved}</span>
+                </div>
+              )}
             </div>
           )}
         </GlassCard>
       </div>
 
-      {/* Left Column: Form Metadata (Desktop Only Card) */}
+      {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
         <button 
           onClick={onBack}
@@ -161,41 +205,52 @@ const EPAForm: React.FC<EPAFormProps> = ({
         </button>
 
         <GlassCard className="p-8">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90 mb-6">EPA Sign-off</h2>
+          <div className="flex justify-between items-start mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">EPA Sign-off</h2>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              {status}
+            </span>
+          </div>
           <div className="space-y-6">
             <MetadataField label="Specialty / SIA">
-              <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors">
+              <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors">
                 {SPECIALTIES.map(s => <option key={s} value={s} selected={s === sia}>{s}</option>)}
               </select>
             </MetadataField>
             <MetadataField label="Level">
-              <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors">
+              <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors">
                 {[1,2,3,4].map(l => <option key={l} value={l} selected={l === level}>Level {l}</option>)}
               </select>
             </MetadataField>
             <MetadataField label="Assessment Date">
-              <input type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50" />
+              <input disabled={isLocked} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50" />
             </MetadataField>
             <MetadataField label="Supervisor">
               <div className="space-y-2">
-                <input type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
-                <input type="email" placeholder="Supervisor Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isLocked} type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isLocked} type="email" placeholder="Supervisor Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
               </div>
             </MetadataField>
             <div className="pt-6 border-t border-slate-100 dark:border-white/10">
               <div className="flex justify-between items-center mb-4"><span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-wider font-semibold">Completeness</span><span className="text-xs text-slate-600 dark:text-white/60">{completeness}%</span></div>
               <div className="grid grid-cols-4 gap-2">{sections.map((_, i) => <div key={i} className={`h-1 rounded-full ${isSectionComplete(i) ? 'bg-teal-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>)}</div>
             </div>
-            <div className="pt-6 border-t border-slate-100 dark:border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
-                <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Saved {lastSaved}</span>
+            {!isLocked && (
+              <div className="pt-6 border-t border-slate-100 dark:border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
+                  <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Saved {lastSaved}</span>
+                </div>
               </div>
-            </div>
-            <div className="pt-4 flex flex-col gap-3">
-              <button className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">Submit for Sign-off</button>
-              <button className="w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-all">Save Draft</button>
-            </div>
+            )}
+            
+            {isLocked && (
+              <div className="pt-6 flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-500/5 border border-green-100 dark:border-green-500/10 rounded-2xl">
+                <ShieldCheck className="text-green-500" size={24} />
+                <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">Signed Off</p>
+                <p className="text-[10px] text-green-600 dark:text-green-500 text-center">Validated by {supervisorName}</p>
+              </div>
+            )}
           </div>
         </GlassCard>
       </div>
@@ -233,16 +288,17 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   const linkedIds = linkedEvidenceData[reqKey] || [];
                   
                   return (
-                    <GlassCard key={idx} id={`epa-outcome-${idx}`} className="p-4 lg:p-6 transition-all duration-300">
+                    <GlassCard key={idx} id={`epa-outcome-${idx}`} className={`p-4 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
                       <p className="text-sm leading-relaxed text-slate-700 dark:text-white/80 mb-6">{req.requirement}</p>
                       <div className="space-y-4">
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Trainee Comments</label>
                           <textarea 
+                            disabled={isLocked}
                             value={comments[idx] || ''}
                             onChange={(e) => handleCommentChange(idx, e.target.value)}
                             placeholder="Reflect on your performance..."
-                            className="w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none"
+                            className={`w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
                           />
                         </div>
                         <div className="flex flex-col gap-3">
@@ -251,21 +307,25 @@ const EPAForm: React.FC<EPAFormProps> = ({
                             {linkedIds.map(evId => {
                               const ev = INITIAL_EVIDENCE.find(e => e.id === evId);
                               return (
-                                <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
+                                <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
                                   <LinkIcon size={12} />
                                   <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
-                                  <button 
-                                    onClick={() => onRemoveLink(reqKey, evId)}
-                                    className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                                  >
-                                    <Trash2 size={10} />
-                                  </button>
+                                  {!isLocked && (
+                                    <button 
+                                      onClick={() => onRemoveLink(reqKey, evId)}
+                                      className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                                    >
+                                      <Trash2 size={10} />
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })}
-                            <button onClick={() => onLinkRequested(idx, activeSection)} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 transition-all">
-                              <Plus size={14} /> Link
-                            </button>
+                            {!isLocked && (
+                              <button onClick={() => onLinkRequested(idx, activeSection)} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 transition-all">
+                                <Plus size={14} /> Link
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -283,7 +343,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           )}
         </div>
 
-        {/* Navigation Bar - Sticky at bottom on mobile */}
+        {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex justify-between items-center shadow-2xl lg:shadow-none">
           <button 
             disabled={activeSection === 0}
@@ -300,17 +360,29 @@ const EPAForm: React.FC<EPAFormProps> = ({
           </div>
 
           <div className="flex gap-2 lg:gap-3">
-            <button className="px-3 lg:px-5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-xs lg:text-sm font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2">
-              <FileText size={16} className="lg:hidden" />
-              <span className="hidden lg:inline">Save Draft</span>
-              <span className="lg:hidden">Save</span>
-            </button>
+            {status !== EvidenceStatus.Complete && (
+              <>
+                {status !== EvidenceStatus.Submitted && (
+                  <button 
+                    onClick={handleEmailForm}
+                    className="px-4 lg:px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs lg:text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                  >
+                    <Mail size={16} /> <span>EMAIL FORM</span>
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsSignOffOpen(true)}
+                  className="px-4 lg:px-6 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-xs lg:text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                >
+                  <ShieldCheck size={16} /> <span>SIGN OFF</span>
+                </button>
+              </>
+            )}
+            {isLocked && (
+              <button onClick={onBack} className="px-6 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
+            )}
             
-            {activeSection === sections.length - 1 ? (
-              <button className="px-4 lg:px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs lg:text-sm font-semibold shadow-lg shadow-indigo-600/20">
-                Submit
-              </button>
-            ) : (
+            {activeSection < sections.length - 1 && (
               <button 
                 onClick={() => setActiveSection(s => s + 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors"

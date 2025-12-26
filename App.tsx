@@ -10,9 +10,11 @@ import CBDForm from './views/CBDForm';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
+import { MSFSubmissionForm } from './views/MSFSubmissionForm';
+import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText } from './components/Icons';
-import { INITIAL_SIAS } from './constants';
-import { SIA, EvidenceItem } from './types';
+import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus } from './types';
 
 enum View {
   Dashboard = 'dashboard',
@@ -26,7 +28,9 @@ enum View {
   RecordForm = 'record-form',
   CRSForm = 'crs-form',
   MARForm = 'mar-form',
-  MSFForm = 'msf-form'
+  MSFForm = 'msf-form',
+  MSFSubmission = 'msf-submission',
+  MSFResponse = 'msf-response'
 }
 
 interface FormParams {
@@ -48,6 +52,7 @@ const App: React.FC = () => {
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
+  const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
   
   // Selection mode for linking evidence
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -56,6 +61,9 @@ const App: React.FC = () => {
   
   // Persistence state for returning to the correct outcome in a form
   const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
+
+  // Respondent simulation state
+  const [activeRespondentId, setActiveRespondentId] = useState<string | null>(null);
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
     setReturnTarget(null);
@@ -94,8 +102,53 @@ const App: React.FC = () => {
   };
 
   const handleEditEvidence = (item: EvidenceItem) => {
+    if (item.type === EvidenceType.MSF) {
+      setEditingEvidence(item);
+      setCurrentView(View.MSFSubmission);
+      return;
+    }
     setEditingEvidence(item);
     setCurrentView(View.AddEvidence);
+  };
+
+  const handleNavigateToMSF = () => {
+    // Single activity rule check
+    const existingActiveMSF = allEvidence.find(e => 
+      e.type === EvidenceType.MSF && 
+      (e.status === EvidenceStatus.Draft || e.status === EvidenceStatus.Active)
+    );
+
+    if (existingActiveMSF) {
+      alert("You already have an MSF in progress – only one MSF can be active at a time.");
+      setEditingEvidence(existingActiveMSF);
+      setCurrentView(View.MSFSubmission);
+    } else {
+      // Create new
+      const newMSF: EvidenceItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        type: EvidenceType.MSF,
+        title: `MSF - ${INITIAL_PROFILE.name} - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+        date: new Date().toISOString().split('T')[0],
+        status: EvidenceStatus.Draft,
+        msfRespondents: Array.from({ length: 11 }, () => ({
+          id: Math.random().toString(36).substr(2, 9),
+          name: '',
+          email: '',
+          role: 'Doctor',
+          status: 'Awaiting response',
+          inviteSent: false
+        }))
+      };
+      setAllEvidence(prev => [newMSF, ...prev]);
+      setEditingEvidence(newMSF);
+      setCurrentView(View.MSFSubmission);
+    }
+  };
+
+  const handleSaveEvidence = (updatedData: Partial<EvidenceItem>) => {
+    if (editingEvidence) {
+      setAllEvidence(prev => prev.map(e => e.id === editingEvidence.id ? { ...e, ...updatedData } : e));
+    }
   };
 
   const handleRemoveSIA = (id: string) => {
@@ -134,7 +187,6 @@ const App: React.FC = () => {
   };
 
   const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number) => {
-    // Generate a unique key for the linking requirement
     const linkKey = domain ? `GSAT-${domain}-${reqIndex}` : `EPA-${reqIndex}`;
     setLinkingReqIdx(linkKey);
     setReturnTarget({ 
@@ -177,6 +229,10 @@ const App: React.FC = () => {
       ...prev,
       [reqKey]: (prev[reqKey] || []).filter(id => id !== evId)
     }));
+  };
+
+  const handleSubmitted = () => {
+    setCurrentView(View.Evidence);
   };
 
   const renderContent = () => {
@@ -228,6 +284,39 @@ const App: React.FC = () => {
             }} 
           />
         );
+      case View.MSFSubmission:
+        return (
+          <MSFSubmissionForm 
+            evidence={editingEvidence || undefined}
+            onBack={() => {
+              setEditingEvidence(null);
+              setCurrentView(View.Evidence);
+            }}
+            onSave={handleSaveEvidence}
+            onViewResponse={(id) => {
+              setActiveRespondentId(id);
+              setCurrentView(View.MSFResponse);
+            }}
+          />
+        );
+      case View.MSFResponse:
+        return (
+          <MSFResponseForm 
+            traineeName={INITIAL_PROFILE.name}
+            onBack={() => setCurrentView(View.MSFSubmission)}
+            onSubmitted={() => {
+              // Update status in record
+              if (editingEvidence && activeRespondentId) {
+                const updatedRespondents = editingEvidence.msfRespondents?.map(r => 
+                  r.id === activeRespondentId ? { ...r, status: 'Completed' } : r
+                );
+                handleSaveEvidence({ msfRespondents: updatedRespondents });
+              }
+              alert("Thank you! Your response has been submitted.");
+              setCurrentView(View.MSFSubmission);
+            }}
+          />
+        );
       case View.RecordForm:
         return <RecordForm onBack={() => setCurrentView(View.Dashboard)} onSelectForm={(type) => {
           setReturnTarget(null);
@@ -238,7 +327,7 @@ const App: React.FC = () => {
           else if (type === 'CBD') setCurrentView(View.CBDForm);
           else if (type === 'CRS') setCurrentView(View.CRSForm);
           else if (type === 'MAR') setCurrentView(View.MARForm);
-          else if (type === 'MSF') setCurrentView(View.MSFForm);
+          else if (type === 'MSF') handleNavigateToMSF();
         }} />;
       case View.EPAForm:
         return (
@@ -248,6 +337,7 @@ const App: React.FC = () => {
             initialSupervisorName={selectedFormParams?.supervisorName} 
             initialSupervisorEmail={selectedFormParams?.supervisorEmail} 
             onBack={() => setCurrentView(View.RecordForm)} 
+            onSubmitted={handleSubmitted}
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
             linkedEvidenceData={linkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
@@ -260,6 +350,7 @@ const App: React.FC = () => {
           <GSATForm 
             initialLevel={1} 
             onBack={() => setCurrentView(View.RecordForm)} 
+            onSubmitted={handleSubmitted}
             onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)} 
             linkedEvidenceData={linkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
@@ -268,17 +359,15 @@ const App: React.FC = () => {
           />
         );
       case View.DOPsForm:
-        return <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
+        return <DOPsForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleSubmitted} />;
       case View.OSATSForm:
-        return <OSATSForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
+        return <OSATSForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleSubmitted} />;
       case View.CBDForm:
-        return <CBDForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} />;
+        return <CBDForm sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleSubmitted} />;
       case View.CRSForm:
         return <PlaceholderForm title="CRS Form" subtitle="Clinical Rating Scale" onBack={() => setCurrentView(View.RecordForm)} />;
       case View.MARForm:
         return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
-      case View.MSFForm:
-        return <PlaceholderForm title="MSF Initiation" subtitle="Multi-Source Feedback - Stub" onBack={() => setCurrentView(View.RecordForm)} />;
       default:
         return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} />;
     }

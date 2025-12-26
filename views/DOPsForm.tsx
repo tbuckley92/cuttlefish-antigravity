@@ -4,16 +4,20 @@ import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
-  FileText
+  FileText, Mail, ShieldCheck
 } from '../components/Icons';
-import { SPECIALTIES } from '../constants';
+import { SignOffDialog } from '../components/SignOffDialog';
+import { SPECIALTIES, INITIAL_PROFILE } from '../constants';
+import { EvidenceStatus } from '../types';
 
 interface DOPsFormProps {
   sia?: string;
   level?: number;
   initialAssessorName?: string;
   initialAssessorEmail?: string;
+  initialStatus?: EvidenceStatus;
   onBack: () => void;
+  onSubmitted?: () => void;
 }
 
 const DOPsForm: React.FC<DOPsFormProps> = ({ 
@@ -21,12 +25,18 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   level = 1, 
   initialAssessorName = "",
   initialAssessorEmail = "",
-  onBack 
+  initialStatus = EvidenceStatus.Draft,
+  onBack,
+  onSubmitted
 }) => {
   const [activeSection, setActiveSection] = useState(0);
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
+  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+
+  const isLocked = status === EvidenceStatus.Complete;
 
   // Form State
   const [assessorName, setAssessorName] = useState(initialAssessorName);
@@ -59,6 +69,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   ];
 
   const handleMarkAllMeets = () => {
+    if (isLocked) return;
     const newGrading = { ...grading };
     criteria.forEach((_, idx) => {
       if (!newGrading[idx]) {
@@ -69,6 +80,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   };
 
   useEffect(() => {
+    if (isLocked) return;
     const timer = setInterval(() => {
       setIsSaving(true);
       setTimeout(() => {
@@ -77,7 +89,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isLocked]);
 
   const isSectionComplete = (idx: number) => {
     if (idx === 0) return caseDescription.length > 5 && assessorStatus && difficulty && prevAttempts && setting;
@@ -88,9 +100,37 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
 
   const completeness = (sections.filter((_, i) => isSectionComplete(i)).length / sections.length * 100).toFixed(0);
 
+  const handleEmailForm = () => {
+    if (!assessorName || !assessorEmail) {
+      alert("Please provide assessor name and email.");
+      return;
+    }
+    setStatus(EvidenceStatus.Submitted);
+    alert("Form emailed to assessor");
+    onSubmitted?.();
+  };
+
+  const handleSignOffConfirm = (gmc: string, signature: string) => {
+    setStatus(EvidenceStatus.Complete);
+    setIsSignOffOpen(false);
+    alert(`DOPs Signed Off by ${assessorName} (GMC: ${gmc})`);
+  };
+
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
       
+      <SignOffDialog 
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "DOPs",
+          traineeName: INITIAL_PROFILE.name,
+          date: new Date().toLocaleDateString(),
+          supervisorName: assessorName || "Assessor"
+        }}
+      />
+
       {/* Mobile Metadata Summary & Editor */}
       <div className="lg:hidden mb-2">
         <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-4">
@@ -103,7 +143,12 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
           >
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-white">DOPs: {sia}</h2>
-              <p className="text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {status}
+                </span>
+              </div>
             </div>
             <div className={`transition-transform duration-300 ${isMetadataExpanded ? 'rotate-180' : ''}`}>
               <ChevronDown size={16} className="text-slate-400" />
@@ -113,68 +158,73 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
           {isMetadataExpanded && (
             <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Specialty / SIA">
-                <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
                   {SPECIALTIES.map(s => <option key={s} value={s} selected={s === sia}>{s}</option>)}
                 </select>
               </MetadataField>
               <div className="grid grid-cols-2 gap-3">
                 <MetadataField label="Level">
-                  <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                  <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
                     {[1,2,3,4].map(l => <option key={l} value={l} selected={l === level}>Level {l}</option>)}
                   </select>
                 </MetadataField>
                 <MetadataField label="Date">
-                  <input type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
                 </MetadataField>
               </div>
               <MetadataField label="Assessor">
                 <div className="space-y-2">
-                  <input type="text" placeholder="Name" value={assessorName} onChange={(e) => setAssessorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
-                  <input type="email" placeholder="Email" value={assessorEmail} onChange={(e) => setAssessorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="text" placeholder="Name" value={assessorName} onChange={(e) => setAssessorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isLocked} type="email" placeholder="Email" value={assessorEmail} onChange={(e) => setAssessorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
                 </div>
               </MetadataField>
-              <div className="flex items-center gap-2 pt-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
-                <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Autosaved {lastSaved}</span>
-              </div>
             </div>
           )}
         </GlassCard>
       </div>
 
-      {/* Left Column: Metadata (Desktop Only) */}
+      {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors mb-2">
           <ArrowLeft size={16} /> Back to Dashboard
         </button>
 
         <GlassCard className="p-8">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90 mb-6">DOPs Assessment</h2>
+          <div className="flex justify-between items-start mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">DOPs Assessment</h2>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              {status}
+            </span>
+          </div>
           <div className="space-y-6">
             <MetadataField label="Specialty / SIA">
-              <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none">
+              <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none">
                 {SPECIALTIES.map(s => <option key={s} value={s} selected={s === sia}>{s}</option>)}
               </select>
             </MetadataField>
             <MetadataField label="Level">
-              <select className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none">
+              <select disabled={isLocked} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none">
                 {[1,2,3,4].map(l => <option key={l} value={l} selected={l === level}>Level {l}</option>)}
               </select>
             </MetadataField>
             <MetadataField label="Assessor">
               <div className="space-y-2">
-                <input type="text" placeholder="Assessor Name" value={assessorName} onChange={(e) => setAssessorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
-                <input type="email" placeholder="Assessor Email" value={assessorEmail} onChange={(e) => setAssessorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isLocked} type="text" placeholder="Assessor Name" value={assessorName} onChange={(e) => setAssessorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isLocked} type="email" placeholder="Assessor Email" value={assessorEmail} onChange={(e) => setAssessorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
               </div>
             </MetadataField>
             <div className="pt-6 border-t border-slate-100 dark:border-white/10">
               <div className="flex justify-between items-center mb-4"><span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-wider font-semibold">Completeness</span><span className="text-xs text-slate-600 dark:text-white/60">{completeness}%</span></div>
               <div className="grid grid-cols-3 gap-2">{sections.map((_, i) => <div key={i} className={`h-1 rounded-full ${isSectionComplete(i) ? 'bg-teal-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>)}</div>
             </div>
-            <div className="pt-4 flex flex-col gap-3">
-              <button className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20">Submit DOPs</button>
-              <button className="w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-sm font-semibold">Save Draft</button>
-            </div>
+            
+            {isLocked && (
+              <div className="pt-6 flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-500/5 border border-green-100 dark:border-green-500/10 rounded-2xl">
+                <ShieldCheck className="text-green-500" size={24} />
+                <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">Complete</p>
+                <p className="text-[10px] text-green-600 dark:text-green-500 text-center">Validated by {assessorName}</p>
+              </div>
+            )}
           </div>
         </GlassCard>
       </div>
@@ -196,12 +246,12 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
               <GlassCard className="p-4 lg:p-6 space-y-6">
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Brief description of case</label>
-                  <textarea value={caseDescription} onChange={(e) => setCaseDescription(e.target.value)} className="w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40" />
+                  <textarea disabled={isLocked} value={caseDescription} onChange={(e) => setCaseDescription(e.target.value)} className="w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40" />
                 </div>
-                <RadioGroup label="Assessor's Status" options={["Consultant", "Trainee", "Other"]} value={assessorStatus} onChange={setAssessorStatus} />
-                <RadioGroup label="Case Difficulty" options={["Simple", "Intermediate", "Difficult"]} value={difficulty} onChange={setDifficulty} />
-                <RadioGroup label="Prev. Attempts" options={["1", "2-4", "5-9", "10+"]} value={prevAttempts} onChange={setPrevAttempts} />
-                <RadioGroup label="Setting" options={["Simulator", "Wetlab", "Patient"]} value={setting} onChange={setSetting} />
+                <RadioGroup disabled={isLocked} label="Assessor's Status" options={["Consultant", "Trainee", "Other"]} value={assessorStatus} onChange={setAssessorStatus} />
+                <RadioGroup disabled={isLocked} label="Case Difficulty" options={["Simple", "Intermediate", "Difficult"]} value={difficulty} onChange={setDifficulty} />
+                <RadioGroup disabled={isLocked} label="Prev. Attempts" options={["1", "2-4", "5-9", "10+"]} value={prevAttempts} onChange={setPrevAttempts} />
+                <RadioGroup disabled={isLocked} label="Setting" options={["Simulator", "Wetlab", "Patient"]} value={setting} onChange={setSetting} />
               </GlassCard>
             </div>
           )}
@@ -210,12 +260,14 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">Grading</h3>
-                <button 
-                  onClick={handleMarkAllMeets} 
-                  className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm"
-                >
-                  MARK ALL 'MEETS EXPECTATIONS'
-                </button>
+                {!isLocked && (
+                  <button 
+                    onClick={handleMarkAllMeets} 
+                    className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm"
+                  >
+                    MARK ALL 'MEETS EXPECTATIONS'
+                  </button>
+                )}
               </div>
               <div className="space-y-4">
                 {criteria.map((c, idx) => (
@@ -225,6 +277,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
                       {["Major concerns", "Minor concerns", "Meets expectations", "n/a"].map(opt => (
                         <button 
                           key={opt} 
+                          disabled={isLocked}
                           onClick={() => setGrading(prev => ({ ...prev, [idx]: opt }))} 
                           className={`px-2 py-1.5 rounded text-[9px] lg:text-[10px] font-medium border transition-all flex-1 min-w-[70px] ${grading[idx] === opt ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40'}`}
                         >
@@ -242,32 +295,44 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90 mb-6">Overall assessment</h3>
               <GlassCard className="p-4 lg:p-6 space-y-8">
-                <RadioGroup label="Overall Assessment" options={["Meets expectations", "Does not meet"]} value={overallAssessment} onChange={setOverallAssessment} />
-                <div><label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Good Aspects</label><textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} className="w-full min-h-[80px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm" /></div>
-                <div><label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Improvement Points</label><textarea value={improvements} onChange={(e) => setImprovements(e.target.value)} className="w-full min-h-[80px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm" /></div>
+                <RadioGroup disabled={isLocked} label="Overall Assessment" options={["Meets expectations", "Does not meet"]} value={overallAssessment} onChange={setOverallAssessment} />
+                <div><label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Good Aspects</label><textarea disabled={isLocked} value={strengths} onChange={(e) => setStrengths(e.target.value)} className="w-full min-h-[80px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm" /></div>
+                <div><label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Improvement Points</label><textarea disabled={isLocked} value={improvements} onChange={(e) => setImprovements(e.target.value)} className="w-full min-h-[80px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm" /></div>
               </GlassCard>
             </div>
           )}
         </div>
 
-        {/* Sticky Action Bar */}
+        {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 flex justify-between items-center shadow-2xl lg:shadow-none">
           <button disabled={activeSection === 0} onClick={() => setActiveSection(s => s - 1)} className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 transition-colors disabled:opacity-0"><ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span></button>
           
           <div className="flex gap-1.5">{sections.map((_, i) => <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>)}</div>
           
           <div className="flex gap-2 lg:gap-3">
-            <button className="px-3 lg:px-5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-xs lg:text-sm font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2">
-              <FileText size={16} className="lg:hidden" />
-              <span className="hidden lg:inline">Save Draft</span>
-              <span className="lg:hidden">Save</span>
-            </button>
+            {status !== EvidenceStatus.Complete && (
+              <>
+                {status !== EvidenceStatus.Submitted && (
+                  <button 
+                    onClick={handleEmailForm}
+                    className="px-4 lg:px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs lg:text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                  >
+                    <Mail size={16} /> <span>EMAIL FORM</span>
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsSignOffOpen(true)}
+                  className="px-4 lg:px-6 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-xs lg:text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                >
+                  <ShieldCheck size={16} /> <span>SIGN OFF</span>
+                </button>
+              </>
+            )}
+            {isLocked && (
+              <button onClick={onBack} className="px-6 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
+            )}
             
-            {activeSection === sections.length - 1 ? (
-              <button className="px-4 lg:px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs lg:text-sm font-semibold shadow-lg shadow-indigo-600/20">
-                Submit
-              </button>
-            ) : (
+            {activeSection < sections.length - 1 && (
               <button onClick={() => setActiveSection(s => s + 1)} className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 transition-colors"><span className="hidden lg:inline">Next</span> <ChevronRight size={18} /></button>
             )}
           </div>
@@ -281,12 +346,12 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
   <div><label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1.5 block">{label}</label>{children}</div>
 );
 
-const RadioGroup: React.FC<{ label: string; options: string[]; value: string; onChange: (v: string) => void }> = ({ label, options, value, onChange }) => (
+const RadioGroup: React.FC<{ label: string; options: string[]; value: string; onChange: (v: string) => void; disabled?: boolean }> = ({ label, options, value, onChange, disabled }) => (
   <div>
     <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-3 block">{label}</label>
     <div className="flex flex-wrap gap-2">
       {options.map(opt => (
-        <button key={opt} onClick={() => onChange(opt)} className={`px-3 py-2 rounded-lg text-[10px] lg:text-xs font-medium border transition-all flex-1 min-w-[80px] ${value === opt ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/40'}`}>{opt}</button>
+        <button key={opt} disabled={disabled} onClick={() => onChange(opt)} className={`px-3 py-2 rounded-lg text-[10px] lg:text-xs font-medium border transition-all flex-1 min-w-[80px] ${value === opt ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/40'}`}>{opt}</button>
       ))}
     </div>
   </div>
