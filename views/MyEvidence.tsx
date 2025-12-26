@@ -163,7 +163,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                       ${getStatusColors(item.status)}
                     `}>
                       {getStatusIcon(item.status)}
-                      {item.status === EvidenceStatus.Complete ? 'Signed Off' : item.status}
+                      {item.status}
                     </span>
                   </td>
                   {selectionMode && (
@@ -211,11 +211,8 @@ const getTypeColors = (type: EvidenceType) => {
 
 const getStatusColors = (status: EvidenceStatus) => {
   switch (status) {
-    case EvidenceStatus.Complete:
     case EvidenceStatus.SignedOff: return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20';
     case EvidenceStatus.Submitted: return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20';
-    case EvidenceStatus.Active: return 'bg-teal-500/10 text-teal-600 border border-teal-500/20';
-    case EvidenceStatus.Closed: return 'bg-slate-500/10 text-slate-600 border border-slate-500/20';
     case EvidenceStatus.Draft: return 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10';
     default: return 'bg-white/5 text-white/40';
   }
@@ -223,11 +220,8 @@ const getStatusColors = (status: EvidenceStatus) => {
 
 const getStatusIcon = (status: EvidenceStatus) => {
   switch (status) {
-    case EvidenceStatus.Complete:
     case EvidenceStatus.SignedOff: return <ShieldCheck size={12} />;
     case EvidenceStatus.Submitted: return <Clock size={12} />;
-    case EvidenceStatus.Active: return <Clock size={12} />;
-    case EvidenceStatus.Closed: return <CheckCircle2 size={12} />;
     case EvidenceStatus.Draft: return <FileText size={12} />;
     default: return null;
   }

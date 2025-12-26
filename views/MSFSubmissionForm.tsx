@@ -4,7 +4,7 @@ import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, Users, Mail, Plus, Trash2, Send, 
   Clock, CheckCircle2, AlertCircle, X, ChevronRight,
-  ExternalLink
+  ExternalLink, ShieldCheck, Info, BarChart2
 } from '../components/Icons';
 import { MSFRespondent, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
@@ -15,7 +15,25 @@ interface MSFSubmissionFormProps {
   onViewResponse: (respondentId: string) => void;
 }
 
-const ROLES = ['Doctor', 'Nurse', 'AHP', 'Non-clinical'] as const;
+const ROLES = [
+  'Consultant', 
+  'Trainee/Fellow', 
+  'Senior nurse, theatre', 
+  'Senior nurse, OPD', 
+  'Outpatient staff', 
+  'Medical secretary'
+] as const;
+
+type MSFRole = typeof ROLES[number];
+
+const ROLE_MINIMUMS: Record<MSFRole, number> = {
+  'Consultant': 2,
+  'Trainee/Fellow': 2,
+  'Senior nurse, theatre': 1,
+  'Senior nurse, OPD': 1,
+  'Outpatient staff': 1,
+  'Medical secretary': 1
+};
 
 export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({ 
   evidence, 
@@ -29,7 +47,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
       id: Math.random().toString(36).substr(2, 9),
       name: '',
       email: '',
-      role: 'Doctor',
+      role: 'Consultant',
       status: 'Awaiting response',
       inviteSent: false
     }));
@@ -41,6 +59,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    if (status === EvidenceStatus.SignedOff) return;
     const timer = setInterval(() => {
       setIsSaving(true);
       setTimeout(() => {
@@ -49,25 +68,27 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, []);
+  }, [status]);
 
   const handleUpdateRespondent = (id: string, field: keyof MSFRespondent, value: any) => {
+    if (status === EvidenceStatus.SignedOff) return;
     setRespondents(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
   const addRow = () => {
-    if (respondents.length >= 30) return;
+    if (status === EvidenceStatus.SignedOff || respondents.length >= 30) return;
     setRespondents(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       name: '',
       email: '',
-      role: 'Doctor',
+      role: 'Consultant',
       status: 'Awaiting response',
       inviteSent: false
     }]);
   };
 
   const removeRow = (id: string) => {
+    if (status === EvidenceStatus.SignedOff) return;
     const r = respondents.find(res => res.id === id);
     if (r?.status === 'Completed') return;
     setRespondents(prev => prev.filter(res => res.id !== id));
@@ -78,7 +99,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
       r.id === id ? { ...r, inviteSent: true, status: 'Awaiting response' } : r
     ));
     if (status === EvidenceStatus.Draft) {
-      setStatus(EvidenceStatus.Active);
+      setStatus(EvidenceStatus.Submitted);
     }
   };
 
@@ -95,19 +116,28 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     setRespondents(prev => prev.map(r => 
       (r.name && r.email && !r.inviteSent) ? { ...r, inviteSent: true } : r
     ));
-    setStatus(EvidenceStatus.Active);
+    setStatus(EvidenceStatus.Submitted);
     alert(`MSF invitations sent to ${validRespondents.length} respondents`);
   };
 
   const handleCloseMSF = () => {
     if (window.confirm("Are you sure you want to close this MSF? You won't be able to send more invites.")) {
-      setStatus(EvidenceStatus.Closed);
-      onSave({ status: EvidenceStatus.Closed, msfRespondents: respondents });
+      setStatus(EvidenceStatus.SignedOff);
+      onSave({ status: EvidenceStatus.SignedOff, msfRespondents: respondents });
     }
   };
 
   const completedCount = respondents.filter(r => r.status === 'Completed').length;
-  const isClosed = status === EvidenceStatus.Closed;
+  const isLocked = status === EvidenceStatus.SignedOff;
+
+  // Validation mix logic
+  const roleCounts = respondents.reduce((acc, curr) => {
+    const role = curr.role as MSFRole;
+    acc[role] = (acc[role] || 0) + 1;
+    return acc;
+  }, {} as Record<MSFRole, number>);
+
+  const missingRoles = ROLES.filter(role => (roleCounts[role] || 0) < ROLE_MINIMUMS[role]);
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -121,8 +151,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest">Multi-Source Feedback</p>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                status === EvidenceStatus.Closed ? 'bg-slate-200 text-slate-600' : 
-                status === EvidenceStatus.Active ? 'bg-teal-100 text-teal-700' : 
+                status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : 
+                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 
                 'bg-indigo-100 text-indigo-700'
               }`}>
                 {status}
@@ -131,7 +161,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
           </div>
         </div>
 
-        {status === EvidenceStatus.Active && (
+        {status === EvidenceStatus.Submitted && (
           <button 
             onClick={handleCloseMSF}
             className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
@@ -141,18 +171,30 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
         )}
       </div>
 
+      {missingRoles.length > 0 && !isLocked && (
+        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <Info className="text-indigo-500 shrink-0" size={20} />
+          <div>
+            <p className="text-sm text-indigo-900 font-semibold">Recommended Respondent Mix</p>
+            <p className="text-xs text-indigo-700 mt-1">
+              You currently have gaps in your required mix. Consider adding: {missingRoles.map(r => `${r} (min ${ROLE_MINIMUMS[r as MSFRole]})`).join(', ')}.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Metadata */}
         <div className="lg:col-span-4 space-y-6">
           <GlassCard className="p-6 space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Record Info</h3>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Progress Overview</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5 block">Title</label>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5 block">Record Title</label>
                 <input 
                   type="text" 
-                  disabled={isClosed}
+                  disabled={isLocked}
                   value={title} 
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500/50 transition-all"
@@ -161,39 +203,86 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
 
               <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] uppercase tracking-widest text-indigo-600 font-bold">Responses</span>
-                  <span className="text-sm font-bold text-indigo-700">{completedCount} / {respondents.filter(r => r.inviteSent).length || 0}</span>
+                  <span className="text-[10px] uppercase tracking-widest text-indigo-600 font-bold">Responses Received</span>
+                  <span className="text-sm font-bold text-indigo-700">{completedCount} / 11</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-indigo-500 transition-all duration-1000"
-                    style={{ width: `${(completedCount / (respondents.filter(r => r.inviteSent).length || 1)) * 100}%` }}
+                    style={{ width: `${Math.min((completedCount / 11) * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest">Autosaved {lastSaved}</span>
+              {/* Simple Donut Chart Representation */}
+              <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-3 mb-4">
+                  <BarChart2 size={16} className="text-slate-400" />
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Respondent Mix Summary</span>
+                </div>
+                <div className="space-y-2">
+                  {ROLES.map(role => (
+                    <div key={role} className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-600 dark:text-white/60">{role}</span>
+                      <span className={`font-bold ${roleCounts[role] >= ROLE_MINIMUMS[role] ? 'text-teal-600' : 'text-slate-400'}`}>
+                        {roleCounts[role] || 0} (min {ROLE_MINIMUMS[role]})
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {!isLocked && (
+                <div className="flex items-center gap-2 pt-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300 dark:bg-white/20'}`}></div>
+                  <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-widest">Autosaved {lastSaved}</span>
+                </div>
+              )}
+
+              {isLocked && (
+                <div className="flex flex-col items-center gap-2 p-4 bg-green-50 rounded-2xl border border-green-100">
+                  <ShieldCheck className="text-green-500" size={24} />
+                  <p className="text-xs font-bold text-green-700 uppercase tracking-wider">Signed Off</p>
+                </div>
+              )}
             </div>
 
-            {!isClosed && (
+            {!isLocked && (
               <button 
                 onClick={bulkSend}
                 disabled={respondents.filter(r => r.name && r.email && !r.inviteSent).length === 0}
-                className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-xl bg-indigo-600 text-white text-xs font-black tracking-widest shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <Send size={16} /> SEND MSF
+                <Send size={16} /> BATCH SEND
+              </button>
+            )}
+
+            {isLocked && (
+              <button 
+                onClick={onBack}
+                className="w-full py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all"
+              >
+                Close View
               </button>
             )}
           </GlassCard>
 
-          <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex gap-3">
-            <AlertCircle className="text-amber-500 shrink-0" size={20} />
-            <p className="text-xs text-amber-700 leading-relaxed">
-              <b>Anonymity:</b> Trainees can see who has responded but cannot see individual scores linked to a name until the MSF is finalised and released by the supervisor.
+          <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex flex-col gap-4">
+            <div className="flex gap-3">
+              <AlertCircle className="text-amber-600 shrink-0" size={20} />
+              <p className="text-xs text-amber-900 font-bold uppercase tracking-tight">Guidance & Mix</p>
+            </div>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              The trainee identifies 11-15 people who can be approached to give feedback. The recommended combination of assessors, where applicable, should include:
             </p>
+            <ul className="text-[11px] text-amber-800 space-y-1.5 ml-1">
+              <li className="flex items-start gap-2">• <span>2 consultant clinical supervisors</span></li>
+              <li className="flex items-start gap-2">• <span>2 other trainees</span></li>
+              <li className="flex items-start gap-2">• <span>1 senior nurse in the operating theatre (if performing surgery)</span></li>
+              <li className="flex items-start gap-2">• <span>1 senior nurse in the out-patient department</span></li>
+              <li className="flex items-start gap-2">• <span>1 other member of the out-patient staff (nurse/optometrist/orthoptist)</span></li>
+              <li className="flex items-start gap-2">• <span>1 medical secretary who has been dealing with the trainee’s work</span></li>
+            </ul>
           </div>
         </div>
 
@@ -211,7 +300,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                   <tr className="bg-slate-50/50 dark:bg-white/[0.01]">
                     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/4">Name</th>
                     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/4">Email</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/6">Role</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/5">Role</th>
                     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/6">Status</th>
                     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 w-1/6 text-right">Actions</th>
                   </tr>
@@ -222,7 +311,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                       <td className="px-4 py-3">
                         <input 
                           type="text" 
-                          disabled={r.inviteSent || isClosed}
+                          disabled={r.inviteSent || isLocked}
                           value={r.name}
                           onChange={(e) => handleUpdateRespondent(r.id, 'name', e.target.value)}
                           placeholder="Full Name"
@@ -232,7 +321,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                       <td className="px-4 py-3">
                         <input 
                           type="email" 
-                          disabled={r.inviteSent || isClosed}
+                          disabled={r.inviteSent || isLocked}
                           value={r.email}
                           onChange={(e) => handleUpdateRespondent(r.id, 'email', e.target.value)}
                           placeholder="email@nhs.net"
@@ -241,10 +330,10 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                       </td>
                       <td className="px-4 py-3">
                         <select 
-                          disabled={r.inviteSent || isClosed}
+                          disabled={r.inviteSent || isLocked}
                           value={r.role}
                           onChange={(e) => handleUpdateRespondent(r.id, 'role', e.target.value)}
-                          className="bg-transparent text-xs text-slate-600 dark:text-white/60 outline-none"
+                          className="bg-transparent text-xs text-slate-600 dark:text-white/60 outline-none w-full truncate"
                         >
                           {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                         </select>
@@ -254,12 +343,12 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                           r.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                         }`}>
                           {r.status === 'Completed' ? <CheckCircle2 size={10} /> : <Clock size={10} />}
-                          {r.status}
+                          {r.status === 'Completed' ? 'Completed' : (r.inviteSent ? 'Awaiting' : 'Draft')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {!r.inviteSent && !isClosed ? (
+                          {!r.inviteSent && !isLocked ? (
                             <>
                               <button 
                                 onClick={() => sendInvite(r.id)}
@@ -279,7 +368,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                             </>
                           ) : (
                             <>
-                              {r.status === 'Awaiting response' && !isClosed && (
+                              {r.status === 'Awaiting response' && !isLocked && (
                                 <button 
                                   onClick={() => remindRespondent(r.id)}
                                   className="text-[10px] font-black tracking-widest text-indigo-600 hover:bg-indigo-500/10 px-2 py-1 rounded transition-all"
@@ -288,7 +377,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                                   REMIND
                                 </button>
                               )}
-                              {r.status === 'Awaiting response' && !isClosed && (
+                              {r.status === 'Awaiting response' && !isLocked && (
                                 <button 
                                   onClick={() => onViewResponse(r.id)}
                                   className="p-1.5 text-teal-600 hover:bg-teal-500/10 rounded-lg transition-colors"
@@ -298,7 +387,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                                 </button>
                               )}
                               {r.status === 'Completed' && (
-                                <span className="text-[10px] font-black tracking-widest text-slate-300">SENT</span>
+                                <span className="text-[10px] font-black tracking-widest text-slate-300 uppercase">Responded</span>
                               )}
                             </>
                           )}
@@ -310,7 +399,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
               </table>
             </div>
 
-            {!isClosed && respondents.length < 30 && (
+            {!isLocked && respondents.length < 30 && (
               <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.01]">
                 <button 
                   onClick={addRow}

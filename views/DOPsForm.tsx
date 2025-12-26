@@ -4,7 +4,7 @@ import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
-  FileText, Mail, ShieldCheck
+  FileText, Mail, ShieldCheck, Save
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { SPECIALTIES, INITIAL_PROFILE } from '../constants';
@@ -32,11 +32,13 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   const [activeSection, setActiveSection] = useState(0);
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
-  const isLocked = status === EvidenceStatus.Complete;
+  // Use EvidenceStatus.SignedOff instead of EvidenceStatus.Complete
+  const isLocked = status === EvidenceStatus.SignedOff;
 
   // Form State
   const [assessorName, setAssessorName] = useState(initialAssessorName);
@@ -91,6 +93,16 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
     return () => clearInterval(timer);
   }, [isLocked]);
 
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setShowSaveMessage(true);
+      setTimeout(() => setShowSaveMessage(false), 3000);
+    }, 600);
+  };
+
   const isSectionComplete = (idx: number) => {
     if (idx === 0) return caseDescription.length > 5 && assessorStatus && difficulty && prevAttempts && setting;
     if (idx === 1) return criteria.every((_, i) => grading[i]);
@@ -111,7 +123,8 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   };
 
   const handleSignOffConfirm = (gmc: string, signature: string) => {
-    setStatus(EvidenceStatus.Complete);
+    // Use EvidenceStatus.SignedOff instead of EvidenceStatus.Complete
+    setStatus(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
     alert(`DOPs Signed Off by ${assessorName} (GMC: ${gmc})`);
   };
@@ -145,7 +158,8 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
               <h2 className="text-sm font-semibold text-slate-900 dark:text-white">DOPs: {sia}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[10px] text-slate-500 dark:text-white/40 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
-                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                {/* Use EvidenceStatus.SignedOff instead of EvidenceStatus.Complete */}
+                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
                   {status}
                 </span>
               </div>
@@ -192,7 +206,8 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">DOPs Assessment</h2>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.Complete ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'}`}>
+            {/* Use EvidenceStatus.SignedOff instead of EvidenceStatus.Complete */}
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
               {status}
             </span>
           </div>
@@ -305,13 +320,27 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 flex justify-between items-center shadow-2xl lg:shadow-none">
-          <button disabled={activeSection === 0} onClick={() => setActiveSection(s => s - 1)} className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 transition-colors disabled:opacity-0"><ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span></button>
+          <div className="flex items-center gap-2">
+            <button disabled={activeSection === 0} onClick={() => setActiveSection(s => s - 1)} className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 transition-colors disabled:opacity-0"><ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span></button>
+            <div className="flex gap-1.5">{sections.map((_, i) => <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>)}</div>
+          </div>
           
-          <div className="flex gap-1.5">{sections.map((_, i) => <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>)}</div>
-          
-          <div className="flex gap-2 lg:gap-3">
-            {status !== EvidenceStatus.Complete && (
+          <div className="flex items-center gap-2 lg:gap-3">
+            {showSaveMessage && (
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-widest animate-in fade-in slide-in-from-right-2 duration-300">
+                Draft saved {lastSaved}
+              </span>
+            )}
+            
+            {!isLocked && (
               <>
+                <button 
+                  onClick={handleSaveDraft}
+                  className="px-3 lg:px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-xs lg:text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
+                >
+                  <Save size={16} /> <span className="hidden sm:inline">SAVE DRAFT</span>
+                </button>
+                
                 {status !== EvidenceStatus.Submitted && (
                   <button 
                     onClick={handleEmailForm}
@@ -322,9 +351,9 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
                 )}
                 <button 
                   onClick={() => setIsSignOffOpen(true)}
-                  className="px-4 lg:px-6 py-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 text-xs lg:text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-all flex items-center gap-2"
+                  className="px-3 lg:px-4 py-2 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
-                  <ShieldCheck size={16} /> <span>SIGN OFF</span>
+                  <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
                 </button>
               </>
             )}

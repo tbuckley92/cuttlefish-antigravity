@@ -33,10 +33,7 @@ export enum EvidenceType {
 export enum EvidenceStatus {
   Draft = 'Draft',
   Submitted = 'Submitted',
-  Complete = 'Complete',
-  SignedOff = 'Signed Off', // Deprecating in favor of PRD 'Complete'
-  Active = 'Active',
-  Closed = 'Closed'
+  SignedOff = 'Signed Off'
 }
 
 export interface UserProfile {
@@ -60,11 +57,19 @@ export interface SIA {
   supervisorEmail?: string;
 }
 
+export type MSFRole = 
+  | 'Consultant' 
+  | 'Trainee/Fellow' 
+  | 'Senior nurse, theatre' 
+  | 'Senior nurse, OPD' 
+  | 'Outpatient staff' 
+  | 'Medical secretary';
+
 export interface MSFRespondent {
   id: string;
   name: string;
   email: string;
-  role: 'Doctor' | 'Nurse' | 'AHP' | 'Non-clinical';
+  role: MSFRole;
   status: 'Awaiting response' | 'Completed';
   inviteSent: boolean;
   lastReminded?: string;
@@ -104,7 +109,7 @@ export interface EPAForm {
   level: number;
   date: string;
   supervisorId: string;
-  status: 'Draft' | 'Submitted';
+  status: EvidenceStatus;
   includeCurriculum: boolean;
   linkedEvidence: Record<string, string[]>; // reqIndex -> evidenceIds
   comments: Record<string, string>; // reqIndex -> commentText

@@ -5,10 +5,11 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
   Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2, 
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
-  FileText, X
+  FileText, X, ShieldCheck, Mail, Save
 } from '../components/Icons';
+import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, INITIAL_PROFILE } from '../constants';
-import { CurriculumRequirement, EvidenceItem } from '../types';
+import { CurriculumRequirement, EvidenceItem, EvidenceStatus } from '../types';
 
 interface GSATFormProps {
   initialLevel?: number;
@@ -45,7 +46,10 @@ const GSATForm: React.FC<GSATFormProps> = ({
   const [comments, setComments] = useState<Record<string, string>>({}); // "domain-idx" -> text
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
+  const [status, setStatus] = useState<EvidenceStatus>(EvidenceStatus.Draft);
+  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
   // Supervisor info is auto-filled from profile as per PRD
   const supervisorName = INITIAL_PROFILE.supervisorName;
@@ -58,8 +62,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
     r.specialty === currentDomain
   );
 
+  const isLocked = status === EvidenceStatus.SignedOff;
+
   // Autosave simulation
   useEffect(() => {
+    if (isLocked) return;
     const timer = setInterval(() => {
       setIsSaving(true);
       setTimeout(() => {
@@ -68,7 +75,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isLocked]);
 
   // Handle auto-scrolling to linked outcome on return
   useEffect(() => {
@@ -86,7 +93,30 @@ const GSATForm: React.FC<GSATFormProps> = ({
     }
   }, [autoScrollToIdx, activeSection]);
 
+  const handleSaveDraft = () => {
+    setIsSaving(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setShowSaveMessage(true);
+      setTimeout(() => setShowSaveMessage(false), 3000);
+    }, 600);
+  };
+
+  const handleEmailForm = () => {
+    setStatus(EvidenceStatus.Submitted);
+    alert(`GSAT Form emailed to ${supervisorName}`);
+    onSubmitted?.();
+  };
+
+  const handleSignOffConfirm = (gmc: string) => {
+    setStatus(EvidenceStatus.SignedOff);
+    setIsSignOffOpen(false);
+    alert(`GSAT Signed Off by ${supervisorName} (GMC: ${gmc})`);
+  };
+
   const handleCommentChange = (idx: number, text: string) => {
+    if (isLocked) return;
     setComments(prev => ({ ...prev, [`${currentDomain}-${idx}`]: text }));
   };
 
@@ -108,14 +138,21 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   const completeness = (domains.filter((_, i) => isSectionComplete(i)).length / domains.length * 100).toFixed(0);
 
-  const handleSubmitForSignOff = () => {
-    alert("GSAT submitted for supervisor sign-off.");
-    onSubmitted?.();
-  };
-
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
       
+      <SignOffDialog 
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "GSAT",
+          traineeName: INITIAL_PROFILE.name,
+          date: new Date().toLocaleDateString(),
+          supervisorName: supervisorName || "Supervisor"
+        }}
+      />
+
       {/* Mobile Metadata Summary */}
       <div className="lg:hidden mb-2">
         <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 mb-4">
@@ -128,7 +165,12 @@ const GSATForm: React.FC<GSATFormProps> = ({
           >
             <div>
               <h2 className="text-sm font-semibold text-slate-900">GSAT Assessment</h2>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Level {level} • {completeness}% Complete</p>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                  {status}
+                </span>
+              </div>
             </div>
             <div className={`transition-transform duration-300 ${isMetadataExpanded ? 'rotate-180' : ''}`}>
               <ChevronDown size={16} className="text-slate-400" />
@@ -139,6 +181,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
             <div className="pt-4 mt-3 border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Training Level">
                 <select 
+                  disabled={isLocked}
                   value={level} 
                   onChange={(e) => setLevel(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 outline-none"
@@ -147,7 +190,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 </select>
               </MetadataField>
               <MetadataField label="Date">
-                <input type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 outline-none" />
+                <input disabled={isLocked} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 outline-none" />
               </MetadataField>
               <MetadataField label="Educational Supervisor">
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
@@ -167,21 +210,27 @@ const GSATForm: React.FC<GSATFormProps> = ({
         </button>
 
         <GlassCard className="p-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">GSAT Sign-off</h2>
+          <div className="flex justify-between items-start mb-6">
+            <h2 className="text-xl font-semibold text-slate-900">GSAT Assessment</h2>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              {status}
+            </span>
+          </div>
           <div className="space-y-6">
             <MetadataField label="Training Level">
               <select 
+                disabled={isLocked}
                 value={level} 
                 onChange={(e) => setLevel(Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500/50 transition-colors"
               >
                 {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
               </select>
-              <p className="mt-2 text-[10px] text-slate-400 italic">Changing level reloads all outcomes below.</p>
+              {!isLocked && <p className="mt-2 text-[10px] text-slate-400 italic">Changing level reloads all outcomes below.</p>}
             </MetadataField>
 
             <MetadataField label="Assessment Date">
-              <input type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500/50" />
+              <input disabled={isLocked} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500/50" />
             </MetadataField>
 
             <MetadataField label="Educational Supervisor">
@@ -210,22 +259,22 @@ const GSATForm: React.FC<GSATFormProps> = ({
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest">Autosaved {lastSaved}</span>
+            {!isLocked && (
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-widest">Autosaved {lastSaved}</span>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="pt-4 flex flex-col gap-3">
-              <button 
-                onClick={handleSubmitForSignOff}
-                className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
-              >
-                Submit for Sign-off
-              </button>
-              <button className="w-full py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all">Save Draft</button>
-            </div>
+            {isLocked && (
+              <div className="pt-6 flex flex-col items-center gap-2 p-4 bg-green-50 border border-green-100 rounded-2xl">
+                <ShieldCheck className="text-green-500" size={24} />
+                <p className="text-xs font-bold text-green-700 uppercase tracking-wider">Signed Off</p>
+                <p className="text-[10px] text-green-600 text-center">Validated by ES: {supervisorName}</p>
+              </div>
+            )}
           </div>
         </GlassCard>
       </div>
@@ -263,7 +312,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 const linkedIds = linkedEvidenceData[reqKey] || [];
                 
                 return (
-                  <GlassCard key={idx} id={`gsat-outcome-${idx}`} className="p-6 transition-all duration-300">
+                  <GlassCard key={idx} id={`gsat-outcome-${idx}`} className={`p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
                     <div className="flex gap-4 items-start mb-6">
                       <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-indigo-600 border border-indigo-100">
                         {idx + 1}
@@ -275,10 +324,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
                       <div>
                         <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Trainee Reflection</label>
                         <textarea 
+                          disabled={isLocked}
                           value={comments[`${currentDomain}-${idx}`] || ''}
                           onChange={(e) => handleCommentChange(idx, e.target.value)}
                           placeholder="Provide evidence of your competence in this area..."
-                          className="w-full min-h-[100px] bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-indigo-500/40 transition-all resize-none"
+                          className={`w-full min-h-[100px] bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
                         />
                       </div>
 
@@ -291,21 +341,25 @@ const GSATForm: React.FC<GSATFormProps> = ({
                               <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600">
                                 <LinkIcon size={10} />
                                 <span className="max-w-[150px] truncate">{ev?.title || "Evidence Record"}</span>
-                                <button 
-                                  onClick={() => onRemoveLink(reqKey, evId)}
-                                  className="p-0.5 hover:bg-indigo-100 rounded-full transition-colors"
-                                >
-                                  <X size={10} />
-                                </button>
+                                {!isLocked && (
+                                  <button 
+                                    onClick={() => onRemoveLink(reqKey, evId)}
+                                    className="p-0.5 hover:bg-indigo-100 rounded-full transition-colors"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                )}
                               </div>
                             );
                           })}
-                          <button 
-                            onClick={() => onLinkRequested(idx, currentDomain, activeSection)} 
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
-                          >
-                            <Plus size={14} /> Link Record
-                          </button>
+                          {!isLocked && (
+                            <button 
+                              onClick={() => onLinkRequested(idx, currentDomain, activeSection)} 
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
+                            >
+                              <Plus size={14} /> Link Record
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -324,37 +378,71 @@ const GSATForm: React.FC<GSATFormProps> = ({
           </div>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 mt-0 lg:mt-6 flex justify-between items-center shadow-2xl lg:shadow-none">
-          <button 
-            disabled={activeSection === 0}
-            onClick={() => setActiveSection(s => s - 1)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-0"
-          >
-            <ChevronLeft size={18} /> Previous Domain
-          </button>
+        {/* Bottom Action Area */}
+        <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-8 flex flex-col gap-4 shadow-2xl lg:shadow-none">
+          
+          {/* Row 1: Domain Navigation */}
+          <div className="flex justify-between items-center w-full">
+            <button 
+              disabled={activeSection === 0}
+              onClick={() => setActiveSection(s => s - 1)}
+              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+            >
+              <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
+            </button>
+            
+            <div className="flex gap-1.5 items-center">
+              {domains.map((_, i) => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${activeSection === i ? 'bg-indigo-500 scale-125' : 'bg-slate-200 dark:bg-white/10'}`}></div>
+              ))}
+            </div>
 
-          <div className="flex gap-2">
-            {domains.map((_, i) => (
-              <div key={i} className={`w-2 h-2 rounded-full transition-all ${activeSection === i ? 'bg-indigo-500 scale-125' : 'bg-slate-200'}`}></div>
-            ))}
+            <button 
+              disabled={activeSection === domains.length - 1}
+              onClick={() => setActiveSection(s => s + 1)}
+              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+            >
+              <span className="hidden lg:inline">Next</span> <ChevronRight size={18} />
+            </button>
           </div>
 
-          {activeSection === domains.length - 1 ? (
-             <button 
-              onClick={handleSubmitForSignOff}
-              className="px-6 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20"
-             >
-                Finish & Submit
-             </button>
-          ) : (
-            <button 
-              onClick={() => setActiveSection(s => s + 1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-indigo-600 font-semibold hover:text-indigo-800 transition-colors"
-            >
-              Next Domain <ChevronRight size={18} />
-            </button>
-          )}
+          {/* Row 2: Form Actions */}
+          <div className="flex items-center justify-end gap-2 lg:gap-3">
+            {showSaveMessage && (
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-widest animate-in fade-in slide-in-from-right-2 duration-300 mr-auto">
+                Draft saved {lastSaved}
+              </span>
+            )}
+            
+            {!isLocked && (
+              <>
+                <button 
+                  onClick={handleSaveDraft}
+                  className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
+                >
+                  <Save size={16} /> <span>SAVE DRAFT</span>
+                </button>
+                
+                <button 
+                  onClick={handleEmailForm}
+                  className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                >
+                  <Mail size={16} /> <span>EMAIL FORM</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsSignOffOpen(true)}
+                  className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+                >
+                  <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
+                </button>
+              </>
+            )}
+
+            {isLocked && (
+              <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -363,7 +451,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
 const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div>
-    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5 block">{label}</label>
+    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1.5 block">{label}</label>
     {children}
   </div>
 );

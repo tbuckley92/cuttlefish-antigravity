@@ -115,7 +115,7 @@ const App: React.FC = () => {
     // Single activity rule check
     const existingActiveMSF = allEvidence.find(e => 
       e.type === EvidenceType.MSF && 
-      (e.status === EvidenceStatus.Draft || e.status === EvidenceStatus.Active)
+      (e.status === EvidenceStatus.Draft || e.status === EvidenceStatus.Submitted)
     );
 
     if (existingActiveMSF) {
@@ -134,7 +134,7 @@ const App: React.FC = () => {
           id: Math.random().toString(36).substr(2, 9),
           name: '',
           email: '',
-          role: 'Doctor',
+          role: 'Consultant',
           status: 'Awaiting response',
           inviteSent: false
         }))
