@@ -8,18 +8,20 @@ import DOPsForm from './views/DOPsForm';
 import OSATSForm from './views/OSATSForm';
 import CBDForm from './views/CBDForm';
 import CRSForm from './views/CRSForm';
+import Progress from './views/Progress';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
-import { LayoutDashboard, Database, Plus, FileText } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity } from './components/Icons';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus } from './types';
 
 enum View {
   Dashboard = 'dashboard',
   Evidence = 'evidence',
+  Progress = 'progress',
   EPAForm = 'epa-form',
   GSATForm = 'gsat-form',
   DOPsForm = 'dops-form',
@@ -278,6 +280,10 @@ const App: React.FC = () => {
             onEditEvidence={handleEditEvidence}
           />
         );
+      case View.Progress:
+        return (
+          <Progress allEvidence={allEvidence} />
+        );
       case View.AddEvidence:
         return (
           <AddEvidence 
@@ -415,6 +421,12 @@ const App: React.FC = () => {
                 onClick={() => setCurrentView(View.Evidence)} 
                 icon={<Database size={16} />} 
                 label="MY EVIDENCE" 
+              />
+              <NavTab 
+                active={currentView === View.Progress} 
+                onClick={() => setCurrentView(View.Progress)} 
+                icon={<Activity size={16} />} 
+                label="PROGRESS" 
               />
               <NavTab 
                 active={currentView === View.RecordForm || isFormViewActive} 
