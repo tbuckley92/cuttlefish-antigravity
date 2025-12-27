@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
   Clock, AlertCircle, FileText, BookOpen, Users, 
   ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
-  UploadCloud, Calendar, Save
+  UploadCloud, Calendar, Save, Eye
 } from '../components/Icons';
 import { EvidenceItem, EvidenceType, EvidenceStatus, SIA } from '../types';
 
@@ -26,14 +26,27 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
   const [formRDate, setFormRDate] = useState(new Date().toISOString().split('T')[0]);
   const [formRFileName, setFormRFileName] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [formRFileUrl, setFormRFileUrl] = useState('');
+  const formRFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dialog State for Eyelogbook
+  const [isLogbookDialogOpen, setIsLogbookDialogOpen] = useState(false);
+  const [logbookDate, setLogbookDate] = useState(new Date().toISOString().split('T')[0]);
+  const [logbookFileName, setLogbookFileName] = useState('');
+  const [logbookFileUrl, setLogbookFileUrl] = useState('');
+  const logbookFileInputRef = useRef<HTMLInputElement>(null);
 
   const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
-  // Find existing Form R item if any
+  // Find existing artifacts in allEvidence
   const existingFormR = useMemo(() => 
     allEvidence.find(e => e.title.toLowerCase().includes("form r")),
+    [allEvidence]
+  );
+
+  const existingLogbook = useMemo(() => 
+    allEvidence.find(e => e.type === EvidenceType.Logbook),
     [allEvidence]
   );
 
@@ -53,13 +66,16 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
     };
   }, [allEvidence]);
 
+  // Handlers for Form R
   const handleOpenFormR = () => {
     if (existingFormR) {
       setFormRDate(existingFormR.date);
       setFormRFileName(existingFormR.fileName || '');
+      setFormRFileUrl(existingFormR.fileUrl || '');
     } else {
       setFormRDate(new Date().toISOString().split('T')[0]);
       setFormRFileName('');
+      setFormRFileUrl('');
     }
     setIsFormRDialogOpen(true);
   };
@@ -75,20 +91,82 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       type: EvidenceType.Additional,
       date: formRDate,
       fileName: formRFileName,
+      fileUrl: formRFileUrl,
       fileType: 'application/pdf',
       status: EvidenceStatus.SignedOff
     });
     setIsFormRDialogOpen(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleViewPDF = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const url = formRFileUrl || existingFormR?.fileUrl;
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      const fileName = formRFileName || existingFormR?.fileName;
+      if (fileName) alert(`Opening document: ${fileName}\n(This file exists but no object URL was generated in this session)`);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'formr' | 'logbook') => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') {
         alert('Please upload a PDF file.');
         return;
       }
-      setFormRFileName(file.name);
+      const objectUrl = URL.createObjectURL(file);
+      if (type === 'formr') {
+        setFormRFileName(file.name);
+        setFormRFileUrl(objectUrl);
+      } else {
+        setLogbookFileName(file.name);
+        setLogbookFileUrl(objectUrl);
+      }
+    }
+  };
+
+  // Handlers for Logbook
+  const handleOpenLogbook = () => {
+    if (existingLogbook) {
+      setLogbookDate(existingLogbook.date);
+      setLogbookFileName(existingLogbook.fileName || '');
+      setLogbookFileUrl(existingLogbook.fileUrl || '');
+    } else {
+      setLogbookDate(new Date().toISOString().split('T')[0]);
+      setLogbookFileName('');
+      setLogbookFileUrl('');
+    }
+    setIsLogbookDialogOpen(true);
+  };
+
+  const handleLogbookSubmit = () => {
+    if (!logbookDate || !logbookFileName) {
+      alert("Please select a date and upload your logbook PDF.");
+      return;
+    }
+    onUpsertEvidence({
+      id: existingLogbook?.id,
+      title: "Eye Logbook Summary",
+      type: EvidenceType.Logbook,
+      date: logbookDate,
+      fileName: logbookFileName,
+      fileUrl: logbookFileUrl,
+      fileType: 'application/pdf',
+      status: EvidenceStatus.SignedOff
+    });
+    setIsLogbookDialogOpen(false);
+  };
+
+  const handleViewLogbookPDF = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const url = logbookFileUrl || existingLogbook?.fileUrl;
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      const fileName = logbookFileName || existingLogbook?.fileName;
+      if (fileName) alert(`Opening document: ${fileName}\n(This file exists but no object URL was generated in this session)`);
     }
   };
 
@@ -135,12 +213,17 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
           description="Self-declaration of professional practice." 
           status={artifactStatuses.formR}
           onClick={handleOpenFormR}
+          hasFile={!!(formRFileUrl || existingFormR?.fileUrl || formRFileName || existingFormR?.fileName)}
+          onView={handleViewPDF}
         />
         <ArtifactRow 
           icon={<ClipboardCheck className="text-teal-500" />} 
           title="Eyelogbook" 
           description="Full surgical logbook summary." 
           status={artifactStatuses.eyeLogbook}
+          onClick={handleOpenLogbook}
+          hasFile={!!(logbookFileUrl || existingLogbook?.fileUrl || logbookFileName || existingLogbook?.fileName)}
+          onView={handleViewLogbookPDF}
         />
         <ArtifactRow 
           icon={<Activity className="text-indigo-500" />} 
@@ -151,8 +234,6 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       </div>
     </div>
   );
-
-  // ... (rest of render parts 2-5 unchanged)
 
   const renderPart2 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -294,12 +375,22 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                 </div>
 
                 <div>
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Document Upload (PDF)</label>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Document Upload (PDF)</label>
+                    {(formRFileUrl || existingFormR?.fileUrl) && (
+                      <button 
+                        onClick={() => handleViewPDF()}
+                        className="flex items-center gap-1.5 text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition-colors"
+                      >
+                        <Eye size={12} /> View Current
+                      </button>
+                    )}
+                  </div>
                   <div 
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => formRFileInputRef.current?.click()}
                     className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${formRFileName ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-50/20'}`}
                   >
-                    <input type="file" ref={fileInputRef} accept=".pdf" onChange={handleFileChange} className="hidden" />
+                    <input type="file" ref={formRFileInputRef} accept=".pdf" onChange={(e) => handleFileChange(e, 'formr')} className="hidden" />
                     {formRFileName ? (
                       <div className="text-center animate-in zoom-in-95">
                         <CheckCircle2 size={32} className="text-indigo-600 mx-auto mb-2" />
@@ -335,6 +426,87 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
         </div>
       )}
 
+      {/* Eyelogbook Dialog */}
+      {isLogbookDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
+            <GlassCard className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Eyelogbook</h2>
+                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Surgical Logbook Summary</p>
+                </div>
+                <button onClick={() => setIsLogbookDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-8">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Extraction Date</label>
+                  <div className="relative">
+                    <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500" />
+                    <input 
+                      type="date" 
+                      value={logbookDate}
+                      onChange={(e) => setLogbookDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-teal-500/50 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Logbook PDF Export</label>
+                    {(logbookFileUrl || existingLogbook?.fileUrl) && (
+                      <button 
+                        onClick={() => handleViewLogbookPDF()}
+                        className="flex items-center gap-1.5 text-[10px] font-black uppercase text-teal-600 hover:text-teal-700 transition-colors"
+                      >
+                        <Eye size={12} /> View Current
+                      </button>
+                    )}
+                  </div>
+                  <div 
+                    onClick={() => logbookFileInputRef.current?.click()}
+                    className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${logbookFileName ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-500/10' : 'border-slate-200 dark:border-white/10 hover:border-teal-500/50 hover:bg-teal-50/20'}`}
+                  >
+                    <input type="file" ref={logbookFileInputRef} accept=".pdf" onChange={(e) => handleFileChange(e, 'logbook')} className="hidden" />
+                    {logbookFileName ? (
+                      <div className="text-center animate-in zoom-in-95">
+                        <CheckCircle2 size={32} className="text-teal-600 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{logbookFileName}</p>
+                        <p className="text-[10px] text-teal-500 font-bold mt-1">CLICK TO REPLACE</p>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Click or drag to upload</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col gap-3">
+                  <button 
+                    onClick={handleLogbookSubmit}
+                    className="w-full py-4 rounded-2xl bg-teal-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-600/30 hover:bg-teal-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Save size={18} /> {existingLogbook ? 'Update Eyelogbook' : 'Submit Eyelogbook'}
+                  </button>
+                  <button 
+                    onClick={() => setIsLogbookDialogOpen(false)}
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-12">
         <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
           <X size={24} />
@@ -349,7 +521,34 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       <div className="min-h-[500px]">
         {renderProgress()}
         
-        <div className="mt-12 overflow-hidden">
+        {/* Compact Navigation Bar relocated to here */}
+        <div className="flex justify-between items-center mb-12 -mt-4">
+          <button 
+            onClick={prevStep}
+            disabled={step === 1}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-0"
+          >
+            <ChevronLeft size={16} /> Previous
+          </button>
+          
+          {step < totalSteps ? (
+            <button 
+              onClick={nextStep}
+              className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all uppercase tracking-widest"
+            >
+              Next Part <ChevronRight size={16} />
+            </button>
+          ) : (
+            <button 
+              onClick={onBack}
+              className="px-8 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xl hover:bg-black transition-all uppercase tracking-widest"
+            >
+              Finish Review
+            </button>
+          )}
+        </div>
+        
+        <div className="overflow-hidden">
           {step === 1 && renderPart1()}
           {step === 2 && renderPart2()}
           {step === 3 && renderPart3()}
@@ -357,37 +556,11 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
           {step === 5 && renderPart5()}
         </div>
       </div>
-
-      <div className="mt-16 flex justify-between items-center pt-8 border-t border-slate-100 dark:border-white/5">
-        <button 
-          onClick={prevStep}
-          disabled={step === 1}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
-        >
-          <ChevronLeft size={18} /> Previous
-        </button>
-        
-        {step < totalSteps ? (
-          <button 
-            onClick={nextStep}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all"
-          >
-            Next <ChevronRight size={18} />
-          </button>
-        ) : (
-          <button 
-            onClick={onBack}
-            className="px-10 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-xl hover:bg-black transition-all"
-          >
-            Done
-          </button>
-        )}
-      </div>
     </div>
   );
 };
 
-const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, onClick?: () => void }> = ({ icon, title, description, status = "Action Required", onClick }) => {
+const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, hasFile?: boolean, onClick?: () => void, onView?: (e: React.MouseEvent) => void }> = ({ icon, title, description, status = "Action Required", hasFile = false, onClick, onView }) => {
   const isComplete = status === "COMPLETE" || status === "Completed";
   const isPending = status === "Pending";
 
@@ -411,10 +584,30 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
           {status}
         </span>
         <div className="flex justify-end mt-2">
-          {isComplete ? (
-            <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Edit Form</div>
-          ) : (
-            <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+          {/* Always show View/Edit on hover if a file or completion state exists */}
+          <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            {hasFile && onView && (
+              <button 
+                onClick={onView}
+                className="flex items-center gap-1 text-[10px] text-teal-600 font-black uppercase tracking-tight hover:text-teal-700"
+              >
+                <Eye size={12} /> View
+              </button>
+            )}
+            {!isPending && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+                className="flex items-center gap-1 text-[10px] text-indigo-500 font-black uppercase tracking-tight"
+              >
+                Edit
+              </button>
+            )}
+            {isPending && <ChevronRight size={14} className="text-slate-300" />}
+          </div>
+          {!isComplete && !hasFile && !isPending && (
+            <div className="group-hover:hidden">
+              <ChevronRight size={14} className="text-slate-300 transition-transform" />
+            </div>
           )}
         </div>
       </div>

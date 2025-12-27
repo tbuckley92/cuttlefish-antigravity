@@ -51,6 +51,7 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
   const [selectedLevel, setSelectedLevel] = useState(editingEvidence?.level?.toString() || level?.toString() || '1');
   const [notes, setNotes] = useState(editingEvidence?.notes || '');
   const [fileName, setFileName] = useState(editingEvidence?.fileName || '');
+  const [fileUrl, setFileUrl] = useState(editingEvidence?.fileUrl || '');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,11 +61,14 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
         return;
       }
       setFileName(file.name);
+      const objectUrl = URL.createObjectURL(file);
+      setFileUrl(objectUrl);
     }
   };
 
   const removeFile = () => {
     setFileName('');
+    setFileUrl('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -80,6 +84,7 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
       type: typeLabel || EvidenceType.Other,
       notes,
       fileName: fileName || undefined,
+      fileUrl: fileUrl || undefined,
       fileType: fileName ? 'application/pdf' : undefined,
       status: final ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
     });

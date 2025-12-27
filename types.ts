@@ -95,6 +95,7 @@ export interface EvidenceItem {
   notes?: string;
   fileName?: string;
   fileType?: string;
+  fileUrl?: string;
   // MSF specific
   msfRespondents?: MSFRespondent[];
   // Dynamic fields for specific types
