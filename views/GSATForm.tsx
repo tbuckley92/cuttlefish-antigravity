@@ -80,7 +80,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
       level: level,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: `GSAT Assessment covering multiple domains. Overall completeness: ${completeness}%`
+      notes: `GSAT Assessment covering multiple domains. Overall completeness: ${completeness}%`,
+      gsatFormData: {
+        comments,
+        linkedEvidence: linkedEvidenceData || {}
+      }
     });
   };
 

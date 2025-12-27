@@ -43,6 +43,7 @@ export interface PDPGoal {
   actions: string;
   targetDate: string;
   successCriteria: string;
+  status?: 'IN PROGRESS' | 'COMPLETE';
 }
 
 export interface UserProfile {
@@ -106,6 +107,59 @@ export interface EvidenceItem {
   hours?: string;
   procedureType?: string;
   role?: string;
+  // Form-specific data for PDF generation
+  epaFormData?: {
+    comments: Record<string, string>;
+    grading: Record<string, string>;
+    entrustment: string;
+    supervisorName: string;
+    supervisorEmail: string;
+    linkedEvidence: Record<string, string[]>;
+  };
+  gsatFormData?: {
+    comments: Record<string, string>;
+    linkedEvidence: Record<string, string[]>;
+  };
+  dopsFormData?: {
+    caseDescription: string;
+    assessorName: string;
+    assessorEmail: string;
+    assessorStatus: string;
+    difficulty: string;
+    prevAttempts: string;
+    setting: string;
+    grading: Record<number, string>;
+    overallAssessment: string;
+    strengths: string;
+    improvements: string;
+  };
+  osatsFormData?: {
+    operationDetails: string;
+    assessorName: string;
+    assessorEmail: string;
+    assessorStatus: string;
+    difficulty: string;
+    procedureCount: string;
+    setting: string;
+    grading: Record<number, string>;
+    overallAssessment: string;
+    strengths: string;
+    improvements: string;
+  };
+  cbdFormData?: {
+    clinicalScenario: string;
+    assessorName: string;
+    assessorEmail: string;
+    diagnosis: string;
+    difficulty: string;
+    overallAssessment: string;
+  };
+  crsFormData?: {
+    crsType: string;
+    caseDescription: string;
+    assessorName: string;
+    assessorEmail: string;
+  };
 }
 
 export interface CurriculumRequirement {

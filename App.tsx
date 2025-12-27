@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
@@ -17,7 +17,7 @@ import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity } from './components/Icons';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus } from './types';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile } from './types';
 
 enum View {
   Dashboard = 'dashboard',
@@ -60,6 +60,24 @@ const App: React.FC = () => {
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
   
+  // Profile state with localStorage persistence
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    const savedProfile = localStorage.getItem('ophthaPortfolio_profile');
+    if (savedProfile) {
+      try {
+        return JSON.parse(savedProfile);
+      } catch {
+        return INITIAL_PROFILE;
+      }
+    }
+    return INITIAL_PROFILE;
+  });
+
+  // Persist profile to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('ophthaPortfolio_profile', JSON.stringify(profile));
+  }, [profile]);
+
   // Selection mode for linking evidence
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [linkingReqIdx, setLinkingReqIdx] = useState<string | null>(null); 
@@ -70,6 +88,20 @@ const App: React.FC = () => {
 
   // Respondent simulation state
   const [activeRespondentId, setActiveRespondentId] = useState<string | null>(null);
+
+  // Helper function to find existing evidence by type, level, and optionally sia
+  const findExistingEvidence = (type: EvidenceType, level: number, sia?: string): EvidenceItem | undefined => {
+    return allEvidence.find(e => {
+      if (e.type !== type || e.level !== level) return false;
+      // For GSAT, don't check sia (it's not applicable)
+      if (type === EvidenceType.GSAT) return true;
+      // For other types, match sia if provided
+      if (sia !== undefined) {
+        return e.sia === sia;
+      }
+      return true;
+    });
+  };
 
   const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
     setAllEvidence(prev => {
@@ -92,27 +124,67 @@ const App: React.FC = () => {
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
     setReturnTarget(null);
-    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    // Find existing EPA for this SIA and level
+    const existing = findExistingEvidence(EvidenceType.EPA, level, sia);
+    setSelectedFormParams({ 
+      sia, 
+      level, 
+      supervisorName, 
+      supervisorEmail,
+      id: existing?.id 
+    });
     setCurrentView(View.EPAForm);
   };
 
   const handleNavigateToDOPs = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    // Find existing DOPs for this SIA and level
+    const existing = findExistingEvidence(EvidenceType.DOPs, level, sia);
+    setSelectedFormParams({ 
+      sia, 
+      level, 
+      supervisorName, 
+      supervisorEmail,
+      id: existing?.id 
+    });
     setCurrentView(View.DOPsForm);
   };
 
   const handleNavigateToOSATS = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    // Find existing OSATs for this SIA and level
+    const existing = findExistingEvidence(EvidenceType.OSATs, level, sia);
+    setSelectedFormParams({ 
+      sia, 
+      level, 
+      supervisorName, 
+      supervisorEmail,
+      id: existing?.id 
+    });
     setCurrentView(View.OSATSForm);
   };
 
   const handleNavigateToCBD = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    // Find existing CbD for this SIA and level
+    const existing = findExistingEvidence(EvidenceType.CbD, level, sia);
+    setSelectedFormParams({ 
+      sia, 
+      level, 
+      supervisorName, 
+      supervisorEmail,
+      id: existing?.id 
+    });
     setCurrentView(View.CBDForm);
   };
 
   const handleNavigateToCRS = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    setSelectedFormParams({ sia, level, supervisorName, supervisorEmail });
+    // Find existing CRS for this SIA and level
+    const existing = findExistingEvidence(EvidenceType.CRS, level, sia);
+    setSelectedFormParams({ 
+      sia, 
+      level, 
+      supervisorName, 
+      supervisorEmail,
+      id: existing?.id 
+    });
     setCurrentView(View.CRSForm);
   };
 
@@ -273,6 +345,10 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleDeleteEvidence = (id: string) => {
+    setAllEvidence(prev => prev.filter(e => e.id !== id));
+  };
+
   const handleFormSubmitted = () => {
     setCurrentView(View.Evidence);
   };
@@ -284,6 +360,8 @@ const App: React.FC = () => {
           <Dashboard 
             sias={sias} 
             allEvidence={allEvidence}
+            profile={profile}
+            onUpdateProfile={setProfile}
             onRemoveSIA={handleRemoveSIA} 
             onUpdateSIA={handleUpdateSIA} 
             onAddSIA={handleAddSIA} 
@@ -297,7 +375,13 @@ const App: React.FC = () => {
             onNavigateToAddEvidence={handleNavigateToAddEvidence}
             onNavigateToGSAT={() => {
               setReturnTarget(null);
-              setSelectedFormParams(null);
+              // Find existing GSAT for level 1 (default)
+              const existing = findExistingEvidence(EvidenceType.GSAT, 1);
+              setSelectedFormParams({ 
+                sia: '', 
+                level: 1, 
+                id: existing?.id 
+              });
               setCurrentView(View.GSATForm);
             }}
             onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)}
@@ -307,10 +391,12 @@ const App: React.FC = () => {
         return (
           <MyEvidence 
             allEvidence={allEvidence}
+            profile={profile}
             selectionMode={isSelectionMode} 
             onConfirmSelection={handleConfirmSelection} 
             onCancel={handleCancelSelection}
             onEditEvidence={handleEditEvidence}
+            onDeleteEvidence={handleDeleteEvidence}
           />
         );
       case View.Progress:
@@ -374,7 +460,13 @@ const App: React.FC = () => {
           setReturnTarget(null);
           if (type === 'EPA') setCurrentView(View.EPAForm);
           else if (type === 'GSAT') {
-            setSelectedFormParams(null);
+            // Find existing GSAT for level 1 (default)
+            const existing = findExistingEvidence(EvidenceType.GSAT, 1);
+            setSelectedFormParams({ 
+              sia: '', 
+              level: 1, 
+              id: existing?.id 
+            });
             setCurrentView(View.GSATForm);
           }
           else if (type === 'DOPs') setCurrentView(View.DOPsForm);
@@ -431,7 +523,8 @@ const App: React.FC = () => {
         return (
           <ARCPPrep 
             sias={sias} 
-            allEvidence={allEvidence} 
+            allEvidence={allEvidence}
+            profile={profile}
             onBack={() => setCurrentView(View.Dashboard)}
             onNavigateGSAT={() => setCurrentView(View.GSATForm)}
             onNavigateMSF={handleNavigateToMSF}
@@ -439,7 +532,17 @@ const App: React.FC = () => {
           />
         );
       default:
-        return <Dashboard sias={sias} allEvidence={allEvidence} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)} />;
+        return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
+          setReturnTarget(null);
+          // Find existing GSAT for level 1 (default)
+          const existing = findExistingEvidence(EvidenceType.GSAT, 1);
+          setSelectedFormParams({ 
+            sia: '', 
+            level: 1, 
+            id: existing?.id 
+          });
+          setCurrentView(View.GSATForm);
+        }} onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)} />;
     }
   };
 

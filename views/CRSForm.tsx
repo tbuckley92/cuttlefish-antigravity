@@ -56,7 +56,13 @@ const CRSForm: React.FC<CRSFormProps> = ({
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: caseDescription
+      notes: caseDescription,
+      crsFormData: {
+        crsType: selectedCrsType,
+        caseDescription,
+        assessorName,
+        assessorEmail
+      }
     });
   };
 

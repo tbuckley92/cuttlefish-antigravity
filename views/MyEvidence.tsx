@@ -3,31 +3,40 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   Filter, Search, FileText, CheckCircle2, Clock, 
-  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink
+  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X
 } from '../components/Icons';
 import { SPECIALTIES } from '../constants';
-import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
+import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
+import { generateEvidencePDF } from '../utils/pdfGenerator';
+import { createEvidenceZip } from '../utils/zipGenerator';
 
 interface MyEvidenceProps {
   allEvidence: EvidenceItem[];
+  profile: UserProfile;
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
   onEditEvidence?: (item: EvidenceItem) => void;
+  onDeleteEvidence?: (id: string) => void;
   maxSelection?: number;
 }
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({ 
   allEvidence,
+  profile,
   selectionMode = false, 
   onConfirmSelection, 
   onCancel,
   onEditEvidence,
+  onDeleteEvidence,
   maxSelection = 5 
 }) => {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const filteredEvidence = useMemo(() => {
     return allEvidence.filter(item => {
@@ -49,6 +58,115 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       }
     }
   };
+
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeleteConfirmId(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirmId) {
+      onDeleteEvidence?.(deleteConfirmId);
+      setDeleteConfirmId(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmId(null);
+  };
+
+  const handlePDFClick = async (e: React.MouseEvent, item: EvidenceItem) => {
+    e.stopPropagation();
+    try {
+      const blob = generateEvidencePDF(item, profile);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const sanitizedTitle = item.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      link.download = `${item.type}_${sanitizedTitle}_${item.date}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Error generating PDF. Please try again.');
+      console.error('PDF generation error:', error);
+    }
+  };
+
+  const handleExportSelected = async () => {
+    if (selectedForExport.length === 0) {
+      alert('Please select at least one COMPLETE evidence item to export.');
+      return;
+    }
+
+    const selectedItems = filteredEvidence.filter(item => 
+      selectedForExport.includes(item.id) && item.status === EvidenceStatus.SignedOff
+    );
+
+    if (selectedItems.length === 0) {
+      alert('No valid COMPLETE items selected for export.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const zipBlob = await createEvidenceZip(selectedItems, profile);
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Evidence_Portfolio_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Error creating ZIP file. Please try again.');
+      console.error('ZIP generation error:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedForExport(prev => 
+      prev.includes(id) 
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAllComplete = () => {
+    const completeItems = filteredEvidence.filter(item => item.status === EvidenceStatus.SignedOff);
+    const completeIds = completeItems.map(item => item.id);
+    
+    // If all complete items are selected, deselect all. Otherwise, select all.
+    const allSelected = completeIds.every(id => selectedForExport.includes(id));
+    
+    if (allSelected) {
+      setSelectedForExport(prev => prev.filter(id => !completeIds.includes(id)));
+    } else {
+      setSelectedForExport(prev => {
+        const newSelection = [...prev];
+        completeIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  const completeCount = useMemo(() => {
+    return filteredEvidence.filter(item => item.status === EvidenceStatus.SignedOff).length;
+  }, [filteredEvidence]);
+
+  const selectedCompleteCount = useMemo(() => {
+    return filteredEvidence.filter(item => 
+      item.status === EvidenceStatus.SignedOff && selectedForExport.includes(item.id)
+    ).length;
+  }, [filteredEvidence, selectedForExport]);
 
   return (
     <div className={`max-w-7xl mx-auto p-6 flex flex-col gap-6 animate-in fade-in duration-300 ${selectionMode ? 'mt-12' : ''}`}>
@@ -81,6 +199,29 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">My Evidence</h1>
           <p className="text-sm text-slate-500 dark:text-white/40">Overview of all your workplace-based assessments and reflections</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {completeCount > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedCompleteCount === completeCount && completeCount > 0}
+                onChange={handleSelectAllComplete}
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-slate-600 dark:text-white/60 font-medium">
+                Select All COMPLETE ({completeCount})
+              </span>
+            </label>
+          )}
+          <button
+            onClick={handleExportSelected}
+            disabled={selectedForExport.length === 0 || isExporting}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={16} />
+            {isExporting ? 'Exporting...' : `EXPORT (${selectedForExport.length})`}
+          </button>
         </div>
       </div>
 
@@ -126,6 +267,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">Level</th>
               <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-32">Date</th>
               <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-32">Status</th>
+              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">Actions</th>
+              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">SELECT</th>
               {selectionMode && <th className="px-6 py-4 w-12"></th>}
             </tr>
           </thead>
@@ -179,6 +322,46 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                       {item.status}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-center gap-2">
+                      {item.status === EvidenceStatus.SignedOff && (
+                        <button
+                          onClick={(e) => handlePDFClick(e, item)}
+                          className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                          title="Download PDF"
+                        >
+                          <FileDown size={16} />
+                        </button>
+                      )}
+                      {item.status === EvidenceStatus.Draft && onDeleteEvidence && (
+                        <button
+                          onClick={(e) => handleDeleteClick(e, item.id)}
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-center">
+                      {item.status === EvidenceStatus.SignedOff ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedForExport.includes(item.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelect(item.id);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      ) : (
+                        <span className="text-slate-300 dark:text-white/20">–</span>
+                      )}
+                    </div>
+                  </td>
                   {selectionMode && (
                     <td className="px-6 py-4">
                       <div className={`
@@ -205,6 +388,45 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md animate-in zoom-in-95 duration-300">
+            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Delete Evidence</h2>
+                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-widest font-black">Confirm Deletion</p>
+                </div>
+                <button onClick={handleDeleteCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Are you sure you want to delete this evidence item? This action cannot be undone.
+                </p>
+                <div className="pt-4 flex flex-col gap-3">
+                  <button 
+                    onClick={handleDeleteConfirm}
+                    className="w-full py-4 rounded-2xl bg-rose-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-rose-600/30 hover:bg-rose-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={18} /> Delete Evidence
+                  </button>
+                  <button 
+                    onClick={handleDeleteCancel}
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

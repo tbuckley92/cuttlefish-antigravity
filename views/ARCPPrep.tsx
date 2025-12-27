@@ -7,18 +7,19 @@ import {
   ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
   UploadCloud, Calendar, Save, Eye
 } from '../components/Icons';
-import { EvidenceItem, EvidenceType, EvidenceStatus, SIA } from '../types';
+import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile } from '../types';
 
 interface ARCPPrepProps {
   sias: SIA[];
   allEvidence: EvidenceItem[];
+  profile: UserProfile;
   onBack: () => void;
   onNavigateGSAT: () => void;
   onNavigateMSF: () => void;
   onUpsertEvidence: (item: Partial<EvidenceItem>) => void;
 }
 
-const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNavigateGSAT, onNavigateMSF, onUpsertEvidence }) => {
+const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack, onNavigateGSAT, onNavigateMSF, onUpsertEvidence }) => {
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
@@ -45,6 +46,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   const [logbookFileName, setLogbookFileName] = useState('');
   const [logbookFileUrl, setLogbookFileUrl] = useState('');
   const logbookFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dialog State for PDP
+  const [isPDPDialogOpen, setIsPDPDialogOpen] = useState(false);
 
   const saveStatus = (status: EvidenceStatus = EvidenceStatus.Draft) => {
     setIsSaving(true);
@@ -103,12 +107,15 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       );
     };
 
+    // Check if PDP goals exist in profile
+    const hasPDPGoals = profile.pdpGoals && profile.pdpGoals.length > 0;
+
     return {
       formR: isComplete(undefined, "Form R") ? "COMPLETE" : "Action Required",
       eyeLogbook: isComplete(EvidenceType.Logbook) ? "COMPLETE" : "Action Required",
-      pdp: "Pending" // PDP is listed as integration coming soon in PRD
+      pdp: hasPDPGoals ? "COMPLETE" : "Pending"
     };
-  }, [allEvidence]);
+  }, [allEvidence, profile.pdpGoals]);
 
   // Handlers for Form R
   const handleOpenFormR = () => {
@@ -214,12 +221,22 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
     }
   };
 
+  // Handler for PDP dialog
+  const handleOpenPDP = () => {
+    const hasPDPGoals = profile.pdpGoals && profile.pdpGoals.length > 0;
+    if (hasPDPGoals) {
+      setIsPDPDialogOpen(true);
+    }
+  };
+
   // Step 3: GSAT Status
   const gsatStatus = useMemo(() => {
     const gsatRecords = allEvidence.filter(e => e.type === EvidenceType.GSAT);
-    if (gsatRecords.length === 0) return 'Not started';
-    if (gsatRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'Completed';
-    return 'In progress';
+    if (gsatRecords.length === 0) return 'Not yet started';
+    if (gsatRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'COMPLETE';
+    if (gsatRecords.some(e => e.status === EvidenceStatus.Submitted)) return 'Submitted';
+    if (gsatRecords.some(e => e.status === EvidenceStatus.Draft)) return 'Draft';
+    return 'Not yet started';
   }, [allEvidence]);
 
   // Step 4: MSF Status
@@ -278,7 +295,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
           icon={<Activity className="text-indigo-500" />} 
           title="PDP" 
           description="Personal Development Plan integration (Coming Soon)." 
-          status={artifactStatuses.pdp} 
+          status={artifactStatuses.pdp}
+          onClick={handleOpenPDP}
+          isPDP={true}
         />
       </div>
     </div>
@@ -292,35 +311,52 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       </div>
       <div className="grid gap-4">
         {sias.length > 0 ? sias.map(sia => {
+          // Calculate completion status for this SIA entry - matching Dashboard logic exactly
           const matchingEpas = allEvidence.filter(e => 
             e.type === EvidenceType.EPA && 
             e.level === sia.level && 
             (sia.level <= 2 ? true : e.sia === sia.specialty)
           );
 
-          let currentStatus: EvidenceStatus | 'Not Started' = 'Not Started';
+          let currentStatus: EvidenceStatus | 'Not Yet Started' = 'Not Yet Started';
           if (matchingEpas.some(e => e.status === EvidenceStatus.SignedOff)) currentStatus = EvidenceStatus.SignedOff;
           else if (matchingEpas.some(e => e.status === EvidenceStatus.Submitted)) currentStatus = EvidenceStatus.Submitted;
           else if (matchingEpas.some(e => e.status === EvidenceStatus.Draft)) currentStatus = EvidenceStatus.Draft;
 
           return (
-            <div key={sia.id} className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">{sia.specialty}</p>
-                <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Level {sia.level}</p>
-              </div>
-              <div className="flex gap-2">
+            <div key={sia.id} className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{sia.specialty}</p>
+                  <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Level {sia.level}</p>
+                </div>
                 <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
-                {currentStatus !== 'Not Started' && (
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5
-                    ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' : 
-                      currentStatus === EvidenceStatus.Submitted ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' : 
-                      'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}
-                  `}>
-                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : currentStatus === EvidenceStatus.Submitted ? <Clock size={10} /> : <FileText size={10} />}
+              </div>
+              
+              {/* Status section matching Dashboard display */}
+              <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
+                  <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
+                    currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                    currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
+                    currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                    'text-slate-300'
+                  }`}>
+                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
+                     currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
+                     currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
                     {currentStatus}
                   </span>
-                )}
+                </div>
+                <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                  <div className={`h-full transition-all duration-700 ${
+                    currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                    currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
+                    currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                    'bg-slate-200 w-0'
+                  }`}></div>
+                </div>
               </div>
             </div>
           );
@@ -334,24 +370,69 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
     </div>
   );
 
-  const renderPart3 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">GSAT Matrix</h2>
-        <p className="text-sm text-slate-500 mt-1">Generic Skills Assessment Tool status.</p>
-      </div>
-      <GlassCard className="p-8 flex flex-col items-center text-center">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${gsatStatus === 'Completed' ? 'bg-green-100 text-green-600' : gsatStatus === 'In progress' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-          <BookOpen size={32} />
+  const renderPart3 = () => {
+    // Map GSAT status to EvidenceStatus-like format for consistent styling
+    const getStatusDisplay = (status: string): EvidenceStatus | 'Not Yet Started' => {
+      switch (status) {
+        case 'COMPLETE':
+          return EvidenceStatus.SignedOff;
+        case 'Submitted':
+          return EvidenceStatus.Submitted;
+        case 'Draft':
+          return EvidenceStatus.Draft;
+        default:
+          return 'Not Yet Started';
+      }
+    };
+
+    const currentStatus = getStatusDisplay(gsatStatus);
+
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">GSAT Matrix</h2>
+          <p className="text-sm text-slate-500 mt-1">Generic Skills Assessment Tool status.</p>
         </div>
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">{gsatStatus}</h3>
-        <p className="text-sm text-slate-500 mt-2 max-w-xs">Ensure all 6 non-patient management domains are evidenced for your current level.</p>
-        <button onClick={onNavigateGSAT} className="mt-8 px-6 py-3 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2">
-          {gsatStatus === 'Not started' ? 'Start GSAT' : 'Update GSAT'} <ChevronRight size={14} />
-        </button>
-      </GlassCard>
-    </div>
-  );
+        <div className="grid gap-4">
+          <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">GSAT Matrix</p>
+                <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Generic Skills Assessment Tool</p>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
+            </div>
+            
+            {/* Status section matching EPA/SIA display */}
+            <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
+                <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
+                  currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                  currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
+                  currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                  'text-slate-300'
+                }`}>
+                  {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
+                   currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
+                   currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                  {gsatStatus}
+                </span>
+              </div>
+              <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                <div className={`h-full transition-all duration-700 ${
+                  currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                  currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
+                  currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                  'bg-slate-200 w-0'
+                }`}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderPart4 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -469,6 +550,93 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                     Cancel
                   </button>
                 </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
+
+      {/* PDP Dialog */}
+      {isPDPDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl animate-in zoom-in-95 duration-300">
+            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem] max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Personal Development Plan</h2>
+                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">PDP Goals</p>
+                </div>
+                <button onClick={() => setIsPDPDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                {profile.pdpGoals && profile.pdpGoals.length > 0 ? (
+                  profile.pdpGoals.map((goal, idx) => (
+                    <div key={goal.id} className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Goal {idx + 1}</h3>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Brief title</label>
+                          <p className="text-sm font-medium text-slate-900 dark:text-white">{goal.title || 'Untitled Goal'}</p>
+                        </div>
+                        
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Agreed action(s) or goal(s)</label>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{goal.actions || '–'}</p>
+                        </div>
+
+                        {goal.targetDate && (
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Target date</label>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(goal.targetDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Trainee appraisal of progress toward PDP goal</label>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{goal.successCriteria || '–'}</p>
+                        </div>
+
+                        {goal.targetDate && (
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Target date</label>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(goal.targetDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Status</label>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                            goal.status === 'COMPLETE'
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                          }`}>
+                            {goal.status || 'IN PROGRESS'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl flex flex-col items-center text-center">
+                    <AlertCircle size={32} className="text-slate-300 mb-3" />
+                    <p className="text-sm text-slate-500 font-medium">No PDP goals found.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-slate-200 dark:border-white/10">
+                <button 
+                  onClick={() => setIsPDPDialogOpen(false)}
+                  className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Close
+                </button>
               </div>
             </GlassCard>
           </div>
@@ -617,14 +785,17 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   );
 };
 
-const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, hasFile?: boolean, onClick?: () => void, onView?: (e: React.MouseEvent) => void }> = ({ icon, title, description, status = "Action Required", hasFile = false, onClick, onView }) => {
+const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, hasFile?: boolean, onClick?: () => void, onView?: (e: React.MouseEvent) => void, isPDP?: boolean }> = ({ icon, title, description, status = "Action Required", hasFile = false, onClick, onView, isPDP = false }) => {
   const isComplete = status === "COMPLETE" || status === "Completed";
   const isPending = status === "Pending";
+  const isClickable = isPDP ? isComplete : true;
 
   return (
     <div 
-      onClick={onClick}
-      className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer"
+      onClick={isClickable ? onClick : undefined}
+      className={`p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group transition-all ${
+        isClickable ? 'hover:shadow-lg cursor-pointer' : 'cursor-default'
+      }`}
     >
       <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
         {icon}
@@ -641,30 +812,45 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
           {status}
         </span>
         <div className="flex justify-end mt-2">
-          {/* Always show View/Edit on hover if a file or completion state exists */}
-          <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            {hasFile && onView && (
-              <button 
-                onClick={onView}
-                className="flex items-center gap-1 text-[10px] text-teal-600 font-black uppercase tracking-tight hover:text-teal-700"
-              >
-                <Eye size={12} /> View
-              </button>
-            )}
-            {!isPending && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-                className="flex items-center gap-1 text-[10px] text-indigo-500 font-black uppercase tracking-tight"
-              >
-                Edit
-              </button>
-            )}
-            {isPending && <ChevronRight size={14} className="text-slate-300" />}
-          </div>
-          {!isComplete && !hasFile && !isPending && (
-            <div className="group-hover:hidden">
-              <ChevronRight size={14} className="text-slate-300 transition-transform" />
+          {/* For PDP, don't show Edit button - only show View if complete */}
+          {!isPDP && (
+            <>
+              {/* Always show View/Edit on hover if a file or completion state exists */}
+              <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                {hasFile && onView && (
+                  <button 
+                    onClick={onView}
+                    className="flex items-center gap-1 text-[10px] text-teal-600 font-black uppercase tracking-tight hover:text-teal-700"
+                  >
+                    <Eye size={12} /> View
+                  </button>
+                )}
+                {!isPending && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+                    className="flex items-center gap-1 text-[10px] text-indigo-500 font-black uppercase tracking-tight"
+                  >
+                    Edit
+                  </button>
+                )}
+                {isPending && <ChevronRight size={14} className="text-slate-300" />}
+              </div>
+              {!isComplete && !hasFile && !isPending && (
+                <div className="group-hover:hidden">
+                  <ChevronRight size={14} className="text-slate-300 transition-transform" />
+                </div>
+              )}
+            </>
+          )}
+          {/* For PDP when complete, show click hint */}
+          {isPDP && isComplete && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+              <span className="text-[10px] text-indigo-500 font-black uppercase tracking-tight">Click to view</span>
             </div>
+          )}
+          {/* For PDP when pending, show chevron */}
+          {isPDP && isPending && (
+            <ChevronRight size={14} className="text-slate-300 mt-2" />
           )}
         </div>
       </div>

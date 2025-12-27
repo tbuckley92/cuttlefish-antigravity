@@ -130,7 +130,15 @@ const EPAForm: React.FC<EPAFormProps> = ({
       level: selectedLevel,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: `EPA Assessment with ${supervisorName}. Overall Judgement: ${entrustment || 'N/A'}`
+      notes: `EPA Assessment with ${supervisorName}. Overall Judgement: ${entrustment || 'N/A'}`,
+      epaFormData: {
+        comments,
+        grading,
+        entrustment,
+        supervisorName,
+        supervisorEmail,
+        linkedEvidence: linkedEvidenceData || {}
+      }
     });
   };
 

@@ -81,7 +81,20 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
       level: level,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: caseDescription
+      notes: caseDescription,
+      dopsFormData: {
+        caseDescription,
+        assessorName,
+        assessorEmail,
+        assessorStatus,
+        difficulty,
+        prevAttempts,
+        setting,
+        grading,
+        overallAssessment,
+        strengths,
+        improvements
+      }
     });
   };
 

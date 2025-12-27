@@ -5,7 +5,8 @@ import {
   CheckCircle2, Clock, Trash2, Link, LayoutDashboard, Database, ClipboardCheck,
   ChevronLeft, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
-  Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye
+  Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
+  FileDown, Download
 } from 'lucide-react';
 
 export { 
@@ -15,5 +16,6 @@ export {
   CheckCircle2, Clock, Trash2, Link, LayoutDashboard, Database, ClipboardCheck,
   ChevronLeft, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
-  Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye
+  Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
+  FileDown, Download
 };

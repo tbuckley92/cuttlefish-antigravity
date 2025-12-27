@@ -14,6 +14,8 @@ import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal, EvidenceItem, E
 interface DashboardProps {
   sias: SIA[];
   allEvidence: EvidenceItem[];
+  profile: UserProfile;
+  onUpdateProfile: (profile: UserProfile) => void;
   onRemoveSIA: (id: string) => void;
   onUpdateSIA: (id: string, updatedData: Partial<SIA>) => void;
   onAddSIA: (specialty: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
@@ -32,6 +34,8 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ 
   sias, 
   allEvidence,
+  profile,
+  onUpdateProfile,
   onRemoveSIA, 
   onUpdateSIA, 
   onAddSIA, 
@@ -46,9 +50,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToGSAT,
   onNavigateToARCPPrep
 }) => {
-  const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
-  const [tempProfile, setTempProfile] = useState<UserProfile>(INITIAL_PROFILE);
+  const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Update tempProfile when profile prop changes
+  useEffect(() => {
+    setTempProfile(profile);
+  }, [profile]);
   
   // Dialog State
   const [isAddingSIA, setIsAddingSIA] = useState(false);
@@ -128,7 +136,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const saveEditing = () => {
-    setProfile({ ...tempProfile });
+    onUpdateProfile({ ...tempProfile });
     setIsEditing(false);
   };
 
@@ -143,7 +151,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       title: '',
       actions: '',
       targetDate: '',
-      successCriteria: ''
+      successCriteria: '',
+      status: 'IN PROGRESS'
     }]);
     setIsPDPModalOpen(true);
   };
@@ -165,18 +174,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     ]);
   };
 
-  const handleUpdateGoal = (id: string, field: keyof PDPGoal, value: string) => {
+  const handleUpdateGoal = (id: string, field: keyof PDPGoal, value: string | 'IN PROGRESS' | 'COMPLETE') => {
     setTempPDPGoals(tempPDPGoals.map(g => g.id === id ? { ...g, [field]: value } : g));
   };
 
   const handleFinishPDP = () => {
     const validGoals = tempPDPGoals.filter(g => g.title.trim() !== '');
-    setProfile({ ...profile, pdpGoals: validGoals });
+    onUpdateProfile({ ...profile, pdpGoals: validGoals });
     setIsPDPModalOpen(false);
   };
 
   const handleInlineTitleEdit = (id: string, newTitle: string) => {
-    setProfile({
+    onUpdateProfile({
       ...profile,
       pdpGoals: profile.pdpGoals.map(g => g.id === id ? { ...g, title: newTitle } : g)
     });
@@ -203,18 +212,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
               {/* Scrollable Content */}
               <div className="space-y-8 overflow-y-auto flex-1 custom-scrollbar pr-2 mb-6">
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                    This section is for reviewing your progress with the goals you set in your previous Personal Development Plan.
-                  </p>
-                  <div className="space-y-2 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 shadow-inner">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Notice</p>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                      For some reason the PDP entries from the previous review period haven't been brought across. You can either <span className="text-indigo-600 hover:underline cursor-pointer font-bold">bring these across</span>, add goals manually below or if there weren't any previous PDP goals then you can <span className="text-indigo-600 hover:underline cursor-pointer font-bold">skip this</span>.
-                    </p>
-                  </div>
-                </div>
-
                 <div className="space-y-12">
                   {tempPDPGoals.map((goal, idx) => (
                     <div key={goal.id} className="space-y-6 pt-4 border-t border-slate-100 dark:border-white/5 first:border-none first:pt-0">
@@ -261,12 +258,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
 
                         <div>
-                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">How I said I would demonstrate success</label>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Trainee appraisal of progress toward PDP goal</label>
                           <textarea 
                             value={goal.successCriteria}
                             onChange={(e) => handleUpdateGoal(goal.id, 'successCriteria', e.target.value)}
                             className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 h-24 resize-none outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
                           />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Status</label>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleUpdateGoal(goal.id, 'status', 'IN PROGRESS')}
+                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
+                                (goal.status || 'IN PROGRESS') === 'IN PROGRESS'
+                                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
+                              }`}
+                            >
+                              IN PROGRESS
+                            </button>
+                            <button
+                              onClick={() => handleUpdateGoal(goal.id, 'status', 'COMPLETE')}
+                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
+                                goal.status === 'COMPLETE'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20'
+                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
+                              }`}
+                            >
+                              COMPLETE
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -452,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="space-y-2">
                   {profile.pdpGoals.length > 0 ? (
                     profile.pdpGoals.map(goal => (
-                      <div key={goal.id} className="relative group/goal">
+                      <div key={goal.id} className="relative group/goal p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                         {editingTitleId === goal.id ? (
                           <div className="flex items-center gap-2">
                             <input 
@@ -467,12 +490,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <button onClick={() => setEditingTitleId(null)} className="text-teal-600"><CheckCircle2 size={14} /></button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-between group/title">
-                            <span 
-                              onClick={() => setEditingTitleId(goal.id)}
-                              className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate cursor-text hover:text-indigo-600 transition-colors block flex-1"
-                            >
-                              {goal.title || 'Untitled Goal'}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between group/title">
+                              <span 
+                                onClick={() => setEditingTitleId(goal.id)}
+                                className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate cursor-text hover:text-indigo-600 transition-colors block flex-1"
+                              >
+                                {goal.title || 'Untitled Goal'}
+                              </span>
+                            </div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              goal.status === 'COMPLETE'
+                                ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                                : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {goal.status || 'IN PROGRESS'}
                             </span>
                           </div>
                         )}

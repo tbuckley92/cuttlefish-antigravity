@@ -75,7 +75,20 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
       level: level,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: operationDetails
+      notes: operationDetails,
+      osatsFormData: {
+        operationDetails,
+        assessorName,
+        assessorEmail,
+        assessorStatus,
+        difficulty,
+        procedureCount,
+        setting,
+        grading,
+        overallAssessment,
+        strengths,
+        improvements
+      }
     });
   };
 

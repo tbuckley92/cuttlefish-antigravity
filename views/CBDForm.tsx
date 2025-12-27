@@ -64,7 +64,15 @@ const CBDForm: React.FC<CBDFormProps> = ({
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: clinicalScenario
+      notes: clinicalScenario,
+      cbdFormData: {
+        clinicalScenario,
+        assessorName,
+        assessorEmail,
+        diagnosis,
+        difficulty,
+        overallAssessment
+      }
     });
   };
 
