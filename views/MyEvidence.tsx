@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   Filter, Search, FileText, CheckCircle2, Clock, 
-  ArrowLeft, AlertCircle, ShieldCheck
+  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink
 } from '../components/Icons';
 import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
@@ -146,8 +146,17 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                       {item.type}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white">
-                    {item.title}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white">
+                        {item.title}
+                      </span>
+                      {item.fileName && (
+                        <div className="flex items-center justify-center w-5 h-5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${item.fileName}`}>
+                          <FileText size={10} />
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500 dark:text-white/50">
                     {item.sia || '–'}

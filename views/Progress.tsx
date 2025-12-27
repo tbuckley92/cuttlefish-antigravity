@@ -97,7 +97,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
       </div>
 
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
-        <LegendItem color="bg-emerald-500" label="Signed Off" icon={<CheckCircle2 size={10} className="text-white" />} />
+        <LegendItem color="bg-emerald-500" label="COMPLETE" icon={<CheckCircle2 size={10} className="text-white" />} />
         <LegendItem color="bg-amber-400" label="In Progress" icon={<Activity size={10} className="text-white" />} />
         <LegendItem color="bg-sky-400" label="Draft" icon={<Clock size={10} className="text-white" />} />
         <LegendItem color="bg-slate-200 dark:bg-white/10" label="Not Started" />
@@ -161,7 +161,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
               <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-600">
                 <CheckCircle2 size={18} />
               </div>
-              <h3 className="font-bold text-sm text-slate-800 dark:text-white/90">Sign-off Requirement</h3>
+              <h3 className="font-bold text-sm text-slate-800 dark:text-white/90">Progression Requirement</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">Level 1 and 2 EPAs are generic and required for core training progression. Level 3 and 4 SIAs are specialized based on your chosen sub-specialties.</p>
          </GlassCard>
@@ -173,7 +173,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
               </div>
               <h3 className="font-bold text-sm text-slate-800 dark:text-white/90">In-Progress States</h3>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">Squares appear amber once you submit an EPA for review. They remain amber (In Progress) until your supervisor provides a final GMC-validated sign-off.</p>
+            <p className="text-xs text-slate-500 leading-relaxed">Squares appear amber once you submit an EPA for review. They remain amber (In Progress) until your supervisor provides a final GMC-validated completion.</p>
          </GlassCard>
 
          <GlassCard className="p-6">

@@ -33,7 +33,7 @@ export enum EvidenceType {
 export enum EvidenceStatus {
   Draft = 'Draft',
   Submitted = 'Submitted',
-  SignedOff = 'Signed Off'
+  SignedOff = 'COMPLETE'
 }
 
 export interface PDPGoal {
@@ -93,6 +93,8 @@ export interface EvidenceItem {
   date: string;
   status: EvidenceStatus;
   notes?: string;
+  fileName?: string;
+  fileType?: string;
   // MSF specific
   msfRespondents?: MSFRespondent[];
   // Dynamic fields for specific types

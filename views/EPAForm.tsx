@@ -173,7 +173,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
     setStatus(EvidenceStatus.SignedOff);
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
-    alert(`EPA Signed Off by ${supervisorName} (GMC: ${gmc})`);
+    alert(`EPA Marked Complete by ${supervisorName} (GMC: ${gmc})`);
   };
 
   const handleCommentChange = (key: string, text: string) => {
@@ -371,7 +371,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">EPA Sign-off</h2>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">EPA Final Record</h2>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
               {status}
             </span>
@@ -432,7 +432,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
             {isLocked && (
               <div className="pt-6 flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-500/5 border border-green-100 dark:border-green-500/10 rounded-2xl">
                 <ShieldCheck className="text-green-500" size={24} />
-                <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">Signed Off</p>
+                <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">COMPLETE</p>
                 <p className="text-[10px] text-green-600 dark:text-green-500 text-center">Validated by {supervisorName}</p>
               </div>
             )}

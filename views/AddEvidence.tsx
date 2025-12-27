@@ -33,7 +33,6 @@ const evidenceTypes = [
 
 const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, editingEvidence, onBack, onCreated }) => {
   const isLocked = editingEvidence?.status === EvidenceStatus.Submitted || editingEvidence?.status === EvidenceStatus.SignedOff;
-  const isSubmitted = editingEvidence?.status === EvidenceStatus.Submitted;
   const isSignedOff = editingEvidence?.status === EvidenceStatus.SignedOff;
 
   const [selectedType, setSelectedType] = useState<string | null>(() => {
@@ -43,8 +42,6 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
     return initialType || null;
   });
   
-  const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields
@@ -53,9 +50,25 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
   const [selectedSia, setSelectedSia] = useState(editingEvidence?.sia || sia || 'All');
   const [selectedLevel, setSelectedLevel] = useState(editingEvidence?.level?.toString() || level?.toString() || '1');
   const [notes, setNotes] = useState(editingEvidence?.notes || '');
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState(editingEvidence?.fileName || '');
 
-  const handleCreate = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file.');
+        return;
+      }
+      setFileName(file.name);
+    }
+  };
+
+  const removeFile = () => {
+    setFileName('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSave = (final: boolean) => {
     if (!title || !date || isLocked) return;
     const typeLabel = evidenceTypes.find(t => t.id === selectedType)?.label as EvidenceType;
     onCreated({
@@ -66,7 +79,9 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
       level: parseInt(selectedLevel) || undefined,
       type: typeLabel || EvidenceType.Other,
       notes,
-      status: editingEvidence?.status || EvidenceStatus.Draft
+      fileName: fileName || undefined,
+      fileType: fileName ? 'application/pdf' : undefined,
+      status: final ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
     });
   };
 
@@ -157,14 +172,60 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
                 </div>
 
                 <div className="pt-6 border-t border-slate-100 dark:border-white/10">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">File Attachment (PDF Only)</label>
+                  {!fileName ? (
+                    <div 
+                      onClick={() => !isLocked && fileInputRef.current?.click()}
+                      className={`group relative h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${isLocked ? 'border-slate-100 bg-slate-50/50 cursor-default' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer'}`}
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        accept=".pdf"
+                        onChange={handleFileChange}
+                        className="hidden" 
+                      />
+                      <UploadCloud size={24} className={`mb-2 transition-colors ${isLocked ? 'text-slate-300' : 'text-slate-400 dark:text-white/20 group-hover:text-indigo-500'}`} />
+                      <p className={`text-xs font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400 dark:text-white/30 group-hover:text-indigo-600'}`}>Click or drag PDF to upload</p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">{fileName}</p>
+                          <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">PDF Document</p>
+                        </div>
+                      </div>
+                      {!isLocked && (
+                        <button onClick={removeFile} className="p-2 hover:bg-rose-100 rounded-lg text-rose-500 transition-colors">
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 dark:border-white/10">
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Notes / Reflection Content</label>
                   <textarea disabled={isLocked} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full min-h-[160px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-sm resize-none outline-none" />
                 </div>
 
                 {!isLocked && (
                   <div className="pt-6 flex justify-end gap-3">
-                    <button onClick={handleCreate} className="px-8 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg hover:bg-indigo-500 transition-all flex items-center gap-2">
-                      <CheckCircle2 size={16} /> {editingEvidence ? 'Update Record' : 'Create Record'}
+                    <button 
+                      onClick={() => handleSave(false)} 
+                      className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
+                    >
+                      <Save size={16} /> Save Draft
+                    </button>
+                    <button 
+                      onClick={() => handleSave(true)} 
+                      className="px-8 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg hover:bg-indigo-500 transition-all flex items-center gap-2"
+                    >
+                      <CheckCircle2 size={16} /> Create Evidence
                     </button>
                   </div>
                 )}

@@ -23,6 +23,22 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
+  // Dynamic Artifact Statuses for Part 1
+  const artifactStatuses = useMemo(() => {
+    const isComplete = (type?: EvidenceType, titleSearch?: string) => {
+      return allEvidence.some(e => 
+        (type && e.type === type && e.status === EvidenceStatus.SignedOff) ||
+        (titleSearch && e.title.toLowerCase().includes(titleSearch.toLowerCase()) && e.status === EvidenceStatus.SignedOff)
+      );
+    };
+
+    return {
+      formR: isComplete(undefined, "Form R") ? "COMPLETE" : "Action Required",
+      eyeLogbook: isComplete(EvidenceType.Logbook) ? "COMPLETE" : "Action Required",
+      pdp: "Pending" // PDP is listed as integration coming soon in PRD
+    };
+  }, [allEvidence]);
+
   // Step 3: GSAT Status
   const gsatStatus = useMemo(() => {
     const gsatRecords = allEvidence.filter(e => e.type === EvidenceType.GSAT);
@@ -60,9 +76,24 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
         <p className="text-sm text-slate-500 mt-1">Review core compliance documentation.</p>
       </div>
       <div className="grid gap-4">
-        <ArtifactRow icon={<FileText className="text-blue-500" />} title="Form R" description="Self-declaration of professional practice." />
-        <ArtifactRow icon={<ClipboardCheck className="text-teal-500" />} title="Eyelogbook" description="Full surgical logbook summary." />
-        <ArtifactRow icon={<Activity className="text-indigo-500" />} title="PDP" description="Personal Development Plan integration (Coming Soon)." status="Pending" />
+        <ArtifactRow 
+          icon={<FileText className="text-blue-500" />} 
+          title="Form R" 
+          description="Self-declaration of professional practice." 
+          status={artifactStatuses.formR}
+        />
+        <ArtifactRow 
+          icon={<ClipboardCheck className="text-teal-500" />} 
+          title="Eyelogbook" 
+          description="Full surgical logbook summary." 
+          status={artifactStatuses.eyeLogbook}
+        />
+        <ArtifactRow 
+          icon={<Activity className="text-indigo-500" />} 
+          title="PDP" 
+          description="Personal Development Plan integration (Coming Soon)." 
+          status={artifactStatuses.pdp} 
+        />
       </div>
     </div>
   );
@@ -229,24 +260,32 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   );
 };
 
-const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string }> = ({ icon, title, description, status = "Action Required" }) => (
-  <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer">
-    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
-      {icon}
-    </div>
-    <div className="flex-1">
-      <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{title}</h4>
-      <p className="text-xs text-slate-500 mt-1 font-medium">{description}</p>
-    </div>
-    <div className="text-right">
-      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded ${status === 'Pending' ? 'text-slate-400 bg-slate-100' : 'text-indigo-600 bg-indigo-50'}`}>
-        {status}
-      </span>
-      <div className="flex justify-end mt-2">
-        <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string }> = ({ icon, title, description, status = "Action Required" }) => {
+  const isComplete = status === "COMPLETE" || status === "Completed";
+  const isPending = status === "Pending";
+
+  return (
+    <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer">
+      <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{title}</h4>
+        <p className="text-xs text-slate-500 mt-1 font-medium">{description}</p>
+      </div>
+      <div className="text-right">
+        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1 justify-end
+          ${isComplete ? 'text-green-600 bg-green-50' : isPending ? 'text-slate-400 bg-slate-100' : 'text-indigo-600 bg-indigo-50'}
+        `}>
+          {isComplete && <ShieldCheck size={10} />}
+          {status}
+        </span>
+        <div className="flex justify-end mt-2">
+          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default ARCPPrep;
