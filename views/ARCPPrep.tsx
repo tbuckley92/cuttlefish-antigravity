@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
@@ -22,6 +22,16 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
+  // Track the ID of the persistent ARCP Prep evidence item
+  const existingPrepRecord = useMemo(() => 
+    allEvidence.find(e => e.type === EvidenceType.ARCPPrep),
+    [allEvidence]
+  );
+  
+  const [prepId] = useState(existingPrepRecord?.id || Math.random().toString(36).substr(2, 9));
+  const [lastSaved, setLastSaved] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
   // Dialog State for Form R
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
   const [formRDate, setFormRDate] = useState(new Date().toISOString().split('T')[0]);
@@ -35,6 +45,40 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   const [logbookFileName, setLogbookFileName] = useState('');
   const [logbookFileUrl, setLogbookFileUrl] = useState('');
   const logbookFileInputRef = useRef<HTMLInputElement>(null);
+
+  const saveStatus = (status: EvidenceStatus = EvidenceStatus.Draft) => {
+    setIsSaving(true);
+    onUpsertEvidence({
+      id: prepId,
+      title: "ARCP Portfolio Compilation",
+      type: EvidenceType.ARCPPrep,
+      status: status,
+      date: new Date().toISOString().split('T')[0],
+      notes: `User reached step ${step} of ${totalSteps}.`
+    });
+    setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }, 600);
+  };
+
+  // Auto-save every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      saveStatus(EvidenceStatus.Draft);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  const handleBack = () => {
+    saveStatus(EvidenceStatus.Draft);
+    onBack();
+  };
+
+  const handleFinish = () => {
+    saveStatus(EvidenceStatus.SignedOff);
+    onBack();
+  };
 
   const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
@@ -194,9 +238,14 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
           style={{ width: `${(step / totalSteps) * 100}%` }}
         ></div>
       </div>
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-        Part {step} of {totalSteps}
-      </span>
+      <div className="flex flex-col items-end">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          Part {step} of {totalSteps}
+        </span>
+        {lastSaved && (
+          <span className="text-[8px] font-bold text-teal-600 uppercase tracking-tight">Saved {lastSaved}</span>
+        )}
+      </div>
     </div>
   );
 
@@ -508,7 +557,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       )}
 
       <div className="flex justify-between items-center mb-12">
-        <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
+        <button onClick={handleBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
           <X size={24} />
         </button>
         <div className="text-center">
@@ -531,21 +580,29 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
             <ChevronLeft size={16} /> Previous
           </button>
           
-          {step < totalSteps ? (
+          <div className="flex items-center gap-2">
             <button 
-              onClick={nextStep}
-              className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all uppercase tracking-widest"
+              onClick={() => saveStatus(EvidenceStatus.Draft)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-100 transition-all"
             >
-              Next Part <ChevronRight size={16} />
+              <Save size={14} /> Save Draft
             </button>
-          ) : (
-            <button 
-              onClick={onBack}
-              className="px-8 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xl hover:bg-black transition-all uppercase tracking-widest"
-            >
-              Finish Review
-            </button>
-          )}
+            {step < totalSteps ? (
+              <button 
+                onClick={nextStep}
+                className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all uppercase tracking-widest"
+              >
+                Next Part <ChevronRight size={16} />
+              </button>
+            ) : (
+              <button 
+                onClick={handleFinish}
+                className="px-8 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xl hover:bg-black transition-all uppercase tracking-widest"
+              >
+                Finish Review
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="overflow-hidden">

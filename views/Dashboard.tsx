@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 // Added missing Activity icon to the imports below
 import { 
@@ -65,6 +65,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Inline editing state for SIA
   const [editingSiaId, setEditingSiaId] = useState<string | null>(null);
   const [editSiaFields, setEditSiaFields] = useState<Partial<SIA>>({});
+
+  // ARCP Prep status logic
+  const arcpPrepStatus = useMemo(() => {
+    const item = allEvidence.find(e => e.type === EvidenceType.ARCPPrep);
+    if (!item) return "NOT YET STARTED";
+    if (item.status === EvidenceStatus.SignedOff) return "COMPLETE";
+    return "IN PROGRESS";
+  }, [allEvidence]);
 
   const handleOpenAddDialog = (level: number) => {
     setNewSiaLevel(level);
@@ -509,12 +517,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                     </button>
                     
-                    <button 
-                      onClick={onNavigateToARCPPrep}
-                      className="w-full py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-xs font-bold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group"
-                    >
-                      <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                    </button>
+                    <div className="flex flex-col gap-1.5">
+                      <button 
+                        onClick={onNavigateToARCPPrep}
+                        className="w-full py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-xs font-bold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group"
+                      >
+                        <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          arcpPrepStatus === "COMPLETE" ? "bg-emerald-500" : 
+                          arcpPrepStatus === "IN PROGRESS" ? "bg-amber-400 animate-pulse" : 
+                          "bg-slate-300"
+                        }`}></div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                          arcpPrepStatus === "COMPLETE" ? "text-emerald-600" : 
+                          arcpPrepStatus === "IN PROGRESS" ? "text-amber-600" : 
+                          "text-slate-400"
+                        }`}>
+                          {arcpPrepStatus}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

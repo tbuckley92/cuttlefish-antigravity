@@ -27,7 +27,8 @@ export enum EvidenceType {
   Logbook = 'Eye Logbook',
   Additional = 'Additional evidence',
   Compliment = 'Compliments',
-  MSF = 'MSF'
+  MSF = 'MSF',
+  ARCPPrep = 'ARCP Preparation'
 }
 
 export enum EvidenceStatus {
