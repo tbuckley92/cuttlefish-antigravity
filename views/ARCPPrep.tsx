@@ -1,10 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
   Clock, AlertCircle, FileText, BookOpen, Users, 
-  ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck
+  ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
+  UploadCloud, Calendar, Save
 } from '../components/Icons';
 import { EvidenceItem, EvidenceType, EvidenceStatus, SIA } from '../types';
 
@@ -14,14 +15,27 @@ interface ARCPPrepProps {
   onBack: () => void;
   onNavigateGSAT: () => void;
   onNavigateMSF: () => void;
+  onUpsertEvidence: (item: Partial<EvidenceItem>) => void;
 }
 
-const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNavigateGSAT, onNavigateMSF }) => {
+const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNavigateGSAT, onNavigateMSF, onUpsertEvidence }) => {
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
+  // Dialog State for Form R
+  const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
+  const [formRDate, setFormRDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formRFileName, setFormRFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
+
+  // Find existing Form R item if any
+  const existingFormR = useMemo(() => 
+    allEvidence.find(e => e.title.toLowerCase().includes("form r")),
+    [allEvidence]
+  );
 
   // Dynamic Artifact Statuses for Part 1
   const artifactStatuses = useMemo(() => {
@@ -38,6 +52,45 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       pdp: "Pending" // PDP is listed as integration coming soon in PRD
     };
   }, [allEvidence]);
+
+  const handleOpenFormR = () => {
+    if (existingFormR) {
+      setFormRDate(existingFormR.date);
+      setFormRFileName(existingFormR.fileName || '');
+    } else {
+      setFormRDate(new Date().toISOString().split('T')[0]);
+      setFormRFileName('');
+    }
+    setIsFormRDialogOpen(true);
+  };
+
+  const handleFormRSubmit = () => {
+    if (!formRDate || !formRFileName) {
+      alert("Please select a date and upload a PDF.");
+      return;
+    }
+    onUpsertEvidence({
+      id: existingFormR?.id,
+      title: "Form R",
+      type: EvidenceType.Additional,
+      date: formRDate,
+      fileName: formRFileName,
+      fileType: 'application/pdf',
+      status: EvidenceStatus.SignedOff
+    });
+    setIsFormRDialogOpen(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file.');
+        return;
+      }
+      setFormRFileName(file.name);
+    }
+  };
 
   // Step 3: GSAT Status
   const gsatStatus = useMemo(() => {
@@ -81,6 +134,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
           title="Form R" 
           description="Self-declaration of professional practice." 
           status={artifactStatuses.formR}
+          onClick={handleOpenFormR}
         />
         <ArtifactRow 
           icon={<ClipboardCheck className="text-teal-500" />} 
@@ -98,6 +152,8 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
     </div>
   );
 
+  // ... (rest of render parts 2-5 unchanged)
+
   const renderPart2 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="mb-8">
@@ -106,7 +162,6 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       </div>
       <div className="grid gap-4">
         {sias.length > 0 ? sias.map(sia => {
-          // Determine the completion status for this SIA entry
           const matchingEpas = allEvidence.filter(e => 
             e.type === EvidenceType.EPA && 
             e.level === sia.level && 
@@ -208,6 +263,78 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
+      
+      {/* Form R Dialog */}
+      {isFormRDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
+            <GlassCard className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Form R</h2>
+                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Professional Declaration</p>
+                </div>
+                <button onClick={() => setIsFormRDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-8">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Completion Date</label>
+                  <div className="relative">
+                    <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" />
+                    <input 
+                      type="date" 
+                      value={formRDate}
+                      onChange={(e) => setFormRDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Document Upload (PDF)</label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${formRFileName ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-50/20'}`}
+                  >
+                    <input type="file" ref={fileInputRef} accept=".pdf" onChange={handleFileChange} className="hidden" />
+                    {formRFileName ? (
+                      <div className="text-center animate-in zoom-in-95">
+                        <CheckCircle2 size={32} className="text-indigo-600 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{formRFileName}</p>
+                        <p className="text-[10px] text-indigo-500 font-bold mt-1">CLICK TO REPLACE</p>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Click or drag to upload</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col gap-3">
+                  <button 
+                    onClick={handleFormRSubmit}
+                    className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Save size={18} /> {existingFormR ? 'Update Form R' : 'Submit Form R'}
+                  </button>
+                  <button 
+                    onClick={() => setIsFormRDialogOpen(false)}
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-12">
         <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
           <X size={24} />
@@ -260,12 +387,15 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
   );
 };
 
-const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string }> = ({ icon, title, description, status = "Action Required" }) => {
+const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, onClick?: () => void }> = ({ icon, title, description, status = "Action Required", onClick }) => {
   const isComplete = status === "COMPLETE" || status === "Completed";
   const isPending = status === "Pending";
 
   return (
-    <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer">
+    <div 
+      onClick={onClick}
+      className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer"
+    >
       <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
         {icon}
       </div>
@@ -281,7 +411,11 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
           {status}
         </span>
         <div className="flex justify-end mt-2">
-          <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+          {isComplete ? (
+            <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">Edit Form</div>
+          ) : (
+            <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+          )}
         </div>
       </div>
     </div>

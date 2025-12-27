@@ -435,6 +435,7 @@ const App: React.FC = () => {
             onBack={() => setCurrentView(View.Dashboard)}
             onNavigateGSAT={() => setCurrentView(View.GSATForm)}
             onNavigateMSF={handleNavigateToMSF}
+            onUpsertEvidence={handleUpsertEvidence}
           />
         );
       default:
