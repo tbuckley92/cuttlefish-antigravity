@@ -1,5 +1,5 @@
 
-import { CurriculumRequirement, TrainingGrade, EvidenceType, EvidenceStatus, EvidenceItem, SIA } from './types';
+import { CurriculumRequirement, TrainingGrade, EvidenceType, EvidenceStatus, EvidenceItem, SIA, UserProfile } from './types';
 
 export const CURRICULUM_DATA: CurriculumRequirement[] = [
   // --- Patient Management (EPAs) based on CSV ---
@@ -257,7 +257,7 @@ export const CURRICULUM_DATA: CurriculumRequirement[] = [
   { specialty: "Health Promotion", domain: "Non-patient Management", formType: "GSAT", level: 4, requirement: "Be an effective supervisor and leader in the area of health promotion." },
 ];
 
-export const INITIAL_PROFILE = {
+export const INITIAL_PROFILE: UserProfile = {
   name: "Dr. Alex Carter",
   grade: TrainingGrade.ST4,
   location: "London Deanery",
@@ -266,7 +266,8 @@ export const INITIAL_PROFILE = {
   cctDate: "2027-08-01",
   supervisorName: "Mr. James Wright",
   supervisorEmail: "j.wright@nhs.net",
-  predictedSIAs: ["Oculoplastics", "Ocular Motility"]
+  predictedSIAs: ["Oculoplastics", "Ocular Motility"],
+  pdpGoals: []
 };
 
 export const INITIAL_SIAS: SIA[] = [

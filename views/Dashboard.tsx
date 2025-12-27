@@ -4,10 +4,11 @@ import { GlassCard } from '../components/GlassCard';
 import { 
   User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus, 
   ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
-  FileText, Database, BookOpen, Clipboard, ShieldCheck
+  FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
+  ExternalLink
 } from '../components/Icons';
 import { INITIAL_PROFILE, SPECIALTIES } from '../constants';
-import { TrainingGrade, EvidenceType, UserProfile, SIA } from '../types';
+import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal } from '../types';
 
 interface DashboardProps {
   sias: SIA[];
@@ -51,7 +52,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [newSiaSupervisorName, setNewSiaSupervisorName] = useState(INITIAL_PROFILE.supervisorName);
   const [newSiaSupervisorEmail, setNewSiaSupervisorEmail] = useState(INITIAL_PROFILE.supervisorEmail);
 
-  // Inline editing state
+  // PDP Modal State
+  const [isPDPModalOpen, setIsPDPModalOpen] = useState(false);
+  const [tempPDPGoals, setTempPDPGoals] = useState<PDPGoal[]>([]);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+
+  // Inline editing state for SIA
   const [editingSiaId, setEditingSiaId] = useState<string | null>(null);
   const [editSiaFields, setEditSiaFields] = useState<Partial<SIA>>({});
 
@@ -60,7 +66,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (level === 1 || level === 2) {
       setNewSiaSpecialty("No specialty SIA");
     } else {
-      // Find first available specialty or default
       const existingSpecialties = sias.filter(s => s.level >= 3).map(s => s.specialty);
       const available = SPECIALTIES.find(s => !existingSpecialties.includes(s));
       setNewSiaSpecialty(available || SPECIALTIES[0]);
@@ -114,18 +119,182 @@ const Dashboard: React.FC<DashboardProps> = ({
     setIsEditing(false);
   };
 
-  const handleInputChange = (field: keyof UserProfile, value: string | number | string[]) => {
+  const handleInputChange = (field: keyof UserProfile, value: any) => {
     setTempProfile(prev => ({ ...prev, [field]: value }));
+  };
+
+  // PDP Modal Logic
+  const openPDPModal = () => {
+    setTempPDPGoals(profile.pdpGoals.length > 0 ? [...profile.pdpGoals] : [{
+      id: Math.random().toString(36).substr(2, 9),
+      title: '',
+      actions: '',
+      targetDate: '',
+      successCriteria: ''
+    }]);
+    setIsPDPModalOpen(true);
+  };
+
+  const closePDPModal = () => {
+    setIsPDPModalOpen(false);
+  };
+
+  const handleAddGoal = () => {
+    setTempPDPGoals([
+      ...tempPDPGoals,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        title: '',
+        actions: '',
+        targetDate: '',
+        successCriteria: ''
+      }
+    ]);
+  };
+
+  const handleUpdateGoal = (id: string, field: keyof PDPGoal, value: string) => {
+    setTempPDPGoals(tempPDPGoals.map(g => g.id === id ? { ...g, [field]: value } : g));
+  };
+
+  const handleFinishPDP = () => {
+    const validGoals = tempPDPGoals.filter(g => g.title.trim() !== '');
+    setProfile({ ...profile, pdpGoals: validGoals });
+    setIsPDPModalOpen(false);
+  };
+
+  const handleInlineTitleEdit = (id: string, newTitle: string) => {
+    setProfile({
+      ...profile,
+      pdpGoals: profile.pdpGoals.map(g => g.id === id ? { ...g, title: newTitle } : g)
+    });
   };
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
+      {/* PDP Modal - Styled to match EPA modal exactly */}
+      {isPDPModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl animate-in zoom-in-95 duration-300">
+            <div className="w-full bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden p-8 border border-slate-200 dark:border-white/10 flex flex-col max-h-[90vh]">
+              {/* Header - Matches EPA Modal */}
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Personal Development Plan</h2>
+                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-widest font-black">Plan and track your training goals</p>
+                </div>
+                <button onClick={closePDPModal} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="space-y-8 overflow-y-auto flex-1 custom-scrollbar pr-2 mb-6">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                    This section is for reviewing your progress with the goals you set in your previous Personal Development Plan.
+                  </p>
+                  <div className="space-y-2 p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 shadow-inner">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Notice</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                      For some reason the PDP entries from the previous review period haven't been brought across. You can either <span className="text-indigo-600 hover:underline cursor-pointer font-bold">bring these across</span>, add goals manually below or if there weren't any previous PDP goals then you can <span className="text-indigo-600 hover:underline cursor-pointer font-bold">skip this</span>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-12">
+                  {tempPDPGoals.map((goal, idx) => (
+                    <div key={goal.id} className="space-y-6 pt-4 border-t border-slate-100 dark:border-white/5 first:border-none first:pt-0">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Goal {idx + 1} Entry</h3>
+                        <button 
+                          onClick={() => setTempPDPGoals(tempPDPGoals.filter(g => g.id !== goal.id))}
+                          className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-5 text-sm">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Brief title</label>
+                          <input 
+                            type="text" 
+                            value={goal.title}
+                            onChange={(e) => handleUpdateGoal(goal.id, 'title', e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Agreed action(s) or goal(s)</label>
+                          <textarea 
+                            value={goal.actions}
+                            onChange={(e) => handleUpdateGoal(goal.id, 'actions', e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 h-24 resize-none outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Target date</label>
+                            <input 
+                              type="date" 
+                              value={goal.targetDate}
+                              onChange={(e) => handleUpdateGoal(goal.id, 'targetDate', e.target.value)}
+                              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">How I said I would demonstrate success</label>
+                          <textarea 
+                            value={goal.successCriteria}
+                            onChange={(e) => handleUpdateGoal(goal.id, 'successCriteria', e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 h-24 resize-none outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer - Unified colors with EPA modal */}
+              <div className="flex flex-col gap-4">
+                <button 
+                  onClick={handleAddGoal}
+                  className="w-full py-3.5 rounded-xl border border-indigo-600/30 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} /> Add another goal
+                </button>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={closePDPModal}
+                    className="py-4 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleFinishPDP}
+                    className="py-4 rounded-2xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all"
+                  >
+                    Finish
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add SIA Dialog Overlay */}
       {isAddingSIA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/90 dark:bg-slate-900 shadow-2xl">
+            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Current EPA</h2>
@@ -177,14 +346,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Assigned Supervisor</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input 
-                      type="text"
+                      type="text" 
                       placeholder="Supervisor Name"
                       value={newSiaSupervisorName}
                       onChange={(e) => setNewSiaSupervisorName(e.target.value)}
                       className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500/50"
                     />
                     <input 
-                      type="email"
+                      type="email" 
                       placeholder="Supervisor Email"
                       value={newSiaSupervisorEmail}
                       onChange={(e) => setNewSiaSupervisorEmail(e.target.value)}
@@ -251,14 +420,65 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4">
-              <ProfileItem icon={<Briefcase size={16} />} label="FTE" value={isEditing ? <div className="flex items-center gap-1"><input type="number" value={tempProfile.fte} onChange={(e) => handleInputChange('fte', parseInt(e.target.value) || 0)} className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /><span>%</span></div> : `${profile.fte}% Full Time`} />
-              <ProfileItem icon={<Calendar size={16} />} label="ARCP Month" value={isEditing ? <input type="text" value={tempProfile.arcpMonth} onChange={(e) => handleInputChange('arcpMonth', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.arcpMonth} />
-              <ProfileItem icon={<Calendar size={16} />} label="CCT Date" value={isEditing ? <input type="date" value={tempProfile.cctDate} onChange={(e) => handleInputChange('cctDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.cctDate} />
+            <div className="grid grid-cols-1 gap-6">
+              <ProfileItem icon={<Briefcase size={18} />} label="FTE" value={isEditing ? <div className="flex items-center gap-1"><input type="number" value={tempProfile.fte} onChange={(e) => handleInputChange('fte', parseInt(e.target.value) || 0)} className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /><span>%</span></div> : `${profile.fte}% Full Time`} />
+              <ProfileItem icon={<Calendar size={18} />} label="ARCP MONTH" value={isEditing ? <input type="text" value={tempProfile.arcpMonth} onChange={(e) => handleInputChange('arcpMonth', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.arcpMonth} />
+              <ProfileItem icon={<Calendar size={18} />} label="CCT DATE" value={isEditing ? <input type="date" value={tempProfile.cctDate} onChange={(e) => handleInputChange('cctDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.cctDate} />
+              
+              {/* PDP Section in Sidebar */}
+              <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold">PDP</p>
+                  <button 
+                    onClick={openPDPModal}
+                    className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded text-indigo-600 transition-colors flex items-center gap-1 text-[10px] font-bold"
+                  >
+                    <Plus size={12} /> ADD/EDIT PDP
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {profile.pdpGoals.length > 0 ? (
+                    profile.pdpGoals.map(goal => (
+                      <div key={goal.id} className="relative group/goal">
+                        {editingTitleId === goal.id ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              autoFocus
+                              type="text" 
+                              value={goal.title}
+                              onBlur={() => setEditingTitleId(null)}
+                              onKeyDown={(e) => e.key === 'Enter' && setEditingTitleId(null)}
+                              onChange={(e) => handleInlineTitleEdit(goal.id, e.target.value)}
+                              className="w-full bg-white dark:bg-white/5 border border-indigo-500 rounded px-2 py-1 text-sm outline-none"
+                            />
+                            <button onClick={() => setEditingTitleId(null)} className="text-teal-600"><CheckCircle2 size={14} /></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between group/title">
+                            <span 
+                              onClick={() => setEditingTitleId(goal.id)}
+                              className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate cursor-text hover:text-indigo-600 transition-colors block flex-1"
+                            >
+                              {goal.title || 'Untitled Goal'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <button 
+                      onClick={openPDPModal}
+                      className="text-xs text-slate-400 italic hover:text-indigo-600 transition-colors"
+                    >
+                      No goals set. Click to add.
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100">
-              <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-4">Educational Supervisor</p>
+            <div className="pt-6 border-t border-slate-100 dark:border-white/5">
+              <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold mb-4">EDUCATIONAL SUPERVISOR</p>
               {isEditing ? (
                 <div className="space-y-2">
                    <input type="text" value={tempProfile.supervisorName} onChange={(e) => handleInputChange('supervisorName', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" placeholder="Supervisor Name" />
@@ -267,13 +487,18 @@ const Dashboard: React.FC<DashboardProps> = ({
               ) : (
                 <>
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">{profile.supervisorName.split(' ').map(n => n[0]).join('')}</div>
-                    <div><p className="text-sm font-medium text-slate-900">{profile.supervisorName}</p><p className="text-xs text-slate-500">{profile.supervisorEmail}</p></div>
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black tracking-widest text-slate-500 uppercase">
+                      {profile.supervisorName.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{profile.supervisorName}</p>
+                      <p className="text-xs text-slate-500">{profile.supervisorEmail}</p>
+                    </div>
                   </div>
                   
                   <button 
                     onClick={onNavigateToGSAT}
-                    className="w-full mt-4 py-2.5 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
+                    className="w-full mt-6 py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
                   >
                     <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                   </button>
@@ -316,7 +541,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               {editingSiaId !== sia.id && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                   <button onClick={() => startEditingSIA(sia)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all" title="Edit SIA"><Edit2 size={14} /></button>
-                  <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
+                  <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
                 </div>
               )}
               
@@ -393,11 +618,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 };
 
 const ProfileItem: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
-  <div className="flex items-center gap-3 text-sm">
-    <div className="text-slate-400">{icon}</div>
+  <div className="flex items-start gap-4 text-sm">
+    <div className="text-slate-400 mt-0.5">{icon}</div>
     <div className="flex-1 overflow-hidden">
-      <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{label}</p>
-      <div className="text-slate-700">{value}</div>
+      <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold mb-1">{label}</p>
+      <div className="text-slate-900 font-medium text-lg tracking-tight">{value}</div>
     </div>
   </div>
 );

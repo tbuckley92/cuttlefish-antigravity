@@ -36,6 +36,14 @@ export enum EvidenceStatus {
   SignedOff = 'Signed Off'
 }
 
+export interface PDPGoal {
+  id: string;
+  title: string;
+  actions: string;
+  targetDate: string;
+  successCriteria: string;
+}
+
 export interface UserProfile {
   name: string;
   grade: TrainingGrade;
@@ -46,6 +54,7 @@ export interface UserProfile {
   supervisorName: string;
   supervisorEmail: string;
   predictedSIAs: string[];
+  pdpGoals: PDPGoal[];
 }
 
 export interface SIA {
