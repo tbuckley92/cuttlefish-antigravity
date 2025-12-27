@@ -12,6 +12,7 @@ import Progress from './views/Progress';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
+import ARCPPrep from './views/ARCPPrep';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity } from './components/Icons';
@@ -33,7 +34,8 @@ enum View {
   MARForm = 'mar-form',
   MSFForm = 'msf-form',
   MSFSubmission = 'msf-submission',
-  MSFResponse = 'msf-response'
+  MSFResponse = 'msf-response',
+  ARCPPrep = 'arcp-prep'
 }
 
 interface FormParams {
@@ -281,6 +283,7 @@ const App: React.FC = () => {
         return (
           <Dashboard 
             sias={sias} 
+            allEvidence={allEvidence}
             onRemoveSIA={handleRemoveSIA} 
             onUpdateSIA={handleUpdateSIA} 
             onAddSIA={handleAddSIA} 
@@ -297,6 +300,7 @@ const App: React.FC = () => {
               setSelectedFormParams(null);
               setCurrentView(View.GSATForm);
             }}
+            onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)}
           />
         );
       case View.Evidence:
@@ -423,8 +427,18 @@ const App: React.FC = () => {
         return <CRSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
       case View.MARForm:
         return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
+      case View.ARCPPrep:
+        return (
+          <ARCPPrep 
+            sias={sias} 
+            allEvidence={allEvidence} 
+            onBack={() => setCurrentView(View.Dashboard)}
+            onNavigateGSAT={() => setCurrentView(View.GSATForm)}
+            onNavigateMSF={handleNavigateToMSF}
+          />
+        );
       default:
-        return <Dashboard sias={sias} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} />;
+        return <Dashboard sias={sias} allEvidence={allEvidence} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => setCurrentView(View.GSATForm)} onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)} />;
     }
   };
 

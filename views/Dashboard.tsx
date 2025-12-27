@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
+// Added missing Activity icon to the imports below
 import { 
   User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus, 
   ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
   FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
-  ExternalLink
+  ExternalLink, Activity, Clock
 } from '../components/Icons';
 import { INITIAL_PROFILE, SPECIALTIES } from '../constants';
-import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal } from '../types';
+import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal, EvidenceItem, EvidenceStatus } from '../types';
 
 interface DashboardProps {
   sias: SIA[];
+  allEvidence: EvidenceItem[];
   onRemoveSIA: (id: string) => void;
   onUpdateSIA: (id: string, updatedData: Partial<SIA>) => void;
   onAddSIA: (specialty: string, level: number, supervisorName?: string, supervisorEmail?: string) => void;
@@ -24,10 +26,12 @@ interface DashboardProps {
   onNavigateToRecordForm: () => void;
   onNavigateToAddEvidence: (sia?: string, level?: number, type?: string) => void;
   onNavigateToGSAT: () => void;
+  onNavigateToARCPPrep: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   sias, 
+  allEvidence,
   onRemoveSIA, 
   onUpdateSIA, 
   onAddSIA, 
@@ -39,7 +43,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToEvidence, 
   onNavigateToRecordForm,
   onNavigateToAddEvidence,
-  onNavigateToGSAT
+  onNavigateToGSAT,
+  onNavigateToARCPPrep
 }) => {
   const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [tempProfile, setTempProfile] = useState<UserProfile>(INITIAL_PROFILE);
@@ -496,12 +501,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={onNavigateToGSAT}
-                    className="w-full mt-6 py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
-                  >
-                    <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                  </button>
+                  <div className="mt-6 flex flex-col gap-2">
+                    <button 
+                      onClick={onNavigateToGSAT}
+                      className="w-full py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
+                    >
+                      <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                    
+                    <button 
+                      onClick={onNavigateToARCPPrep}
+                      className="w-full py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-xs font-bold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group"
+                    >
+                      <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -536,81 +550,119 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sias.map(sia => (
-            <GlassCard key={sia.id} className="p-6 flex flex-col group relative overflow-hidden">
-              {editingSiaId !== sia.id && (
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                  <button onClick={() => startEditingSIA(sia)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all" title="Edit SIA"><Edit2 size={14} /></button>
-                  <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
-                </div>
-              )}
-              
-              {editingSiaId === sia.id ? (
-                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex justify-between items-center"><h3 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Edit Entry</h3><div className="flex gap-1"><button onClick={saveSIAEdit} className="p-1.5 text-teal-600 hover:bg-teal-500/10 rounded-full"><CheckCircle2 size={16} /></button><button onClick={cancelSIAEdit} className="p-1.5 text-rose-600 hover:bg-rose-500/10 rounded-full"><X size={16} /></button></div></div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Specialty Domain</label>
-                      <select 
-                        disabled={editSiaFields.level === 1 || editSiaFields.level === 2}
-                        value={editSiaFields.specialty} 
-                        onChange={(e) => setEditSiaFields(prev => ({ ...prev, specialty: e.target.value }))} 
-                        className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none disabled:opacity-50"
-                      >
-                        <option value="No specialty SIA">No specialty SIA</option>
-                        {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Required Level</label>
-                      <div className="flex gap-1.5">
-                        {[1, 2, 3, 4].map(l => (
-                          <button 
-                            key={l} 
-                            onClick={() => {
-                              const newFields: Partial<SIA> = { level: l };
-                              if (l === 1 || l === 2) newFields.specialty = "No specialty SIA";
-                              else if (editSiaFields.specialty === "No specialty SIA") newFields.specialty = SPECIALTIES[0];
-                              setEditSiaFields(prev => ({ ...prev, ...newFields }));
-                            }} 
-                            className={`flex-1 py-1 rounded-lg text-[10px] font-semibold transition-all border ${editSiaFields.level === l ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600'}`}
-                          >
-                            L{l}
-                          </button>
-                        ))}
+          {sias.map(sia => {
+            // Calculate completion status for this SIA entry
+            const matchingEpas = allEvidence.filter(e => 
+              e.type === EvidenceType.EPA && 
+              e.level === sia.level && 
+              (sia.level <= 2 ? true : e.sia === sia.specialty)
+            );
+
+            let currentStatus: EvidenceStatus | 'Not Yet Started' = 'Not Yet Started';
+            if (matchingEpas.some(e => e.status === EvidenceStatus.SignedOff)) currentStatus = EvidenceStatus.SignedOff;
+            else if (matchingEpas.some(e => e.status === EvidenceStatus.Submitted)) currentStatus = EvidenceStatus.Submitted;
+            else if (matchingEpas.some(e => e.status === EvidenceStatus.Draft)) currentStatus = EvidenceStatus.Draft;
+
+            return (
+              <GlassCard key={sia.id} className="p-6 flex flex-col group relative overflow-hidden">
+                {editingSiaId !== sia.id && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={() => startEditingSIA(sia)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all" title="Edit SIA"><Edit2 size={14} /></button>
+                    <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
+                  </div>
+                )}
+                
+                {editingSiaId === sia.id ? (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center"><h3 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Edit Entry</h3><div className="flex gap-1"><button onClick={saveSIAEdit} className="p-1.5 text-teal-600 hover:bg-teal-500/10 rounded-full"><CheckCircle2 size={16} /></button><button onClick={cancelSIAEdit} className="p-1.5 text-rose-600 hover:bg-rose-500/10 rounded-full"><X size={16} /></button></div></div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Specialty Domain</label>
+                        <select 
+                          disabled={editSiaFields.level === 1 || editSiaFields.level === 2}
+                          value={editSiaFields.specialty} 
+                          onChange={(e) => setEditSiaFields(prev => ({ ...prev, specialty: e.target.value }))} 
+                          className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none disabled:opacity-50"
+                        >
+                          <option value="No specialty SIA">No specialty SIA</option>
+                          {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Required Level</label>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4].map(l => (
+                            <button 
+                              key={l} 
+                              onClick={() => {
+                                const newFields: Partial<SIA> = { level: l };
+                                if (l === 1 || l === 2) newFields.specialty = "No specialty SIA";
+                                else if (editSiaFields.specialty === "No specialty SIA") newFields.specialty = SPECIALTIES[0];
+                                setEditSiaFields(prev => ({ ...prev, ...newFields }));
+                              }} 
+                              className={`flex-1 py-1 rounded-lg text-[10px] font-semibold transition-all border ${editSiaFields.level === l ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600'}`}
+                            >
+                              L{l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        <label className="text-[10px] font-bold uppercase text-slate-400 block">Supervisor</label>
+                        <input type="text" value={editSiaFields.supervisorName} onChange={(e) => setEditSiaFields(prev => ({ ...prev, supervisorName: e.target.value }))} placeholder="Name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" />
+                        <input type="email" value={editSiaFields.supervisorEmail} onChange={(e) => setEditSiaFields(prev => ({ ...prev, supervisorEmail: e.target.value }))} placeholder="Email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none font-mono" />
                       </div>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block">Supervisor</label>
-                      <input type="text" value={editSiaFields.supervisorName} onChange={(e) => setEditSiaFields(prev => ({ ...prev, supervisorName: e.target.value }))} placeholder="Name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" />
-                      <input type="email" value={editSiaFields.supervisorEmail} onChange={(e) => setEditSiaFields(prev => ({ ...prev, supervisorEmail: e.target.value }))} placeholder="Email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none font-mono" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4 pr-10">
+                      <h3 className="text-lg font-medium text-slate-900 leading-tight">{sia.specialty}</h3>
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        <div className="flex items-center"><span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 text-[10px] font-bold border border-indigo-500/20 uppercase tracking-wider">Level {sia.level}</span></div>
+                        <p className="text-xs text-slate-500">Assigned to: {sia.supervisorName || sia.supervisorInitials || '–'}</p>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 pr-10">
-                    <h3 className="text-lg font-medium text-slate-900 leading-tight">{sia.specialty}</h3>
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      <div className="flex items-center"><span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 text-[10px] font-bold border border-indigo-500/20 uppercase tracking-wider">Level {sia.level}</span></div>
-                      <p className="text-xs text-slate-500">Assigned to: {sia.supervisorName || sia.supervisorInitials || '–'}</p>
+                    <div className="grid grid-cols-3 gap-2 mb-6">
+                      <EvidenceChip type={EvidenceType.CbD} icon={<Clipboard size={14} className="opacity-40" />} onClick={() => onNavigateToCBD(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                      <EvidenceChip type={EvidenceType.DOPs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                      <EvidenceChip type={EvidenceType.OSATs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                      <EvidenceChip type={EvidenceType.Reflection} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level, 'Reflection')} />
+                      <EvidenceChip type={EvidenceType.CRS} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToCRS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                      <EvidenceChip type={EvidenceType.Other} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mb-6">
-                    <EvidenceChip type={EvidenceType.CbD} icon={<Clipboard size={14} className="opacity-40" />} onClick={() => onNavigateToCBD(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.DOPs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.OSATs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.Reflection} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level, 'Reflection')} />
-                    <EvidenceChip type={EvidenceType.CRS} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToCRS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                    <EvidenceChip type={EvidenceType.Other} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
-                  </div>
-                  <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-4">
-                     <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-2 py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-semibold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>
-                  </div>
-                </>
-              )}
-            </GlassCard>
-          ))}
+                    <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-4">
+                       <div className="flex flex-col gap-1">
+                         <div className="flex items-center justify-between">
+                           <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
+                           <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
+                             currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                             currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
+                             currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                             'text-slate-300'
+                           }`}>
+                             {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
+                              currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
+                              currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                             {currentStatus}
+                           </span>
+                         </div>
+                         <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                           <div className={`h-full transition-all duration-700 ${
+                             currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                             currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
+                             currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                             'bg-slate-200 w-0'
+                           }`}></div>
+                         </div>
+                       </div>
+                       <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-1 py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-semibold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>
+                    </div>
+                  </>
+                )}
+              </GlassCard>
+            );
+          })}
         </div>
       </div>
     </div>

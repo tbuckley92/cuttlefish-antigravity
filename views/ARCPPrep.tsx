@@ -1,0 +1,252 @@
+
+import React, { useState, useMemo } from 'react';
+import { GlassCard } from '../components/GlassCard';
+import { 
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
+  Clock, AlertCircle, FileText, BookOpen, Users, 
+  ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck
+} from '../components/Icons';
+import { EvidenceItem, EvidenceType, EvidenceStatus, SIA } from '../types';
+
+interface ARCPPrepProps {
+  sias: SIA[];
+  allEvidence: EvidenceItem[];
+  onBack: () => void;
+  onNavigateGSAT: () => void;
+  onNavigateMSF: () => void;
+}
+
+const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNavigateGSAT, onNavigateMSF }) => {
+  const [step, setStep] = useState(1);
+  const totalSteps = 5;
+
+  const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
+  const prevStep = () => setStep(s => Math.max(s - 1, 1));
+
+  // Step 3: GSAT Status
+  const gsatStatus = useMemo(() => {
+    const gsatRecords = allEvidence.filter(e => e.type === EvidenceType.GSAT);
+    if (gsatRecords.length === 0) return 'Not started';
+    if (gsatRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'Completed';
+    return 'In progress';
+  }, [allEvidence]);
+
+  // Step 4: MSF Status
+  const msfStatus = useMemo(() => {
+    const msfRecords = allEvidence.filter(e => e.type === EvidenceType.MSF);
+    if (msfRecords.length === 0) return 'Not started';
+    if (msfRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'Completed';
+    return 'In progress';
+  }, [allEvidence]);
+
+  const renderProgress = () => (
+    <div className="flex items-center gap-4 mb-8">
+      <div className="flex-1 h-1.5 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-indigo-600 transition-all duration-500 ease-out" 
+          style={{ width: `${(step / totalSteps) * 100}%` }}
+        ></div>
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        Part {step} of {totalSteps}
+      </span>
+    </div>
+  );
+
+  const renderPart1 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Mandatory Artifacts</h2>
+        <p className="text-sm text-slate-500 mt-1">Review core compliance documentation.</p>
+      </div>
+      <div className="grid gap-4">
+        <ArtifactRow icon={<FileText className="text-blue-500" />} title="Form R" description="Self-declaration of professional practice." />
+        <ArtifactRow icon={<ClipboardCheck className="text-teal-500" />} title="Eyelogbook" description="Full surgical logbook summary." />
+        <ArtifactRow icon={<Activity className="text-indigo-500" />} title="PDP" description="Personal Development Plan integration (Coming Soon)." status="Pending" />
+      </div>
+    </div>
+  );
+
+  const renderPart2 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Current EPAs & SIAs</h2>
+        <p className="text-sm text-slate-500 mt-1">Imported from your dashboard with real-time completion states.</p>
+      </div>
+      <div className="grid gap-4">
+        {sias.length > 0 ? sias.map(sia => {
+          // Determine the completion status for this SIA entry
+          const matchingEpas = allEvidence.filter(e => 
+            e.type === EvidenceType.EPA && 
+            e.level === sia.level && 
+            (sia.level <= 2 ? true : e.sia === sia.specialty)
+          );
+
+          let currentStatus: EvidenceStatus | 'Not Started' = 'Not Started';
+          if (matchingEpas.some(e => e.status === EvidenceStatus.SignedOff)) currentStatus = EvidenceStatus.SignedOff;
+          else if (matchingEpas.some(e => e.status === EvidenceStatus.Submitted)) currentStatus = EvidenceStatus.Submitted;
+          else if (matchingEpas.some(e => e.status === EvidenceStatus.Draft)) currentStatus = EvidenceStatus.Draft;
+
+          return (
+            <div key={sia.id} className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">{sia.specialty}</p>
+                <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Level {sia.level}</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
+                {currentStatus !== 'Not Started' && (
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5
+                    ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' : 
+                      currentStatus === EvidenceStatus.Submitted ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' : 
+                      'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}
+                  `}>
+                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : currentStatus === EvidenceStatus.Submitted ? <Clock size={10} /> : <FileText size={10} />}
+                    {currentStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="p-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl flex flex-col items-center text-center">
+            <AlertCircle size={32} className="text-slate-300 mb-3" />
+            <p className="text-sm text-slate-500 font-medium">No active EPAs found on your dashboard.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPart3 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">GSAT Matrix</h2>
+        <p className="text-sm text-slate-500 mt-1">Generic Skills Assessment Tool status.</p>
+      </div>
+      <GlassCard className="p-8 flex flex-col items-center text-center">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${gsatStatus === 'Completed' ? 'bg-green-100 text-green-600' : gsatStatus === 'In progress' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+          <BookOpen size={32} />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">{gsatStatus}</h3>
+        <p className="text-sm text-slate-500 mt-2 max-w-xs">Ensure all 6 non-patient management domains are evidenced for your current level.</p>
+        <button onClick={onNavigateGSAT} className="mt-8 px-6 py-3 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2">
+          {gsatStatus === 'Not started' ? 'Start GSAT' : 'Update GSAT'} <ChevronRight size={14} />
+        </button>
+      </GlassCard>
+    </div>
+  );
+
+  const renderPart4 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Multi-Source Feedback</h2>
+        <p className="text-sm text-slate-500 mt-1">MSF completion and respondent mix.</p>
+      </div>
+      <GlassCard className="p-8 flex flex-col items-center text-center">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${msfStatus === 'Completed' ? 'bg-green-100 text-green-600' : msfStatus === 'In progress' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+          <Users size={32} />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">{msfStatus}</h3>
+        <p className="text-sm text-slate-500 mt-2 max-w-xs">Check that your minimum respondent count and mix has been met for this rotation.</p>
+        <button onClick={onNavigateMSF} className="mt-8 px-6 py-3 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2">
+          {msfStatus === 'Not started' ? 'Launch MSF' : 'Check MSF Progress'} <ChevronRight size={14} />
+        </button>
+      </GlassCard>
+    </div>
+  );
+
+  const renderPart5 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">ES Report (ESR)</h2>
+        <p className="text-sm text-slate-500 mt-1">Final supervisor sign-off for the ARCP panel.</p>
+      </div>
+      <GlassCard className="p-12 flex flex-col items-center text-center border-amber-500/20 bg-amber-500/[0.02]">
+        <AlertCircle size={48} className="text-amber-500 mb-6" />
+        <h3 className="text-lg font-bold text-amber-900 dark:text-amber-500 uppercase tracking-tight">Not yet defined</h3>
+        <p className="text-sm text-amber-800 dark:text-amber-800/60 mt-4 max-w-sm leading-relaxed font-medium">
+          The Educational Supervisor Report schema is pending final curriculum board approval. You will be notified when this form becomes available for completion.
+        </p>
+        <div className="mt-10 px-8 py-3 rounded-xl bg-slate-200 dark:bg-white/5 text-slate-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">
+          Generate ESR
+        </div>
+      </GlassCard>
+    </div>
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center mb-12">
+        <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
+          <X size={24} />
+        </button>
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">ARCP Preparation Flow</h1>
+          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">Evidence Compilation Guide</p>
+        </div>
+        <div className="w-10"></div> {/* Spacer */}
+      </div>
+
+      <div className="min-h-[500px]">
+        {renderProgress()}
+        
+        <div className="mt-12 overflow-hidden">
+          {step === 1 && renderPart1()}
+          {step === 2 && renderPart2()}
+          {step === 3 && renderPart3()}
+          {step === 4 && renderPart4()}
+          {step === 5 && renderPart5()}
+        </div>
+      </div>
+
+      <div className="mt-16 flex justify-between items-center pt-8 border-t border-slate-100 dark:border-white/5">
+        <button 
+          onClick={prevStep}
+          disabled={step === 1}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+        >
+          <ChevronLeft size={18} /> Previous
+        </button>
+        
+        {step < totalSteps ? (
+          <button 
+            onClick={nextStep}
+            className="flex items-center gap-2 px-8 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all"
+          >
+            Next <ChevronRight size={18} />
+          </button>
+        ) : (
+          <button 
+            onClick={onBack}
+            className="px-10 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-xl hover:bg-black transition-all"
+          >
+            Done
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string }> = ({ icon, title, description, status = "Action Required" }) => (
+  <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group hover:shadow-lg transition-all cursor-pointer">
+    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
+      {icon}
+    </div>
+    <div className="flex-1">
+      <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{title}</h4>
+      <p className="text-xs text-slate-500 mt-1 font-medium">{description}</p>
+    </div>
+    <div className="text-right">
+      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded ${status === 'Pending' ? 'text-slate-400 bg-slate-100' : 'text-indigo-600 bg-indigo-50'}`}>
+        {status}
+      </span>
+      <div className="flex justify-end mt-2">
+        <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+      </div>
+    </div>
+  </div>
+);
+
+export default ARCPPrep;
