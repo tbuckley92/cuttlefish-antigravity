@@ -87,7 +87,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg animate-in slide-in-from-bottom-8 duration-300">
-        <GlassCard className="p-6 md:p-8 bg-white dark:bg-slate-900 shadow-2xl ring-1 ring-slate-200 dark:ring-white/10">
+        <GlassCard className="p-6 md:p-8 bg-white/100 dark:bg-slate-900 shadow-2xl ring-1 ring-slate-200 dark:ring-white/10 border-none">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Sign off assessment</h2>
@@ -100,19 +100,19 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
 
           <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4 mb-6 space-y-2 border border-slate-100 dark:border-white/5">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-bold uppercase">Assessment</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider">Assessment</span>
               <span className="text-slate-900 dark:text-white font-medium">{formInfo.type}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-bold uppercase">Trainee</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider">Trainee</span>
               <span className="text-slate-900 dark:text-white font-medium">{formInfo.traineeName}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-bold uppercase">Supervisor</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider">Supervisor</span>
               <span className="text-slate-900 dark:text-white font-medium">{formInfo.supervisorName}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-bold uppercase">Date</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider">Date</span>
               <span className="text-slate-900 dark:text-white font-medium">{formInfo.date}</span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
                   value={gmc}
                   onChange={(e) => setGmc(e.target.value)}
                   placeholder="Enter 7-digit GMC"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/50"
+                  className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/50"
                 />
               </div>
             </div>
@@ -154,7 +154,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
                   onTouchStart={startDrawing}
                   onTouchMove={draw}
                   onTouchEnd={stopDrawing}
-                  className="w-full h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl cursor-crosshair touch-none"
+                  className="w-full h-[120px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl cursor-crosshair touch-none"
                 />
                 {!isCanvasDirty && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity">
@@ -168,13 +168,13 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
               <button 
                 onClick={handleConfirm}
                 disabled={!canSubmit}
-                className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <CheckCircle2 size={18} /> Confirm sign off
               </button>
               <button 
                 onClick={onClose}
-                className="w-full mt-2 py-3 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors"
+                className="w-full mt-2 py-3 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors text-center"
               >
                 Cancel
               </button>

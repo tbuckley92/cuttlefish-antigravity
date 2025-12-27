@@ -398,11 +398,11 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       {isFormRDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Form R</h2>
-                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Professional Declaration</p>
+                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Professional Declaration</p>
                 </div>
                 <button onClick={() => setIsFormRDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
                   <X size={20} />
@@ -418,7 +418,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                       type="date" 
                       value={formRDate}
                       onChange={(e) => setFormRDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium"
+                      className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium"
                     />
                   </div>
                 </div>
@@ -444,12 +444,12 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                       <div className="text-center animate-in zoom-in-95">
                         <CheckCircle2 size={32} className="text-indigo-600 mx-auto mb-2" />
                         <p className="text-sm font-bold text-slate-900 dark:text-white">{formRFileName}</p>
-                        <p className="text-[10px] text-indigo-500 font-bold mt-1">CLICK TO REPLACE</p>
+                        <p className="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-widest">Click to replace</p>
                       </div>
                     ) : (
                       <>
                         <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Click or drag to upload</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Click or drag to upload</p>
                       </>
                     )}
                   </div>
@@ -464,7 +464,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                   </button>
                   <button 
                     onClick={() => setIsFormRDialogOpen(false)}
-                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
                   >
                     Cancel
                   </button>
@@ -479,11 +479,11 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
       {isLogbookDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Eyelogbook</h2>
-                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Surgical Logbook Summary</p>
+                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Surgical Logbook Summary</p>
                 </div>
                 <button onClick={() => setIsLogbookDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
                   <X size={20} />
@@ -499,7 +499,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                       type="date" 
                       value={logbookDate}
                       onChange={(e) => setLogbookDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-teal-500/50 transition-all font-medium"
+                      className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-teal-500/50 transition-all font-medium"
                     />
                   </div>
                 </div>
@@ -525,12 +525,12 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                       <div className="text-center animate-in zoom-in-95">
                         <CheckCircle2 size={32} className="text-teal-600 mx-auto mb-2" />
                         <p className="text-sm font-bold text-slate-900 dark:text-white">{logbookFileName}</p>
-                        <p className="text-[10px] text-teal-500 font-bold mt-1">CLICK TO REPLACE</p>
+                        <p className="text-[10px] text-teal-500 font-bold mt-1 uppercase tracking-widest">Click to replace</p>
                       </div>
                     ) : (
                       <>
                         <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Click or drag to upload</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Click or drag to upload</p>
                       </>
                     )}
                   </div>
@@ -545,7 +545,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, onBack, onNaviga
                   </button>
                   <button 
                     onClick={() => setIsLogbookDialogOpen(false)}
-                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
                   >
                     Cancel
                   </button>

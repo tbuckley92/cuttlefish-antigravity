@@ -31,6 +31,9 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
   const filteredEvidence = useMemo(() => {
     return allEvidence.filter(item => {
+      // Exclude ARCP Prep items from the main Evidence table
+      if (item.type === EvidenceType.ARCPPrep) return false;
+      
       const typeMatch = filterType === 'All' || item.type === filterType;
       const siaMatch = filterSIA === 'All' || item.sia === filterSIA;
       return typeMatch && siaMatch;
@@ -97,7 +100,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             <option value="All">All Types</option>
-            {Object.values(EvidenceType).map(t => <option key={t} value={t}>{t}</option>)}
+            {Object.values(EvidenceType).filter(t => t !== EvidenceType.ARCPPrep).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select 
             value={filterSIA}
