@@ -19,6 +19,8 @@ interface MyEvidenceProps {
   onEditEvidence?: (item: EvidenceItem) => void;
   onDeleteEvidence?: (id: string) => void;
   maxSelection?: number;
+  isSupervisorView?: boolean;
+  onBack?: () => void;
 }
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({ 
@@ -29,7 +31,9 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   onCancel,
   onEditEvidence,
   onDeleteEvidence,
-  maxSelection = 5 
+  maxSelection = 5,
+  isSupervisorView = false,
+  onBack
 }) => {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
@@ -196,9 +200,24 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       )}
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">My Evidence</h1>
-          <p className="text-sm text-slate-500 dark:text-white/40">Overview of all your workplace-based assessments and reflections</p>
+        <div className="flex items-center gap-4 flex-1">
+          {isSupervisorView && onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              title="Back to Supervisor Dashboard"
+            >
+              <ArrowLeft size={24} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
+              {isSupervisorView ? `${profile.name}'s Evidence` : 'My Evidence'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-white/40">
+              {isSupervisorView ? 'Viewing trainee evidence portfolio' : 'Overview of all your workplace-based assessments and reflections'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {completeCount > 0 && (

@@ -2,10 +2,13 @@
 import React from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { EvidenceItem, EvidenceType, EvidenceStatus } from '../types';
-import { CheckCircle2, Clock, AlertCircle, Activity } from '../components/Icons';
+import { CheckCircle2, Clock, AlertCircle, Activity, ArrowLeft } from '../components/Icons';
 
 interface ProgressProps {
   allEvidence: EvidenceItem[];
+  traineeName?: string;
+  isSupervisorView?: boolean;
+  onBack?: () => void;
 }
 
 const SIAs = [
@@ -26,7 +29,7 @@ const SIAs = [
 const COLUMNS = [...SIAs, "GSAT"];
 const LEVELS = [1, 2, 3, 4];
 
-export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
+export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack }) => {
   
   const getStatus = (column: string, level: number): EvidenceStatus | null => {
     // 1. GSAT Logic: Stays domain-specific for all levels
@@ -92,8 +95,25 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence }) => {
   return (
     <div className="max-w-7xl mx-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">Portfolio Progress</h1>
-        <p className="text-sm text-slate-500 dark:text-white/40 mt-1">Completion matrix for EPAs and GSAT outcomes across all training levels.</p>
+        <div className="flex items-center gap-4 mb-4">
+          {isSupervisorView && onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              title="Back to Supervisor Dashboard"
+            >
+              <ArrowLeft size={24} />
+            </button>
+          )}
+          <div className="flex-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
+              {isSupervisorView && traineeName ? `${traineeName}'s Portfolio Progress` : 'Portfolio Progress'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-white/40 mt-1">
+              {isSupervisorView ? 'Viewing trainee progress matrix' : 'Completion matrix for EPAs and GSAT outcomes across all training levels.'}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">

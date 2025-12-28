@@ -37,6 +37,32 @@ export enum EvidenceStatus {
   SignedOff = 'COMPLETE'
 }
 
+export enum UserRole {
+  Trainee = 'Trainee',
+  EducationalSupervisor = 'EducationalSupervisor',
+  ARCPPanelMember = 'ARCPPanelMember'
+}
+
+export enum ARCPOutcome {
+  Outcome1 = 'Outcome 1',
+  Outcome2 = 'Outcome 2',
+  Outcome3 = 'Outcome 3',
+  Outcome4 = 'Outcome 4',
+  Outcome5 = 'Outcome 5',
+  Outcome6 = 'Outcome 6',
+  Outcome7 = 'Outcome 7',
+  Outcome8 = 'Outcome 8',
+  Outcome9 = 'Outcome 9',
+  Outcome10 = 'Outcome 10',
+  Outcome10_1 = 'Outcome 10.1',
+  Outcome10_1_FIT = 'Outcome 10.1 (FIT)'
+}
+
+export enum ARCPReviewType {
+  InterimReview = 'Interim Review',
+  FullARCP = 'Full ARCP'
+}
+
 export interface PDPGoal {
   id: string;
   title: string;
@@ -47,6 +73,7 @@ export interface PDPGoal {
 }
 
 export interface UserProfile {
+  id?: string; // Add ID for multi-trainee support
   name: string;
   grade: TrainingGrade;
   location: string;
@@ -57,6 +84,8 @@ export interface UserProfile {
   supervisorEmail: string;
   predictedSIAs: string[];
   pdpGoals: PDPGoal[];
+  deanery?: string; // Default: "Thames Valley Deanery"
+  arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
 }
 
 export interface SIA {
@@ -180,4 +209,18 @@ export interface EPAForm {
   includeCurriculum: boolean;
   linkedEvidence: Record<string, string[]>; // reqIndex -> evidenceIds
   comments: Record<string, string>; // reqIndex -> commentText
+}
+
+export interface SupervisorProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole.EducationalSupervisor | UserRole.ARCPPanelMember;
+  deanery?: string; // For ARCP Panel Members
+}
+
+export interface TraineeSummary {
+  profile: UserProfile;
+  sias: SIA[];
+  allEvidence: EvidenceItem[];
 }

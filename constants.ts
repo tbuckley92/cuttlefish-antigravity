@@ -1,5 +1,5 @@
 
-import { CurriculumRequirement, TrainingGrade, EvidenceType, EvidenceStatus, EvidenceItem, SIA, UserProfile } from './types';
+import { CurriculumRequirement, TrainingGrade, EvidenceType, EvidenceStatus, EvidenceItem, SIA, UserProfile, ARCPOutcome } from './types';
 
 export const CURRICULUM_DATA: CurriculumRequirement[] = [
   // --- Patient Management (EPAs) based on CSV ---
@@ -287,3 +287,20 @@ export const SPECIALTIES = [
   "Medical Retina", "Vitreoretinal Surgery", "Ocular Motility", "Neuro-Ophthalmology",
   "Paediatric Ophthalmology", "Urgent Eye Care", "Community Ophthalmology"
 ];
+
+// ARCP Outcomes from Gold Guide paragraph 4.94
+// Descriptions to be added when available
+export const ARCP_OUTCOMES: Record<ARCPOutcome, string> = {
+  [ARCPOutcome.Outcome1]: 'Satisfactory progress - achieving competencies at the expected rate',
+  [ARCPOutcome.Outcome2]: 'Satisfactory progress - additional training time required',
+  [ARCPOutcome.Outcome3]: 'Insufficient progress - additional training time required',
+  [ARCPOutcome.Outcome4]: 'Released from training programme with or without specified competencies',
+  [ARCPOutcome.Outcome5]: 'Incomplete evidence presented - additional training time required',
+  [ARCPOutcome.Outcome6]: 'Recommendation for completion of training - CCT',
+  [ARCPOutcome.Outcome7]: 'Recommendation for completion of training - CESR',
+  [ARCPOutcome.Outcome8]: 'Out of programme for approved clinical experience, research or career break',
+  [ARCPOutcome.Outcome9]: 'Out of programme - not approved',
+  [ARCPOutcome.Outcome10]: 'Fitness to practise concerns',
+  [ARCPOutcome.Outcome10_1]: 'Fitness to practise concerns - FIT',
+  [ARCPOutcome.Outcome10_1_FIT]: 'Fitness to practise concerns - FIT (Full Investigation)'
+};

@@ -13,11 +13,13 @@ import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
 import ARCPPrep from './views/ARCPPrep';
+import SupervisorDashboard from './views/SupervisorDashboard';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users } from './components/Icons';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile } from './types';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
+import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 
 enum View {
   Dashboard = 'dashboard',
@@ -35,7 +37,8 @@ enum View {
   MSFForm = 'msf-form',
   MSFSubmission = 'msf-submission',
   MSFResponse = 'msf-response',
-  ARCPPrep = 'arcp-prep'
+  ARCPPrep = 'arcp-prep',
+  SupervisorDashboard = 'supervisor-dashboard'
 }
 
 interface FormParams {
@@ -88,6 +91,11 @@ const App: React.FC = () => {
 
   // Respondent simulation state
   const [activeRespondentId, setActiveRespondentId] = useState<string | null>(null);
+
+  // Role and supervisor state
+  const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.Trainee);
+  const [currentSupervisor, setCurrentSupervisor] = useState<SupervisorProfile | null>(null);
+  const [viewingTraineeId, setViewingTraineeId] = useState<string | null>(null);
 
   // Helper function to find existing evidence by type, level, and optionally sia
   const findExistingEvidence = (type: EvidenceType, level: number, sia?: string): EvidenceItem | undefined => {
@@ -388,20 +396,45 @@ const App: React.FC = () => {
           />
         );
       case View.Evidence:
+        const evidenceData = viewingTraineeId 
+          ? getTraineeSummary(viewingTraineeId)?.allEvidence || []
+          : allEvidence;
+        const evidenceProfile = viewingTraineeId
+          ? getTraineeSummary(viewingTraineeId)?.profile || profile
+          : profile;
         return (
           <MyEvidence 
-            allEvidence={allEvidence}
-            profile={profile}
+            allEvidence={evidenceData}
+            profile={evidenceProfile}
             selectionMode={isSelectionMode} 
             onConfirmSelection={handleConfirmSelection} 
             onCancel={handleCancelSelection}
-            onEditEvidence={handleEditEvidence}
-            onDeleteEvidence={handleDeleteEvidence}
+            onEditEvidence={viewingTraineeId ? undefined : handleEditEvidence}
+            onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
+            isSupervisorView={!!viewingTraineeId}
+            onBack={viewingTraineeId ? () => {
+              setViewingTraineeId(null);
+              setCurrentView(View.SupervisorDashboard);
+            } : undefined}
           />
         );
       case View.Progress:
+        const progressEvidence = viewingTraineeId 
+          ? getTraineeSummary(viewingTraineeId)?.allEvidence || []
+          : allEvidence;
+        const progressTraineeName = viewingTraineeId
+          ? getTraineeSummary(viewingTraineeId)?.profile.name
+          : undefined;
         return (
-          <Progress allEvidence={allEvidence} />
+          <Progress 
+            allEvidence={progressEvidence}
+            traineeName={progressTraineeName}
+            isSupervisorView={!!viewingTraineeId}
+            onBack={viewingTraineeId ? () => {
+              setViewingTraineeId(null);
+              setCurrentView(View.SupervisorDashboard);
+            } : undefined}
+          />
         );
       case View.AddEvidence:
         return (
@@ -531,6 +564,41 @@ const App: React.FC = () => {
             onUpsertEvidence={handleUpsertEvidence}
           />
         );
+      case View.SupervisorDashboard:
+        if (!currentSupervisor) {
+          // Default to first supervisor for demo
+          const defaultSupervisor = MOCK_SUPERVISORS[0];
+          setCurrentSupervisor(defaultSupervisor);
+          setCurrentRole(defaultSupervisor.role);
+        }
+        return currentSupervisor ? (
+          <SupervisorDashboard
+            supervisor={currentSupervisor}
+            onViewTraineeProgress={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              setCurrentView(View.Progress);
+            }}
+            onViewTraineeEvidence={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              setCurrentView(View.Evidence);
+            }}
+            onViewARCPComponent={(traineeId, component) => {
+              // Navigate to ARCP Prep for the specific trainee
+              setViewingTraineeId(traineeId);
+              // For now, just show a message - could navigate to ARCPPrep with trainee context
+              alert(`Viewing ${component} for trainee ${traineeId}`);
+            }}
+            onUpdateARCPOutcome={(traineeId, outcome) => {
+              // Update the trainee's ARCP outcome in mock data
+              // In a real app, this would update the database
+              const summary = getTraineeSummary(traineeId);
+              if (summary) {
+                summary.profile.arcpOutcome = outcome;
+                alert(`ARCP Outcome ${outcome} confirmed for ${summary.profile.name}`);
+              }
+            }}
+          />
+        ) : null;
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -558,7 +626,14 @@ const App: React.FC = () => {
       {!isSelectionMode && (
         <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 px-6">
           <div className="max-w-7xl mx-auto h-20 flex items-center justify-between">
-            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setCurrentView(View.Dashboard)}>
+            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {
+              if (currentRole === UserRole.Trainee) {
+                setCurrentView(View.Dashboard);
+              } else {
+                setViewingTraineeId(null);
+                setCurrentView(View.SupervisorDashboard);
+              }
+            }}>
               <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
                 <LayoutDashboard size={20} className="text-white" />
               </div>
@@ -566,35 +641,96 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+              {currentRole === UserRole.Trainee ? (
+                <>
+                  <NavTab 
+                    active={currentView === View.Dashboard} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.Dashboard);
+                    }} 
+                    icon={<LayoutDashboard size={16} />} 
+                    label="DASHBOARD" 
+                  />
+                  <NavTab 
+                    active={currentView === View.Evidence} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.Evidence);
+                    }} 
+                    icon={<Database size={16} />} 
+                    label="MY EVIDENCE" 
+                  />
+                  <NavTab 
+                    active={currentView === View.Progress} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.Progress);
+                    }} 
+                    icon={<Activity size={16} />} 
+                    label="PROGRESS" 
+                  />
+                  <NavTab 
+                    active={currentView === View.RecordForm || isFormViewActive} 
+                    onClick={() => setCurrentView(View.RecordForm)} 
+                    icon={<FileText size={16} />} 
+                    label="RECORD FORM" 
+                  />
+                  <NavTab 
+                    active={currentView === View.AddEvidence} 
+                    onClick={() => setCurrentView(View.AddEvidence)} 
+                    icon={<Plus size={16} />} 
+                    label="ADD EVIDENCE" 
+                  />
+                </>
+              ) : (
+                <>
+                  <NavTab 
+                    active={currentView === View.SupervisorDashboard} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.SupervisorDashboard);
+                    }} 
+                    icon={<Users size={16} />} 
+                    label="SUPERVISOR DASHBOARD" 
+                  />
+                  {viewingTraineeId && (
+                    <>
+                      <NavTab 
+                        active={currentView === View.Progress} 
+                        onClick={() => setCurrentView(View.Progress)} 
+                        icon={<Activity size={16} />} 
+                        label="TRAINEE PROGRESS" 
+                      />
+                      <NavTab 
+                        active={currentView === View.Evidence} 
+                        onClick={() => setCurrentView(View.Evidence)} 
+                        icon={<Database size={16} />} 
+                        label="TRAINEE EVIDENCE" 
+                      />
+                    </>
+                  )}
+                </>
+              )}
               <NavTab 
-                active={currentView === View.Dashboard} 
-                onClick={() => setCurrentView(View.Dashboard)} 
-                icon={<LayoutDashboard size={16} />} 
-                label="DASHBOARD" 
-              />
-              <NavTab 
-                active={currentView === View.Evidence} 
-                onClick={() => setCurrentView(View.Evidence)} 
-                icon={<Database size={16} />} 
-                label="MY EVIDENCE" 
-              />
-              <NavTab 
-                active={currentView === View.Progress} 
-                onClick={() => setCurrentView(View.Progress)} 
-                icon={<Activity size={16} />} 
-                label="PROGRESS" 
-              />
-              <NavTab 
-                active={currentView === View.RecordForm || isFormViewActive} 
-                onClick={() => setCurrentView(View.RecordForm)} 
-                icon={<FileText size={16} />} 
-                label="RECORD FORM" 
-              />
-              <NavTab 
-                active={currentView === View.AddEvidence} 
-                onClick={() => setCurrentView(View.AddEvidence)} 
-                icon={<Plus size={16} />} 
-                label="ADD EVIDENCE" 
+                active={false}
+                onClick={() => {
+                  // Toggle role for demo purposes
+                  if (currentRole === UserRole.Trainee) {
+                    const supervisor = MOCK_SUPERVISORS[0];
+                    setCurrentSupervisor(supervisor);
+                    setCurrentRole(supervisor.role);
+                    setViewingTraineeId(null);
+                    setCurrentView(View.SupervisorDashboard);
+                  } else {
+                    setCurrentRole(UserRole.Trainee);
+                    setCurrentSupervisor(null);
+                    setViewingTraineeId(null);
+                    setCurrentView(View.Dashboard);
+                  }
+                }}
+                icon={<Users size={16} />}
+                label={currentRole === UserRole.Trainee ? "SWITCH TO SUPERVISOR" : "SWITCH TO TRAINEE"}
               />
             </div>
 
