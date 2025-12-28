@@ -142,10 +142,57 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
 
   const isBoxSelectable = (column: string, level: number): boolean => {
     // Not selectable if GSAT column or level 4
-    return column !== "GSAT" && level !== 4;
+    if (column === "GSAT" || level === 4) return false;
+    
+    // Not selectable if already completed with CCU or 14Fish
+    const boxKey = `${column}-${level}`;
+    if (profile?.curriculumCatchUpCompletions?.[boxKey] || profile?.fourteenFishCompletions?.[boxKey]) {
+      return false;
+    }
+    
+    // Not selectable if box has any status (Draft, Submitted, SignedOff)
+    const status = getStatus(column, level);
+    if (status !== null) {
+      return false;
+    }
+    
+    return true;
   };
 
   const getCellColor = (status: EvidenceStatus | null, column: string, level: number) => {
+    const boxKey = `${column}-${level}`;
+    
+    // When in CCU/Fish mode, prioritize showing already-completed boxes as dark grey
+    if (isCatchUpMode || isFourteenFishMode) {
+      // Check if box is already completed from profile (not just selected in current session)
+      const isAlreadyCompleted = (isCatchUpMode && profile?.curriculumCatchUpCompletions?.[boxKey]) ||
+                                 (isFourteenFishMode && profile?.fourteenFishCompletions?.[boxKey]);
+      
+      if (isAlreadyCompleted) {
+        // Show dark grey for boxes already linked to other files
+        return "bg-slate-400/60 dark:bg-slate-600/40";
+      }
+      
+      // Show green only for boxes currently selected in this session (not yet saved)
+      if (isCatchUpMode && selectedCatchUpBoxes.has(boxKey) && !profile?.curriculumCatchUpCompletions?.[boxKey]) {
+        return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+      }
+      if (isFourteenFishMode && selectedFourteenFishBoxes.has(boxKey) && !profile?.fourteenFishCompletions?.[boxKey]) {
+        return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+      }
+      
+      // Show dark grey for boxes that are not selectable (have status or are already completed)
+      if (!isBoxSelectable(column, level)) {
+        return "bg-slate-400/60 dark:bg-slate-600/40";
+      }
+      
+      // Highlight selectable boxes in catch-up or FourteenFish mode
+      if (isBoxSelectable(column, level)) {
+        return "bg-indigo-100/50 dark:bg-indigo-500/10 border-2 border-indigo-300 dark:border-indigo-400";
+      }
+    }
+    
+    // Outside of CCU/Fish mode, use the original completion logic
     // Check for FourteenFish completion first (takes precedence)
     if (isFourteenFishComplete(column, level)) {
       return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
@@ -156,7 +203,6 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     }
     
     // Highlight boxes selected for linking
-    const boxKey = `${column}-${level}`;
     if (linkingFileUrl && linkingSelectedBoxes.has(boxKey)) {
       return "bg-teal-300/70 dark:bg-teal-500/30 border-2 border-teal-400 dark:border-teal-400 shadow-[0_0_10px_rgba(20,184,166,0.4)]";
     }
@@ -165,11 +211,6 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     if (linkingFileUrl && status === null && isBoxSelectable(column, level) && 
         !profile?.curriculumCatchUpCompletions?.[boxKey] && !profile?.fourteenFishCompletions?.[boxKey]) {
       return "bg-teal-50/50 dark:bg-teal-500/10 border-2 border-teal-300 dark:border-teal-400 border-dashed";
-    }
-    
-    // Highlight selectable boxes in catch-up or FourteenFish mode
-    if ((isCatchUpMode || isFourteenFishMode) && isBoxSelectable(column, level)) {
-      return "bg-indigo-100/50 dark:bg-indigo-500/10 border-2 border-indigo-300 dark:border-indigo-400";
     }
 
     switch (status) {
@@ -311,30 +352,36 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     }
     
     // Handle selection in catch-up mode
-    if (isCatchUpMode && isBoxSelectable(column, level) && !isSupervisorView) {
-      setSelectedCatchUpBoxes(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(boxKey)) {
-          newSet.delete(boxKey);
-        } else {
-          newSet.add(boxKey);
-        }
-        return newSet;
-      });
+    if (isCatchUpMode && !isSupervisorView) {
+      // Only allow selection if box is selectable (checks status and completion)
+      if (isBoxSelectable(column, level)) {
+        setSelectedCatchUpBoxes(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(boxKey)) {
+            newSet.delete(boxKey);
+          } else {
+            newSet.add(boxKey);
+          }
+          return newSet;
+        });
+      }
       return;
     }
     
     // Handle selection in FourteenFish mode
-    if (isFourteenFishMode && isBoxSelectable(column, level) && !isSupervisorView) {
-      setSelectedFourteenFishBoxes(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(boxKey)) {
-          newSet.delete(boxKey);
-        } else {
-          newSet.add(boxKey);
-        }
-        return newSet;
-      });
+    if (isFourteenFishMode && !isSupervisorView) {
+      // Only allow selection if box is selectable (checks status and completion)
+      if (isBoxSelectable(column, level)) {
+        setSelectedFourteenFishBoxes(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(boxKey)) {
+            newSet.delete(boxKey);
+          } else {
+            newSet.add(boxKey);
+          }
+          return newSet;
+        });
+      }
       return;
     }
   };
@@ -388,14 +435,20 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Progress.tsx:372',message:'handleSaveCatchUp: Entry',data:{selectedBoxesCount:selectedCatchUpBoxes.size,selectedBoxes:Array.from(selectedCatchUpBoxes),uploadedFilesCount:uploadedCatchUpFiles.length,uploadedFileNames:uploadedCatchUpFiles.map(f=>f.fileName)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
 
+    // Filter out boxes that are already completed in the profile
+    // Only process newly selected boxes (not already linked to other files)
+    const newlySelectedBoxes = Array.from(selectedCatchUpBoxes).filter((key) => 
+      !profile?.curriculumCatchUpCompletions?.[key as string]
+    ) as string[];
+
     // Convert Set to Record
     const completions: Record<string, boolean> = {};
     const pdfs: Record<string, string> = {};
     
-    // Group selected boxes by specialty/SIA
+    // Group newly selected boxes by specialty/SIA
     const boxesBySIA = new Map<string, string[]>(); // SIA -> array of box keys
     
-    selectedCatchUpBoxes.forEach(key => {
+    newlySelectedBoxes.forEach(key => {
       const [column] = key.split('-');
       const sia = column !== "GSAT" ? column : "GSAT";
       
@@ -432,8 +485,8 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
           });
         }
         
-        // For each file, link it to all selected boxes
-        selectedCatchUpBoxes.forEach(key => {
+        // For each file, link it to only newly selected boxes (not already completed)
+        newlySelectedBoxes.forEach(key => {
           completions[key] = true;
           pdfs[key] = dataUrl;
         });
@@ -469,7 +522,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
           });
         });
       });
-    } else if (selectedCatchUpBoxes.size > 0) {
+    } else if (newlySelectedBoxes.length > 0) {
       // If no PDF is uploaded but boxes are selected, alert user that evidence won't be created
       alert('No PDF uploaded. Selections saved to profile, but no evidence item created in MyEvidence.');
     }
@@ -499,14 +552,20 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
       return;
     }
 
+    // Filter out boxes that are already completed in the profile
+    // Only process newly selected boxes (not already linked to other files)
+    const newlySelectedBoxes = Array.from(selectedFourteenFishBoxes).filter((key) => 
+      !profile?.fourteenFishCompletions?.[key as string]
+    ) as string[];
+
     // Convert Set to Record
     const completions: Record<string, boolean> = {};
     const evidenceUrls: Record<string, string> = {};
     
-    // Group selected boxes by specialty/SIA
+    // Group newly selected boxes by specialty/SIA
     const boxesBySIA = new Map<string, string[]>(); // SIA -> array of box keys
     
-    selectedFourteenFishBoxes.forEach(key => {
+    newlySelectedBoxes.forEach(key => {
       const [column] = key.split('-');
       const sia = column !== "GSAT" ? column : "GSAT";
       
@@ -535,8 +594,8 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
           });
         }
         
-        // For each file, link it to all selected boxes
-        selectedFourteenFishBoxes.forEach(key => {
+        // For each file, link it to only newly selected boxes (not already completed)
+        newlySelectedBoxes.forEach(key => {
           completions[key] = true;
           evidenceUrls[key] = dataUrl;
         });
@@ -568,7 +627,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
           });
         });
       });
-    } else if (selectedFourteenFishBoxes.size > 0) {
+    } else if (newlySelectedBoxes.length > 0) {
       // If no image is uploaded but boxes are selected, alert user that evidence won't be created
       alert('No image uploaded. Selections saved to profile, but no evidence item created in MyEvidence.');
     }
