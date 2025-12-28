@@ -69,6 +69,8 @@ export const generateEvidencePDF = (item: EvidenceItem, profile: UserProfile): B
     case EvidenceType.CRS:
       generateCRSPDF(doc, item, yPos);
       break;
+    case EvidenceType.CurriculumCatchUp:
+      // Curriculum Catch Up uses uploaded PDF files, but fall through to default for completeness
     default:
       // Generic PDF for other types
       doc.setFontSize(12);
@@ -693,6 +695,8 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
       case EvidenceType.CRS:
         generateCRSPDF(doc, item, yPos);
         break;
+      case EvidenceType.CurriculumCatchUp:
+        // Curriculum Catch Up uses uploaded PDF files, but fall through to default for completeness
       default:
         if (item.notes) {
           doc.setFontSize(12);

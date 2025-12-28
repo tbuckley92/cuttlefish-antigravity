@@ -62,7 +62,17 @@ const App: React.FC = () => {
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
-  const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
+  const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
+    const savedEvidence = localStorage.getItem('ophthaPortfolio_evidence');
+    if (savedEvidence) {
+      try {
+        return JSON.parse(savedEvidence);
+      } catch {
+        return INITIAL_EVIDENCE;
+      }
+    }
+    return INITIAL_EVIDENCE;
+  });
   
   // Profile state with localStorage persistence
   const [profile, setProfile] = useState<UserProfile>(() => {
@@ -76,6 +86,11 @@ const App: React.FC = () => {
     }
     return INITIAL_PROFILE;
   });
+
+  // Persist evidence to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('ophthaPortfolio_evidence', JSON.stringify(allEvidence));
+  }, [allEvidence]);
 
   // Persist profile to localStorage whenever it changes
   useEffect(() => {
@@ -450,6 +465,7 @@ const App: React.FC = () => {
             profile={progressProfile}
             onUpdateProfile={viewingTraineeId ? undefined : setProfile}
             onUpsertEvidence={viewingTraineeId ? undefined : handleUpsertEvidence}
+            onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
           />
         );
       case View.AddEvidence:

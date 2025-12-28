@@ -29,6 +29,7 @@ export enum EvidenceType {
   Compliment = 'Compliments',
   MSF = 'MSF',
   ARCPPrep = 'ARCP Preparation',
+  CurriculumCatchUp = 'Curriculum Catch Up',
   FourteenFish = 'FourteenFish'
 }
 

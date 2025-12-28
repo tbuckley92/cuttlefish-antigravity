@@ -81,6 +81,20 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
   const handlePDFClick = async (e: React.MouseEvent, item: EvidenceItem) => {
     e.stopPropagation();
+    
+    // For Curriculum Catch Up and FourteenFish, open the uploaded file directly
+    if ((item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) && item.fileUrl) {
+      try {
+        window.open(item.fileUrl, '_blank');
+        return;
+      } catch (error) {
+        alert('Error opening file. Please try again.');
+        console.error('File open error:', error);
+        return;
+      }
+    }
+    
+    // For other evidence types, generate PDF from metadata
     try {
       const blob = generateEvidencePDF(item, profile);
       const url = URL.createObjectURL(blob);
@@ -459,6 +473,8 @@ const getTypeColors = (type: EvidenceType) => {
     case EvidenceType.CRS: return 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30';
     case EvidenceType.EPA: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
     case EvidenceType.MSF: return 'bg-indigo-600/10 text-indigo-600 border border-indigo-500/20';
+    case EvidenceType.CurriculumCatchUp: return 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/20 dark:border-amber-500/30';
+    case EvidenceType.FourteenFish: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
     default: return 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 border border-slate-200 dark:border-white/20';
   }
 };
