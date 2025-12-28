@@ -23,6 +23,7 @@ interface GSATFormProps {
   onLinkRequested: (reqIndex: number, domain: string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>; // "domain-reqIndex" -> evidenceIds
+  allEvidence?: EvidenceItem[];
 }
 
 const domains = [
@@ -45,7 +46,8 @@ const GSATForm: React.FC<GSATFormProps> = ({
   onSave,
   onLinkRequested,
   onRemoveLink,
-  linkedEvidenceData 
+  linkedEvidenceData,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -364,7 +366,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                         <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Supporting Evidence</label>
                         <div className="flex flex-wrap gap-2">
                           {linkedIds.map(evId => {
-                            const ev = INITIAL_EVIDENCE.find(e => e.id === evId);
+                            const ev = allEvidence.find(e => e.id === evId);
                             return (
                               <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600">
                                 <LinkIcon size={10} />

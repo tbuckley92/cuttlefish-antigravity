@@ -26,6 +26,7 @@ interface EPAFormProps {
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   linkedEvidenceData: Record<string, string[]>;
+  allEvidence?: EvidenceItem[];
 }
 
 const ALL_SPECIALTIES = ["No attached SIA", ...SPECIALTIES];
@@ -93,7 +94,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
   onSave,
   onLinkRequested,
   onRemoveLink,
-  linkedEvidenceData 
+  linkedEvidenceData,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -265,7 +267,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
             {linkedIds.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {linkedIds.map(evId => {
-                  const ev = INITIAL_EVIDENCE.find(e => e.id === evId);
+                  const ev = allEvidence.find(e => e.id === evId);
                   return (
                     <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
                       <LinkIcon size={12} />

@@ -557,6 +557,7 @@ const App: React.FC = () => {
             onRemoveLink={handleRemoveLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
+            allEvidence={allEvidence}
           />
         );
       case View.GSATForm:
@@ -572,6 +573,7 @@ const App: React.FC = () => {
             onRemoveLink={handleRemoveLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
+            allEvidence={allEvidence}
           />
         );
       case View.DOPsForm:
