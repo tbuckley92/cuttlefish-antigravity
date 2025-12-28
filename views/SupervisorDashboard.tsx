@@ -62,6 +62,17 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     }
   };
 
+  // Sort trainees so accessible ones appear first
+  const sortedTrainees = useMemo(() => {
+    return [...allTraineesInDeanery].sort((a, b) => {
+      const aAccessible = isTraineeAccessible(a);
+      const bAccessible = isTraineeAccessible(b);
+      // Accessible trainees first (true comes before false)
+      if (aAccessible === bAccessible) return 0;
+      return aAccessible ? -1 : 1;
+    });
+  }, [allTraineesInDeanery, supervisor]);
+
   const handleOutcomeChange = (traineeId: string, outcome: ARCPOutcome) => {
     setSelectedOutcomes(prev => ({ ...prev, [traineeId]: outcome }));
   };
@@ -514,7 +525,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
             </div>
 
             <div className="space-y-2">
-              {allTraineesInDeanery.map(summary => {
+              {sortedTrainees.map(summary => {
                 const isAccessible = isTraineeAccessible(summary);
                 
                 return (
@@ -555,7 +566,6 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                       {!isAccessible && (
                         <div className="ml-4 flex items-center gap-2 text-slate-400">
                           <Lock size={20} />
-                          <span className="text-xs font-medium">Locked</span>
                         </div>
                       )}
                     </div>
