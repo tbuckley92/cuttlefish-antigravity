@@ -174,12 +174,12 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
   const handleBoxClick = (column: string, level: number) => {
     const boxKey = `${column}-${level}`;
     
-    // If box is completed, open file in new tab
-    if (isCatchUpComplete(column, level) && profile?.curriculumCatchUpPDFs?.[boxKey]) {
+    // If box is completed (check only profile, not selected boxes), open file in new tab
+    if (profile?.curriculumCatchUpCompletions?.[boxKey] && profile?.curriculumCatchUpPDFs?.[boxKey]) {
       window.open(profile.curriculumCatchUpPDFs[boxKey], '_blank');
       return;
     }
-    if (isFourteenFishComplete(column, level) && profile?.fourteenFishEvidence?.[boxKey]) {
+    if (profile?.fourteenFishCompletions?.[boxKey] && profile?.fourteenFishEvidence?.[boxKey]) {
       window.open(profile.fourteenFishEvidence[boxKey], '_blank');
       return;
     }
@@ -253,6 +253,10 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
 
   const handleSaveCatchUp = () => {
     if (!onUpdateProfile || !profile || !pdfUrl) return;
+    if (!onUpsertEvidence) {
+      alert('Unable to save: Evidence creation not available');
+      return;
+    }
 
     // Convert Set to Record
     const completions: Record<string, boolean> = {};
@@ -261,6 +265,23 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     selectedCatchUpBoxes.forEach(key => {
       completions[key] = true;
       pdfs[key] = pdfUrl; // Use the same PDF URL for all selected boxes
+      
+      // Create evidence item for each selected box
+      const [column, levelStr] = key.split('-');
+      const level = parseInt(levelStr);
+      
+      onUpsertEvidence({
+        id: Math.random().toString(36).substr(2, 9),
+        type: EvidenceType.Additional,
+        title: `${column} L${level} - Curriculum Catch Up`,
+        sia: column !== "GSAT" ? column : undefined,
+        level: level,
+        date: new Date().toISOString().split('T')[0],
+        status: EvidenceStatus.SignedOff,
+        fileUrl: pdfUrl,
+        fileName: uploadedPDF?.name || 'curriculum-catch-up.pdf',
+        fileType: 'application/pdf'
+      });
     });
 
     const updatedProfile: UserProfile = {
