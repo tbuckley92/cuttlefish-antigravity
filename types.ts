@@ -28,7 +28,8 @@ export enum EvidenceType {
   Additional = 'Additional evidence',
   Compliment = 'Compliments',
   MSF = 'MSF',
-  ARCPPrep = 'ARCP Preparation'
+  ARCPPrep = 'ARCP Preparation',
+  FourteenFish = 'FourteenFish'
 }
 
 export enum EvidenceStatus {
@@ -86,8 +87,10 @@ export interface UserProfile {
   pdpGoals: PDPGoal[];
   deanery?: string; // Default: "Thames Valley Deanery"
   arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
-  curriculumCatchUpPDF?: string; // URL or file reference for uploaded PDF
+  curriculumCatchUpPDFs?: Record<string, string>; // Map of box keys to PDF file URLs (key format: "column-level")
   curriculumCatchUpCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
+  fourteenFishEvidence?: Record<string, string>; // Map of box keys to image file URLs (key format: "column-level")
+  fourteenFishCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
 }
 
 export interface SIA {

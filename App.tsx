@@ -449,6 +449,7 @@ const App: React.FC = () => {
             } : undefined}
             profile={progressProfile}
             onUpdateProfile={viewingTraineeId ? undefined : setProfile}
+            onUpsertEvidence={viewingTraineeId ? undefined : handleUpsertEvidence}
           />
         );
       case View.AddEvidence:

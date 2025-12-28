@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { EvidenceItem, EvidenceType, EvidenceStatus, UserProfile } from '../types';
-import { CheckCircle2, Clock, AlertCircle, Activity, ArrowLeft, ScrollText, UploadCloud, Save } from '../components/Icons';
+import { CheckCircle2, Clock, AlertCircle, Activity, ArrowLeft, ScrollText, UploadCloud, Save, Fish } from '../components/Icons';
 
 interface ProgressProps {
   allEvidence: EvidenceItem[];
@@ -11,6 +11,7 @@ interface ProgressProps {
   onBack?: () => void;
   profile?: UserProfile;
   onUpdateProfile?: (profile: UserProfile) => void;
+  onUpsertEvidence?: (item: Partial<EvidenceItem> & { id?: string }) => void;
 }
 
 const SIAs = [
@@ -31,10 +32,16 @@ const SIAs = [
 const COLUMNS = [...SIAs, "GSAT"];
 const LEVELS = [1, 2, 3, 4];
 
-export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack, profile, onUpdateProfile }) => {
+export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack, profile, onUpdateProfile, onUpsertEvidence }) => {
   const [isCatchUpMode, setIsCatchUpMode] = useState(false);
   const [selectedCatchUpBoxes, setSelectedCatchUpBoxes] = useState<Set<string>>(new Set());
   const [uploadedPDF, setUploadedPDF] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  const [isFourteenFishMode, setIsFourteenFishMode] = useState(false);
+  const [selectedFourteenFishBoxes, setSelectedFourteenFishBoxes] = useState<Set<string>>(new Set());
+  const [uploadedFourteenFishImage, setUploadedFourteenFishImage] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Initialize selected boxes from profile if available
   React.useEffect(() => {
@@ -46,12 +53,24 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
       );
       setSelectedCatchUpBoxes(completedBoxes);
     }
+    if (profile?.fourteenFishCompletions) {
+      const completedBoxes = new Set(
+        Object.entries(profile.fourteenFishCompletions)
+          .filter(([_, completed]) => completed)
+          .map(([key, _]) => key)
+      );
+      setSelectedFourteenFishBoxes(completedBoxes);
+    }
   }, [profile]);
 
   const getStatus = (column: string, level: number): EvidenceStatus | null => {
-    // Check for curriculum catch-up completion first
-    const catchUpKey = `${column}-${level}`;
-    if (profile?.curriculumCatchUpCompletions?.[catchUpKey]) {
+    // Check for FourteenFish completion first (takes precedence)
+    const boxKey = `${column}-${level}`;
+    if (profile?.fourteenFishCompletions?.[boxKey]) {
+      return EvidenceStatus.SignedOff; // Use SignedOff to indicate complete, but we'll handle display differently
+    }
+    // Check for curriculum catch-up completion
+    if (profile?.curriculumCatchUpCompletions?.[boxKey]) {
       return EvidenceStatus.SignedOff; // Use SignedOff to indicate complete, but we'll handle display differently
     }
     // 1. GSAT Logic: Stays domain-specific for all levels
@@ -93,19 +112,28 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     return profile?.curriculumCatchUpCompletions?.[catchUpKey] === true || selectedCatchUpBoxes.has(catchUpKey);
   };
 
+  const isFourteenFishComplete = (column: string, level: number): boolean => {
+    const boxKey = `${column}-${level}`;
+    return profile?.fourteenFishCompletions?.[boxKey] === true || selectedFourteenFishBoxes.has(boxKey);
+  };
+
   const isBoxSelectable = (column: string, level: number): boolean => {
     // Not selectable if GSAT column or level 4
     return column !== "GSAT" && level !== 4;
   };
 
   const getCellColor = (status: EvidenceStatus | null, column: string, level: number) => {
-    // Check for catch-up completion first
+    // Check for FourteenFish completion first (takes precedence)
+    if (isFourteenFishComplete(column, level)) {
+      return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+    }
+    // Check for catch-up completion
     if (isCatchUpComplete(column, level)) {
       return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
     }
     
-    // Highlight selectable boxes in catch-up mode
-    if (isCatchUpMode && isBoxSelectable(column, level)) {
+    // Highlight selectable boxes in catch-up or FourteenFish mode
+    if ((isCatchUpMode || isFourteenFishMode) && isBoxSelectable(column, level)) {
       return "bg-indigo-100/50 dark:bg-indigo-500/10 border-2 border-indigo-300 dark:border-indigo-400";
     }
 
@@ -122,7 +150,11 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
   };
 
   const getStatusIcon = (status: EvidenceStatus | null, column: string, level: number) => {
-    // Check for catch-up completion first
+    // Check for FourteenFish completion first (takes precedence)
+    if (isFourteenFishComplete(column, level)) {
+      return <Fish size={14} className="text-white" />;
+    }
+    // Check for catch-up completion
     if (isCatchUpComplete(column, level)) {
       return <ScrollText size={14} className="text-white" />;
     }
@@ -140,37 +172,160 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
   };
 
   const handleBoxClick = (column: string, level: number) => {
-    if (!isCatchUpMode || !isBoxSelectable(column, level)) return;
+    const boxKey = `${column}-${level}`;
     
-    const catchUpKey = `${column}-${level}`;
-    setSelectedCatchUpBoxes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(catchUpKey)) {
-        newSet.delete(catchUpKey);
-      } else {
-        newSet.add(catchUpKey);
-      }
-      return newSet;
-    });
+    // If box is completed, open file in new tab
+    if (isCatchUpComplete(column, level) && profile?.curriculumCatchUpPDFs?.[boxKey]) {
+      window.open(profile.curriculumCatchUpPDFs[boxKey], '_blank');
+      return;
+    }
+    if (isFourteenFishComplete(column, level) && profile?.fourteenFishEvidence?.[boxKey]) {
+      window.open(profile.fourteenFishEvidence[boxKey], '_blank');
+      return;
+    }
+    
+    // Handle selection in catch-up mode
+    if (isCatchUpMode && isBoxSelectable(column, level) && !isSupervisorView) {
+      setSelectedCatchUpBoxes(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(boxKey)) {
+          newSet.delete(boxKey);
+        } else {
+          newSet.add(boxKey);
+        }
+        return newSet;
+      });
+      return;
+    }
+    
+    // Handle selection in FourteenFish mode
+    if (isFourteenFishMode && isBoxSelectable(column, level) && !isSupervisorView) {
+      setSelectedFourteenFishBoxes(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(boxKey)) {
+          newSet.delete(boxKey);
+        } else {
+          newSet.add(boxKey);
+        }
+        return newSet;
+      });
+      return;
+    }
+  };
+
+  const handleRowClick = (level: number) => {
+    if (level === 4) return; // Level 4 is not selectable
+    
+    if (isCatchUpMode && !isSupervisorView) {
+      const boxesInRow = COLUMNS.filter(col => col !== "GSAT")
+        .map(col => `${col}-${level}`);
+      
+      const allSelected = boxesInRow.every(key => selectedCatchUpBoxes.has(key));
+      
+      setSelectedCatchUpBoxes(prev => {
+        const newSet = new Set(prev);
+        if (allSelected) {
+          boxesInRow.forEach(key => newSet.delete(key));
+        } else {
+          boxesInRow.forEach(key => newSet.add(key));
+        }
+        return newSet;
+      });
+    }
+    
+    if (isFourteenFishMode && !isSupervisorView) {
+      const boxesInRow = COLUMNS.filter(col => col !== "GSAT")
+        .map(col => `${col}-${level}`);
+      
+      const allSelected = boxesInRow.every(key => selectedFourteenFishBoxes.has(key));
+      
+      setSelectedFourteenFishBoxes(prev => {
+        const newSet = new Set(prev);
+        if (allSelected) {
+          boxesInRow.forEach(key => newSet.delete(key));
+        } else {
+          boxesInRow.forEach(key => newSet.add(key));
+        }
+        return newSet;
+      });
+    }
   };
 
   const handleSaveCatchUp = () => {
-    if (!onUpdateProfile || !profile) return;
+    if (!onUpdateProfile || !profile || !pdfUrl) return;
 
     // Convert Set to Record
     const completions: Record<string, boolean> = {};
+    const pdfs: Record<string, string> = {};
+    
     selectedCatchUpBoxes.forEach(key => {
       completions[key] = true;
+      pdfs[key] = pdfUrl; // Use the same PDF URL for all selected boxes
     });
 
     const updatedProfile: UserProfile = {
       ...profile,
-      curriculumCatchUpCompletions: completions,
-      curriculumCatchUpPDF: uploadedPDF?.name || profile.curriculumCatchUpPDF
+      curriculumCatchUpCompletions: {
+        ...profile.curriculumCatchUpCompletions,
+        ...completions
+      },
+      curriculumCatchUpPDFs: {
+        ...profile.curriculumCatchUpPDFs,
+        ...pdfs
+      }
     };
 
     onUpdateProfile(updatedProfile);
     setIsCatchUpMode(false);
+    setUploadedPDF(null);
+    setPdfUrl(null);
+  };
+
+  const handleSaveFourteenFish = () => {
+    if (!onUpsertEvidence || !onUpdateProfile || !profile || !imageUrl) return;
+
+    // Convert Set to Record
+    const completions: Record<string, boolean> = {};
+    const evidenceUrls: Record<string, string> = {};
+    
+    selectedFourteenFishBoxes.forEach(key => {
+      completions[key] = true;
+      evidenceUrls[key] = imageUrl;
+      
+      // Create evidence item for each selected box
+      const [column, levelStr] = key.split('-');
+      const level = parseInt(levelStr);
+      
+      onUpsertEvidence({
+        id: Math.random().toString(36).substr(2, 9),
+        type: EvidenceType.FourteenFish,
+        title: `${column} L${level} - FourteenFish`,
+        sia: column !== "GSAT" ? column : undefined,
+        level: level,
+        date: new Date().toISOString().split('T')[0],
+        status: EvidenceStatus.SignedOff,
+        fileUrl: imageUrl,
+        fileName: uploadedFourteenFishImage?.name || 'fourteenfish-evidence',
+        fileType: uploadedFourteenFishImage?.type || 'image/png'
+      });
+    });
+
+    const updatedProfile: UserProfile = {
+      ...profile,
+      fourteenFishCompletions: {
+        ...profile.fourteenFishCompletions,
+        ...completions
+      },
+      fourteenFishEvidence: {
+        ...profile.fourteenFishEvidence,
+        ...evidenceUrls
+      }
+    };
+
+    onUpdateProfile(updatedProfile);
+    setIsFourteenFishMode(false);
+    setUploadedFourteenFishImage(null);
+    setImageUrl(null);
   };
 
   return (
@@ -205,8 +360,20 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                   SAVE
                 </button>
               )}
+              {isFourteenFishMode && (
+                <button
+                  onClick={handleSaveFourteenFish}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all"
+                >
+                  <Save size={16} />
+                  SAVE
+                </button>
+              )}
               <button
-                onClick={() => setIsCatchUpMode(!isCatchUpMode)}
+                onClick={() => {
+                  setIsCatchUpMode(!isCatchUpMode);
+                  if (!isCatchUpMode) setIsFourteenFishMode(false); // Only one mode at a time
+                }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                   isCatchUpMode
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
@@ -215,6 +382,20 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
               >
                 <ScrollText size={16} />
                 Curriculum Catch Up
+              </button>
+              <button
+                onClick={() => {
+                  setIsFourteenFishMode(!isFourteenFishMode);
+                  if (!isFourteenFishMode) setIsCatchUpMode(false); // Only one mode at a time
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  isFourteenFishMode
+                    ? 'bg-teal-500 text-white hover:bg-teal-600'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                <Fish size={16} />
+                FourteenFish Evidence
               </button>
             </div>
           )}
@@ -233,7 +414,13 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
+                      if (file.type !== 'application/pdf') {
+                        alert('Please upload a PDF file.');
+                        return;
+                      }
                       setUploadedPDF(file);
+                      const objectUrl = URL.createObjectURL(file);
+                      setPdfUrl(objectUrl);
                     }
                   }}
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
@@ -243,9 +430,38 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                     Selected: {uploadedPDF.name}
                   </p>
                 )}
-                {profile?.curriculumCatchUpPDF && !uploadedPDF && (
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
+        {isFourteenFishMode && !isSupervisorView && (
+          <GlassCard className="p-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-white/90 mb-2">
+                  Upload FourteenFish Evidence (PNG or JPEG)
+                </label>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        alert('Please upload a PNG or JPEG image file.');
+                        return;
+                      }
+                      setUploadedFourteenFishImage(file);
+                      const objectUrl = URL.createObjectURL(file);
+                      setImageUrl(objectUrl);
+                    }
+                  }}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
+                />
+                {uploadedFourteenFishImage && (
                   <p className="mt-2 text-xs text-slate-600 dark:text-white/70">
-                    Current: {profile.curriculumCatchUpPDF}
+                    Selected: {uploadedFourteenFishImage.name}
                   </p>
                 )}
               </div>
@@ -257,6 +473,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
         <LegendItem color="bg-emerald-500" label="COMPLETE" icon={<CheckCircle2 size={10} className="text-white" />} />
         <LegendItem color="bg-emerald-500" label="COMPLETE (Curriculum Catch Up)" icon={<ScrollText size={10} className="text-white" />} />
+        <LegendItem color="bg-emerald-500" label="COMPLETE (FOURTEENFISH)" icon={<Fish size={10} className="text-white" />} />
         <LegendItem color="bg-amber-400" label="In Progress" icon={<Activity size={10} className="text-white" />} />
         <LegendItem color="bg-sky-400" label="Draft" icon={<Clock size={10} className="text-white" />} />
         <LegendItem color="bg-slate-200 dark:bg-white/10" label="Not Started" />
@@ -292,26 +509,42 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
             <tbody>
               {LEVELS.map(level => (
                 <tr key={level} className="group">
-                  <td className="sticky left-0 z-20 bg-slate-50 dark:bg-[#1a1f2e] p-4 text-center border-r border-slate-200 dark:border-white/10 shadow-sm transition-colors group-hover:bg-slate-100 dark:group-hover:bg-[#252b3d]">
+                  <td 
+                    className={`sticky left-0 z-20 bg-slate-50 dark:bg-[#1a1f2e] p-4 text-center border-r border-slate-200 dark:border-white/10 shadow-sm transition-colors group-hover:bg-slate-100 dark:group-hover:bg-[#252b3d] ${
+                      (isCatchUpMode || isFourteenFishMode) && level !== 4 && !isSupervisorView
+                        ? 'cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/20'
+                        : ''
+                    }`}
+                    onClick={() => handleRowClick(level)}
+                    title={(isCatchUpMode || isFourteenFishMode) && level !== 4 && !isSupervisorView ? 'Click to select all boxes in this row' : undefined}
+                  >
                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white whitespace-nowrap">
                       L{level}
                     </span>
                   </td>
                   {COLUMNS.map(col => {
                     const status = getStatus(col, level);
-                    const catchUpKey = `${col}-${level}`;
-                    const isSelected = selectedCatchUpBoxes.has(catchUpKey);
+                    const boxKey = `${col}-${level}`;
                     const isSelectable = isBoxSelectable(col, level);
-                    const isClickable = isCatchUpMode && isSelectable && !isSupervisorView;
+                    const isClickable = (isCatchUpMode || isFourteenFishMode) && isSelectable && !isSupervisorView;
+                    const isCatchUp = isCatchUpComplete(col, level);
+                    const isFourteenFish = isFourteenFishComplete(col, level);
+                    
+                    let tooltip = '';
+                    if (isCatchUp) {
+                      tooltip = 'COMPLETE (Curriculum Catch Up) - Click to view PDF';
+                    } else if (isFourteenFish) {
+                      tooltip = 'COMPLETE (FOURTEENFISH) - Click to view image';
+                    }
                     
                     return (
                       <td key={col} className="p-1 border-b border-slate-100 dark:border-white/5 group-hover:bg-slate-50/50 dark:group-hover:bg-white/[0.02] transition-colors">
                         <div 
                           className={`w-full aspect-square rounded-lg flex items-center justify-center transition-all duration-500 transform hover:scale-105 hover:z-10 ${
-                            isClickable ? 'cursor-pointer' : 'cursor-default'
+                            isClickable || isCatchUp || isFourteenFish ? 'cursor-pointer' : 'cursor-default'
                           } ${getCellColor(status, col, level)}`}
                           onClick={() => handleBoxClick(col, level)}
-                          title={isCatchUpComplete(col, level) ? 'COMPLETE (Curriculum Catch Up)' : undefined}
+                          title={tooltip || undefined}
                         >
                           {getStatusIcon(status, col, level)}
                         </div>
