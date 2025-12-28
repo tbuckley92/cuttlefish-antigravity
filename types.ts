@@ -86,6 +86,8 @@ export interface UserProfile {
   pdpGoals: PDPGoal[];
   deanery?: string; // Default: "Thames Valley Deanery"
   arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
+  curriculumCatchUpPDF?: string; // URL or file reference for uploaded PDF
+  curriculumCatchUpCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
 }
 
 export interface SIA {

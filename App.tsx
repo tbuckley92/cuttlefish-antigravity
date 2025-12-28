@@ -362,6 +362,15 @@ const App: React.FC = () => {
     setCurrentView(View.Evidence);
   };
 
+  const handleNavigateToSupervisorDashboard = () => {
+    // Set supervisor role and navigate to supervisor dashboard
+    const defaultSupervisor = MOCK_SUPERVISORS[0];
+    setCurrentSupervisor(defaultSupervisor);
+    setCurrentRole(defaultSupervisor.role);
+    setViewingTraineeId(null);
+    setCurrentView(View.SupervisorDashboard);
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case View.Dashboard:
@@ -426,6 +435,9 @@ const App: React.FC = () => {
         const progressTraineeName = viewingTraineeId
           ? getTraineeSummary(viewingTraineeId)?.profile.name
           : undefined;
+        const progressProfile = viewingTraineeId
+          ? getTraineeSummary(viewingTraineeId)?.profile
+          : profile;
         return (
           <Progress 
             allEvidence={progressEvidence}
@@ -435,6 +447,8 @@ const App: React.FC = () => {
               setViewingTraineeId(null);
               setCurrentView(View.SupervisorDashboard);
             } : undefined}
+            profile={progressProfile}
+            onUpdateProfile={viewingTraineeId ? undefined : setProfile}
           />
         );
       case View.AddEvidence:
@@ -600,15 +614,6 @@ const App: React.FC = () => {
             }}
           />
         ) : null;
-
-  const handleNavigateToSupervisorDashboard = () => {
-    // Set supervisor role and navigate to supervisor dashboard
-    const defaultSupervisor = MOCK_SUPERVISORS[0];
-    setCurrentSupervisor(defaultSupervisor);
-    setCurrentRole(defaultSupervisor.role);
-    setViewingTraineeId(null);
-    setCurrentView(View.SupervisorDashboard);
-  };
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);

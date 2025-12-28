@@ -1,14 +1,16 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { EvidenceItem, EvidenceType, EvidenceStatus } from '../types';
-import { CheckCircle2, Clock, AlertCircle, Activity, ArrowLeft } from '../components/Icons';
+import { EvidenceItem, EvidenceType, EvidenceStatus, UserProfile } from '../types';
+import { CheckCircle2, Clock, AlertCircle, Activity, ArrowLeft, ScrollText, UploadCloud, Save } from '../components/Icons';
 
 interface ProgressProps {
   allEvidence: EvidenceItem[];
   traineeName?: string;
   isSupervisorView?: boolean;
   onBack?: () => void;
+  profile?: UserProfile;
+  onUpdateProfile?: (profile: UserProfile) => void;
 }
 
 const SIAs = [
@@ -29,9 +31,29 @@ const SIAs = [
 const COLUMNS = [...SIAs, "GSAT"];
 const LEVELS = [1, 2, 3, 4];
 
-export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack }) => {
-  
+export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack, profile, onUpdateProfile }) => {
+  const [isCatchUpMode, setIsCatchUpMode] = useState(false);
+  const [selectedCatchUpBoxes, setSelectedCatchUpBoxes] = useState<Set<string>>(new Set());
+  const [uploadedPDF, setUploadedPDF] = useState<File | null>(null);
+
+  // Initialize selected boxes from profile if available
+  React.useEffect(() => {
+    if (profile?.curriculumCatchUpCompletions) {
+      const completedBoxes = new Set(
+        Object.entries(profile.curriculumCatchUpCompletions)
+          .filter(([_, completed]) => completed)
+          .map(([key, _]) => key)
+      );
+      setSelectedCatchUpBoxes(completedBoxes);
+    }
+  }, [profile]);
+
   const getStatus = (column: string, level: number): EvidenceStatus | null => {
+    // Check for curriculum catch-up completion first
+    const catchUpKey = `${column}-${level}`;
+    if (profile?.curriculumCatchUpCompletions?.[catchUpKey]) {
+      return EvidenceStatus.SignedOff; // Use SignedOff to indicate complete, but we'll handle display differently
+    }
     // 1. GSAT Logic: Stays domain-specific for all levels
     if (column === "GSAT") {
       const match = allEvidence.find(e => e.type === EvidenceType.GSAT && e.level === level);
@@ -66,7 +88,27 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     return match ? match.status : null;
   };
 
-  const getCellColor = (status: EvidenceStatus | null) => {
+  const isCatchUpComplete = (column: string, level: number): boolean => {
+    const catchUpKey = `${column}-${level}`;
+    return profile?.curriculumCatchUpCompletions?.[catchUpKey] === true || selectedCatchUpBoxes.has(catchUpKey);
+  };
+
+  const isBoxSelectable = (column: string, level: number): boolean => {
+    // Not selectable if GSAT column or level 4
+    return column !== "GSAT" && level !== 4;
+  };
+
+  const getCellColor = (status: EvidenceStatus | null, column: string, level: number) => {
+    // Check for catch-up completion first
+    if (isCatchUpComplete(column, level)) {
+      return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+    }
+    
+    // Highlight selectable boxes in catch-up mode
+    if (isCatchUpMode && isBoxSelectable(column, level)) {
+      return "bg-indigo-100/50 dark:bg-indigo-500/10 border-2 border-indigo-300 dark:border-indigo-400";
+    }
+
     switch (status) {
       case EvidenceStatus.SignedOff:
         return "bg-emerald-500/90 dark:bg-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
@@ -79,7 +121,12 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     }
   };
 
-  const getStatusIcon = (status: EvidenceStatus | null) => {
+  const getStatusIcon = (status: EvidenceStatus | null, column: string, level: number) => {
+    // Check for catch-up completion first
+    if (isCatchUpComplete(column, level)) {
+      return <ScrollText size={14} className="text-white" />;
+    }
+
     switch (status) {
       case EvidenceStatus.SignedOff:
         return <CheckCircle2 size={14} className="text-white" />;
@@ -90,6 +137,40 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
       default:
         return null;
     }
+  };
+
+  const handleBoxClick = (column: string, level: number) => {
+    if (!isCatchUpMode || !isBoxSelectable(column, level)) return;
+    
+    const catchUpKey = `${column}-${level}`;
+    setSelectedCatchUpBoxes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(catchUpKey)) {
+        newSet.delete(catchUpKey);
+      } else {
+        newSet.add(catchUpKey);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSaveCatchUp = () => {
+    if (!onUpdateProfile || !profile) return;
+
+    // Convert Set to Record
+    const completions: Record<string, boolean> = {};
+    selectedCatchUpBoxes.forEach(key => {
+      completions[key] = true;
+    });
+
+    const updatedProfile: UserProfile = {
+      ...profile,
+      curriculumCatchUpCompletions: completions,
+      curriculumCatchUpPDF: uploadedPDF?.name || profile.curriculumCatchUpPDF
+    };
+
+    onUpdateProfile(updatedProfile);
+    setIsCatchUpMode(false);
   };
 
   return (
@@ -113,11 +194,69 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
               {isSupervisorView ? 'Viewing trainee progress matrix' : 'Completion matrix for EPAs and GSAT outcomes across all training levels.'}
             </p>
           </div>
+          {!isSupervisorView && onUpdateProfile && (
+            <div className="flex items-center gap-2">
+              {isCatchUpMode && (
+                <button
+                  onClick={handleSaveCatchUp}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all"
+                >
+                  <Save size={16} />
+                  SAVE
+                </button>
+              )}
+              <button
+                onClick={() => setIsCatchUpMode(!isCatchUpMode)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  isCatchUpMode
+                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                <ScrollText size={16} />
+                Curriculum Catch Up
+              </button>
+            </div>
+          )}
         </div>
+
+        {isCatchUpMode && !isSupervisorView && (
+          <GlassCard className="p-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-white/90 mb-2">
+                  Upload Curriculum Catch Up PDF
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setUploadedPDF(file);
+                    }
+                  }}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                {uploadedPDF && (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-white/70">
+                    Selected: {uploadedPDF.name}
+                  </p>
+                )}
+                {profile?.curriculumCatchUpPDF && !uploadedPDF && (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-white/70">
+                    Current: {profile.curriculumCatchUpPDF}
+                  </p>
+                )}
+              </div>
+            </div>
+          </GlassCard>
+        )}
       </div>
 
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
         <LegendItem color="bg-emerald-500" label="COMPLETE" icon={<CheckCircle2 size={10} className="text-white" />} />
+        <LegendItem color="bg-emerald-500" label="COMPLETE (Curriculum Catch Up)" icon={<ScrollText size={10} className="text-white" />} />
         <LegendItem color="bg-amber-400" label="In Progress" icon={<Activity size={10} className="text-white" />} />
         <LegendItem color="bg-sky-400" label="Draft" icon={<Clock size={10} className="text-white" />} />
         <LegendItem color="bg-slate-200 dark:bg-white/10" label="Not Started" />
@@ -160,10 +299,21 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                   </td>
                   {COLUMNS.map(col => {
                     const status = getStatus(col, level);
+                    const catchUpKey = `${col}-${level}`;
+                    const isSelected = selectedCatchUpBoxes.has(catchUpKey);
+                    const isSelectable = isBoxSelectable(col, level);
+                    const isClickable = isCatchUpMode && isSelectable && !isSupervisorView;
+                    
                     return (
                       <td key={col} className="p-1 border-b border-slate-100 dark:border-white/5 group-hover:bg-slate-50/50 dark:group-hover:bg-white/[0.02] transition-colors">
-                        <div className={`w-full aspect-square rounded-lg flex items-center justify-center transition-all duration-500 transform hover:scale-105 hover:z-10 cursor-default ${getCellColor(status)}`}>
-                          {getStatusIcon(status)}
+                        <div 
+                          className={`w-full aspect-square rounded-lg flex items-center justify-center transition-all duration-500 transform hover:scale-105 hover:z-10 ${
+                            isClickable ? 'cursor-pointer' : 'cursor-default'
+                          } ${getCellColor(status, col, level)}`}
+                          onClick={() => handleBoxClick(col, level)}
+                          title={isCatchUpComplete(col, level) ? 'COMPLETE (Curriculum Catch Up)' : undefined}
+                        >
+                          {getStatusIcon(status, col, level)}
                         </div>
                       </td>
                     );
