@@ -20,6 +20,7 @@ import { LayoutDashboard, Database, Plus, FileText, Activity, Users } from './co
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
+import { Footer } from './components/Footer';
 
 enum View {
   Dashboard = 'dashboard',
@@ -599,6 +600,15 @@ const App: React.FC = () => {
             }}
           />
         ) : null;
+
+  const handleNavigateToSupervisorDashboard = () => {
+    // Set supervisor role and navigate to supervisor dashboard
+    const defaultSupervisor = MOCK_SUPERVISORS[0];
+    setCurrentSupervisor(defaultSupervisor);
+    setCurrentRole(defaultSupervisor.role);
+    setViewingTraineeId(null);
+    setCurrentView(View.SupervisorDashboard);
+  };
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -712,26 +722,6 @@ const App: React.FC = () => {
                   )}
                 </>
               )}
-              <NavTab 
-                active={false}
-                onClick={() => {
-                  // Toggle role for demo purposes
-                  if (currentRole === UserRole.Trainee) {
-                    const supervisor = MOCK_SUPERVISORS[0];
-                    setCurrentSupervisor(supervisor);
-                    setCurrentRole(supervisor.role);
-                    setViewingTraineeId(null);
-                    setCurrentView(View.SupervisorDashboard);
-                  } else {
-                    setCurrentRole(UserRole.Trainee);
-                    setCurrentSupervisor(null);
-                    setViewingTraineeId(null);
-                    setCurrentView(View.Dashboard);
-                  }
-                }}
-                icon={<Users size={16} />}
-                label={currentRole === UserRole.Trainee ? "SWITCH TO SUPERVISOR" : "SWITCH TO TRAINEE"}
-              />
             </div>
 
             <div className="flex items-center gap-3">
@@ -745,6 +735,8 @@ const App: React.FC = () => {
       <main className="pt-8 pb-20">
         {renderContent()}
       </main>
+
+      <Footer onNavigateToSupervisorDashboard={handleNavigateToSupervisorDashboard} />
     </div>
   );
 };
