@@ -6,7 +6,7 @@ import {
   ChevronLeft, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
-  FileDown, Download
+  FileDown, Download, Lock
 } from 'lucide-react';
 
 export { 
@@ -17,5 +17,5 @@ export {
   ChevronLeft, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
-  FileDown, Download
+  FileDown, Download, Lock
 };
