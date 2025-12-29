@@ -32,9 +32,12 @@ interface EPAFormProps {
 const ALL_SPECIALTIES = ["No attached SIA", ...SPECIALTIES];
 
 const LEVEL_1_SECTIONS = [
-  "A. Clinical Skills",
-  "B. Theatre Requirements",
-  "C. Mandatory & Entrustment"
+  "A. Learning outcomes",
+  "B. Mandatory CRS Forms",
+  "C. Mandatory outpatient requirements",
+  "D. Mandatory OSATS",
+  "E. Mandatory requirements in Theatre",
+  "F. Ancillary evidence & Entrustment"
 ];
 
 const LEVEL_2_SECTIONS = [
@@ -46,39 +49,51 @@ const LEVEL_2_SECTIONS = [
   "F. Ancillary evidence & Entrustment"
 ];
 
+const LEVEL_1_LEARNING_OUTCOMES = [
+  "PM1.6 - Communicate and deliver feedback to referrers and patients to support integrated care.",
+  "PM1.5 - Understand the role of a Community Ophthalmology Service.",
+  "PM1.4 - Work effectively with patients and the multi-professional team.",
+  "PM1.3 - Justify the diagnoses and plan with reference to basic and clinical science.",
+  "PM1.2 - Independently formulate and initiate a management plan for low complexity cases.",
+  "PM1.1 - Independently perform a patient assessment and investigations sufficient to identify, describe and interpret clinical findings to arrive at differential diagnoses."
+];
+
 const LEVEL_1_CRITERIA = {
-  sectionA: [
-    "CRS1 Consultation skills",
-    "CRS2 Assess vision",
-    "CRS3 Assess visual fields",
-    "CRS5 External eye examination",
-    "CRS6 Assess pupils",
-    "CRS7 Assess ocular motility",
-    "CRS8 Assess intra‑ocular pressure",
-    "CRS9 Slit lamp examination",
-    "CRS10a Fundus assessment – direct ophthalmoscope",
-    "CRS10b Fundus examination using slit‑lamp condensing lenses (e.g. 90D, 78D or equivalent)",
-    "CRS10c Fundus assessment – diagnostic contact lens",
-    "CRS08an Gonioscopy",
-    "Corneal scrapes",
+  sectionB: [
+    "CRS Consultation skills",
+    "CRS Vision",
+    "CRS Fields",
+    "CRS External eye",
+    "CRS Pupil",
+    "CRS Ocular Motility",
+    "CRS IOP",
+    "CRS Slit lamp",
+    "CRS Direct ophthalmoscopy",
+    "CRS 78D/90D",
+    "CRS Contact lens",
+    "CRS Gonioscopy"
+  ],
+  sectionC: [
+    "Corneal scrape",
     "Use an exophthalmometer",
     "Assess lacrimal function",
     "Punctal plug insertion",
-    "Interpretation of automated visual fields",
-    "Removal of sutures"
+    "Interpretation of automated visual fields"
   ],
-  sectionB: [
-    "OSATS Micro‑surgical skills",
-    "OSATS Cataract surgery",
-    "OSATS Lid surgery",
-    "Operating microscope",
-    "Removal of sutures (theatre context)"
+  sectionD: [
+    "OSATS Microsurgical skills",
+    "OSATS Cataract Surgery",
+    "OSATS Lid Surgery"
   ],
-  sectionC: [
-    "Longitudinal observation by consultant assessor in theatre and simulation setting",
-    "Review of record keeping and letters",
-    "Case‑based discussions (CbDs)",
-    "Confirmation that one or more MARs have been reviewed"
+  sectionE: [
+    "Operating microscope"
+  ],
+  sectionF: [
+    "Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",
+    "Longitudinal observation by consultant assessor in the theatre and simulation setting:",
+    "Review of record keeping and letters:",
+    "Case-based Discussions (CbDs)",
+    "Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA"
   ]
 };
 
@@ -186,6 +201,84 @@ const EPAForm: React.FC<EPAFormProps> = ({
     setActiveSection(0);
   }, [selectedLevel]);
 
+  // Update activeSection when initialSection changes (e.g., when returning from linking evidence)
+  useEffect(() => {
+    if (initialSection !== undefined) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
+
+  // Handle auto-scrolling to linked criterion on return
+  useEffect(() => {
+    if (autoScrollToIdx !== undefined && activeSection !== undefined) {
+      const scrollTimer = setTimeout(() => {
+        // Try to find the criterion element by its key
+        const sectionKey = activeSection === 0 ? 'A' : activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
+        const reqKey = `EPA-L${selectedLevel}-${sectionKey}-${autoScrollToIdx}`;
+        const el = document.getElementById(`epa-criterion-${reqKey}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight effect
+          el.classList.add('ring-2', 'ring-indigo-500/50');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500/50'), 2000);
+        }
+      }, 400);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [autoScrollToIdx, activeSection, selectedLevel]);
+
+  // Load saved form data when editing (filtered by level)
+  useEffect(() => {
+    if (id && allEvidence.length > 0) {
+      const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.EPA);
+      if (savedForm?.epaFormData) {
+        const levelPrefix = `EPA-L${selectedLevel}-`;
+        
+        // Load grading filtered by level
+        const levelGrading: Record<string, string> = {};
+        if (savedForm.epaFormData.grading) {
+          Object.keys(savedForm.epaFormData.grading).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelGrading[key] = savedForm.epaFormData.grading[key];
+            }
+          });
+        }
+        setGrading(levelGrading);
+        
+        // Load comments filtered by level
+        const levelComments: Record<string, string> = {};
+        if (savedForm.epaFormData.comments) {
+          Object.keys(savedForm.epaFormData.comments).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelComments[key] = savedForm.epaFormData.comments[key];
+            }
+          });
+        }
+        setComments(levelComments);
+        
+        // Load other fields
+        if (savedForm.epaFormData.entrustment) {
+          setEntrustment(savedForm.epaFormData.entrustment);
+        }
+        if (savedForm.epaFormData.aspectsEspeciallyGood) {
+          setAspectsEspeciallyGood(savedForm.epaFormData.aspectsEspeciallyGood);
+        }
+        if (savedForm.epaFormData.additionalEvidenceNeeded) {
+          setAdditionalEvidenceNeeded(savedForm.epaFormData.additionalEvidenceNeeded);
+        }
+        if (savedForm.epaFormData.supervisorName) {
+          setSupervisorName(savedForm.epaFormData.supervisorName);
+        }
+        if (savedForm.epaFormData.supervisorEmail) {
+          setSupervisorEmail(savedForm.epaFormData.supervisorEmail);
+        }
+        if (savedForm.status) {
+          setStatus(savedForm.status);
+        }
+      }
+    }
+  }, [id, selectedLevel, allEvidence]);
+
   // Handle saving data to parent
   const saveToParent = (newStatus: EvidenceStatus = status) => {
     onSave({
@@ -204,8 +297,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
         supervisorName,
         supervisorEmail,
         linkedEvidence: linkedEvidenceData || {},
-        aspectsEspeciallyGood: selectedLevel === 2 ? aspectsEspeciallyGood : undefined,
-        additionalEvidenceNeeded: selectedLevel === 2 ? additionalEvidenceNeeded : undefined
+        aspectsEspeciallyGood: (selectedLevel === 1 || selectedLevel === 2) ? aspectsEspeciallyGood : undefined,
+        additionalEvidenceNeeded: (selectedLevel === 1 || selectedLevel === 2) ? additionalEvidenceNeeded : undefined
       }
     });
   };
@@ -267,10 +360,15 @@ const EPAForm: React.FC<EPAFormProps> = ({
     const newGrading = { ...grading };
     
     if (selectedLevel === 1) {
-      const sectionKey = activeSection === 0 ? 'A' : activeSection === 1 ? 'B' : 'C';
-      const criteria = activeSection === 0 ? LEVEL_1_CRITERIA.sectionA : activeSection === 1 ? LEVEL_1_CRITERIA.sectionB : LEVEL_1_CRITERIA.sectionC;
+      const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
+      let criteria: string[] = [];
+      if (activeSection === 1) criteria = LEVEL_1_CRITERIA.sectionB;
+      else if (activeSection === 2) criteria = LEVEL_1_CRITERIA.sectionC;
+      else if (activeSection === 3) criteria = LEVEL_1_CRITERIA.sectionD;
+      else if (activeSection === 4) criteria = LEVEL_1_CRITERIA.sectionE;
+      else if (activeSection === 5) criteria = LEVEL_1_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA-${sectionKey}-${idx}`] = "Meets expectations";
+        newGrading[`EPA-L1-${sectionKey}-${idx}`] = "Yes it does (YES)";
       });
     } else if (selectedLevel === 2) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
@@ -281,7 +379,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       else if (activeSection === 4) criteria = LEVEL_2_CRITERIA.sectionE;
       else if (activeSection === 5) criteria = LEVEL_2_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA-${sectionKey}-${idx}`] = "Yes it does (YES)";
+        newGrading[`EPA-L2-${sectionKey}-${idx}`] = "Yes it does (YES)";
       });
     } else {
       const criteria = CURRICULUM_DATA.filter(r => (selectedSia === "No attached SIA" ? r.specialty === "Oculoplastics" : r.specialty === selectedSia) && r.level === selectedLevel);
@@ -294,18 +392,22 @@ const EPAForm: React.FC<EPAFormProps> = ({
   };
 
   const renderCriterion = (req: string, idx: number, sectionKey: string, showCommentForAll: boolean = false) => {
-    const reqKey = `EPA-${sectionKey}-${idx}`;
+    const reqKey = `EPA-L${selectedLevel}-${sectionKey}-${idx}`;
     const linkedIds = linkedEvidenceData[reqKey] || [];
-    const isLevel2 = selectedLevel === 2;
-    const gradingOptions = isLevel2 ? LEVEL_2_GRADING_OPTIONS : ["Major concerns", "Minor concerns", "Meets expectations"];
+    const isLevel1Or2 = selectedLevel === 1 || selectedLevel === 2;
+    const gradingOptions = isLevel1Or2 ? LEVEL_2_GRADING_OPTIONS : ["Major concerns", "Minor concerns", "Meets expectations"];
     const currentGrading = grading[reqKey] || "";
-    const showCommentBox = isLevel2 && (showCommentForAll || currentGrading === "I have reservations about whether evidence meets standards (RESERVATION)" || currentGrading === "No it does not (NO)" || currentGrading === "There is no evidence (NO EVIDENCE)");
+    const showCommentBox = isLevel1Or2 && (showCommentForAll || currentGrading === "I have reservations about whether evidence meets standards (RESERVATION)" || currentGrading === "No it does not (NO)" || currentGrading === "There is no evidence (NO EVIDENCE)");
 
     return (
-      <GlassCard key={reqKey} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+      <GlassCard 
+        id={`epa-criterion-${reqKey}`}
+        key={reqKey} 
+        className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}
+      >
         <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{req}</p>
         
-        {isLevel2 && (
+        {isLevel1Or2 && (
           <p className="text-xs text-slate-500 dark:text-white/40 mb-4">Does this evidence meet standards?</p>
         )}
         
@@ -324,16 +426,16 @@ const EPAForm: React.FC<EPAFormProps> = ({
         </div>
 
         <div className="space-y-4">
-          {(showCommentBox || !isLevel2) && (
+          {(showCommentBox || !isLevel1Or2) && (
             <div>
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">
-                {isLevel2 ? "Comments" : "Comments (Optional)"}
+                {isLevel1Or2 ? "Comments" : "Comments (Optional)"}
               </label>
               <textarea 
                 disabled={isLocked}
                 value={comments[reqKey] || ''}
                 onChange={(e) => handleCommentChange(reqKey, e.target.value.slice(0, 1000))}
-                placeholder={isLevel2 ? "Enter comments..." : "Add clinical observations or context..."}
+                placeholder={isLevel1Or2 ? "Enter comments..." : "Add clinical observations or context..."}
                 className={`w-full min-h-[60px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
               />
             </div>
@@ -382,9 +484,10 @@ const EPAForm: React.FC<EPAFormProps> = ({
   };
 
   const renderLearningOutcomes = () => {
+    const outcomes = selectedLevel === 1 ? LEVEL_1_LEARNING_OUTCOMES : LEVEL_2_LEARNING_OUTCOMES;
     return (
       <div className="space-y-4">
-        {LEVEL_2_LEARNING_OUTCOMES.map((outcome, idx) => (
+        {outcomes.map((outcome, idx) => (
           <GlassCard key={idx} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
             <p className="text-sm font-semibold text-slate-900 dark:text-white/90">{outcome}</p>
           </GlassCard>
@@ -527,10 +630,10 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <div className="flex justify-between items-center mb-4">
                 <span className="text-xs text-slate-400 uppercase font-semibold">Progress</span>
                 <span className="text-xs text-slate-600">
-                  {selectedLevel === 1 ? '3 Sections' : selectedLevel === 2 ? '6 Sections' : 'EPA Details'}
+                  {selectedLevel === 1 ? '6 Sections' : selectedLevel === 2 ? '6 Sections' : 'EPA Details'}
                 </span>
               </div>
-              <div className={`grid gap-2 ${selectedLevel === 1 ? 'grid-cols-3' : selectedLevel === 2 ? 'grid-cols-6' : 'grid-cols-1'}`}>
+              <div className={`grid gap-2 ${selectedLevel === 1 ? 'grid-cols-6' : selectedLevel === 2 ? 'grid-cols-6' : 'grid-cols-1'}`}>
                 {selectedLevel === 1 ? LEVEL_1_SECTIONS.map((_, i) => (
                   <div key={i} className={`h-1 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>
                 )) : selectedLevel === 2 ? LEVEL_2_SECTIONS.map((_, i) => (
@@ -580,15 +683,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
                 {selectedLevel === 1 ? LEVEL_1_SECTIONS[activeSection] : selectedLevel === 2 ? LEVEL_2_SECTIONS[activeSection] : `EPA Level ${selectedLevel} Requirements`}
               </h3>
-              {!isLocked && selectedLevel === 1 && activeSection !== 2 && (
-                <button 
-                  onClick={handleMarkAllMeets}
-                  className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
-                >
-                  MARK ALL 'MEETS EXPECTATIONS'
-                </button>
-              )}
-              {!isLocked && selectedLevel === 2 && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
+              {!isLocked && (selectedLevel === 1 || selectedLevel === 2) && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
                 <button 
                   onClick={handleMarkAllMeets}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
@@ -601,20 +696,41 @@ const EPAForm: React.FC<EPAFormProps> = ({
             <div className="space-y-4">
               {selectedLevel === 1 ? (
                 <>
-                  {activeSection === 0 && LEVEL_1_CRITERIA.sectionA.map((req, idx) => renderCriterion(req, idx, 'A'))}
+                  {activeSection === 0 && renderLearningOutcomes()}
                   {activeSection === 1 && LEVEL_1_CRITERIA.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
                   {activeSection === 2 && (
                     <>
+                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                        </p>
+                      </div>
+                      {LEVEL_1_CRITERIA.sectionC.map((req, idx) => renderCriterion(req, idx, 'C'))}
+                    </>
+                  )}
+                  {activeSection === 3 && LEVEL_1_CRITERIA.sectionD.map((req, idx) => renderCriterion(req, idx, 'D'))}
+                  {activeSection === 4 && (
+                    <>
+                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                        </p>
+                      </div>
+                      {LEVEL_1_CRITERIA.sectionE.map((req, idx) => renderCriterion(req, idx, 'E'))}
+                    </>
+                  )}
+                  {activeSection === 5 && (
+                    <>
                       <div className="space-y-4 mb-8">
-                        {LEVEL_1_CRITERIA.sectionC.map((req, idx) => renderCriterion(req, idx, 'C'))}
+                        {LEVEL_1_CRITERIA.sectionF.map((req, idx) => renderCriterion(req, idx, 'F', true))}
                       </div>
 
                       <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
-                          Overall judgement of entrustment
+                          Section F: Entrustment
                         </h4>
-                        <p className="text-xs text-slate-500 mb-6">Please select the level of entrustment for this trainee at this stage of their training.</p>
-                        <div className="space-y-3">
+                        <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
+                        <div className="space-y-3 mb-6">
                           {ENTRUSTMENT_LEVELS.map(lvl => (
                             <label 
                               key={lvl}
@@ -634,6 +750,36 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               <span className="text-sm font-semibold">{lvl}</span>
                             </label>
                           ))}
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                              Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              disabled={isLocked}
+                              value={aspectsEspeciallyGood}
+                              onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                              className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                              placeholder="Enter aspects which were especially good..."
+                            />
+                          </div>
+
+                          {entrustment !== "Competent to this level" && entrustment !== "" && (
+                            <div>
+                              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
+                              </label>
+                              <textarea
+                                disabled={isLocked}
+                                value={additionalEvidenceNeeded}
+                                onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
+                                className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                placeholder="Enter additional evidence needed..."
+                              />
+                            </div>
+                          )}
                         </div>
                       </GlassCard>
                     </>

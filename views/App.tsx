@@ -233,10 +233,26 @@ const App: React.FC = () => {
     }
     
     setLinkingReqIdx(linkKey);
+    
+    // Extract index from EPA key if it's a string (format: EPA-L{level}-{section}-{idx})
+    let extractedIndex: number | undefined = undefined;
+    if (typeof reqIndex === 'string' && reqIndex.startsWith('EPA-')) {
+      const parts = reqIndex.split('-');
+      if (parts.length >= 4) {
+        const idxPart = parts[parts.length - 1];
+        const parsedIdx = parseInt(idxPart, 10);
+        if (!isNaN(parsedIdx)) {
+          extractedIndex = parsedIdx;
+        }
+      }
+    } else if (typeof reqIndex === 'number') {
+      extractedIndex = reqIndex;
+    }
+    
     setReturnTarget({ 
       originView: origin,
       section: sectionIndex ?? 0, 
-      index: typeof reqIndex === 'number' ? reqIndex : undefined 
+      index: extractedIndex
     });
     setIsSelectionMode(true);
     setCurrentView(View.Evidence);
@@ -388,6 +404,30 @@ const App: React.FC = () => {
           else if (type === 'MSF') handleNavigateToMSF();
         }} />;
       case View.EPAForm:
+        // Load linked evidence from saved form if editing, filtered by level
+        const existingEPA = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
+          : null;
+        
+        // Filter linked evidence to only include keys for the current level
+        const levelLinkedEvidence: Record<string, string[]> = {};
+        if (existingEPA?.epaFormData?.linkedEvidence) {
+          const levelPrefix = `EPA-L${selectedFormParams?.level || 1}-`;
+          Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelLinkedEvidence[key] = existingEPA.epaFormData.linkedEvidence[key];
+            }
+          });
+        }
+        
+        // Merge with any current linkedEvidence that matches this level
+        const currentLevelPrefix = `EPA-L${selectedFormParams?.level || 1}-`;
+        Object.keys(linkedEvidence).forEach(key => {
+          if (key.startsWith(currentLevelPrefix)) {
+            levelLinkedEvidence[key] = linkedEvidence[key];
+          }
+        });
+        
         return (
           <EPAForm 
             id={selectedFormParams?.id}
@@ -399,10 +439,11 @@ const App: React.FC = () => {
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
-            linkedEvidenceData={linkedEvidence}
+            linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
+            allEvidence={allEvidence}
           />
         );
       case View.GSATForm:
