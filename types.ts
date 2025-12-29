@@ -183,12 +183,22 @@ export interface EvidenceItem {
     improvements: string;
   };
   cbdFormData?: {
-    clinicalScenario: string;
-    assessorName: string;
-    assessorEmail: string;
-    diagnosis: string;
-    difficulty: string;
-    overallAssessment: string;
+    specialty: string;
+    supervisorName: string;
+    supervisorEmail: string;
+    sectionA: {
+      clinicalScenario: string;
+      clinicalDiscussion: string;
+    };
+    sectionB: {
+      ratings: Record<string, string>; // key: competency key, value: rating
+      comments: Record<string, string>; // key: competency key, value: comment (only for minor concerns)
+    };
+    sectionC: {
+      aspectsEspeciallyGood: string;
+      suggestionsForImprovement: string;
+      agreedActionPlan: string;
+    };
   };
   crsFormData?: {
     crsType: string;
