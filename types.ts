@@ -15,6 +15,7 @@ export enum EvidenceType {
   OSATs = 'OSATs',
   Reflection = 'Reflection',
   CRS = 'CRS',
+  MAR = 'MAR',
   Other = 'Other',
   EPA = 'EPA',
   GSAT = 'GSAT',
@@ -608,6 +609,34 @@ export interface EvidenceItem {
         especiallyGood: string; // Mandatory
         suggestionsForImprovement: string; // Mandatory
         agreedActionPlan: string; // Mandatory
+      };
+    };
+    // MAR-specific fields
+    marFormData?: {
+      specialty: string;
+      // Section A: Clinical Skills
+      sectionA: {
+        efficiency: { rating: string; comments: string; };
+        clinicalSkills: { rating: string; comments: string; };
+        proceduralSkills: { rating: string; comments: string; };
+        diagnosticSkills: { rating: string; comments: string; };
+      };
+      // Section B: Professionalism and Patient Care
+      sectionB: {
+        clarityAccuracyDetail: { rating: string; comments: string; };
+        recognisingNeedForSeniorHelp: { rating: string; comments: string; };
+        displayOfCareAndCompassion: { rating: string; comments: string; };
+      };
+      // Section C: Compliments, Complaints, Probity
+      sectionC: {
+        complimentsComplaints: { notApplicable: boolean; text: string; };
+        healthIssues: { notApplicable: boolean; text: string; };
+        probityConcerns: { hasConcerns: boolean; sharedWithTrainee: string; outcome: string; }; // sharedWithTrainee is "notApplicable" if not applicable, otherwise empty string
+      };
+      // Section D: Summary
+      sectionD: {
+        overallPerformanceAtExpectedLevel: boolean;
+        suggestionsForImprovement: string;
       };
     };
   };

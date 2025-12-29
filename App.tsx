@@ -8,6 +8,7 @@ import DOPsForm from './views/DOPsForm';
 import OSATSForm from './views/OSATSForm';
 import CBDForm from './views/CBDForm';
 import CRSForm from './views/CRSForm';
+import MARForm from './views/MARForm';
 import Progress from './views/Progress';
 import AddEvidence from './views/AddEvidence';
 import RecordForm from './views/RecordForm';
@@ -585,7 +586,7 @@ const App: React.FC = () => {
       case View.CRSForm:
         return <CRSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
       case View.MARForm:
-        return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
+        return <MARForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
       case View.ARCPPrep:
         return (
           <ARCPPrep 
