@@ -151,6 +151,8 @@ export interface EvidenceItem {
     supervisorName: string;
     supervisorEmail: string;
     linkedEvidence: Record<string, string[]>;
+    aspectsEspeciallyGood?: string; // Level 2 only
+    additionalEvidenceNeeded?: string; // Level 2 only
   };
   gsatFormData?: {
     comments: Record<string, string>;
