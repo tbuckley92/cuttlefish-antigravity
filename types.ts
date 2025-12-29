@@ -157,17 +157,29 @@ export interface EvidenceItem {
     linkedEvidence: Record<string, string[]>;
   };
   dopsFormData?: {
-    caseDescription: string;
-    assessorName: string;
-    assessorEmail: string;
-    assessorStatus: string;
-    difficulty: string;
-    prevAttempts: string;
-    setting: string;
-    grading: Record<number, string>;
-    overallAssessment: string;
-    strengths: string;
-    improvements: string;
+    dopsType?: string; // DOPS form type (e.g., "Custom", "Corneal scrape", etc.)
+    specialty: string;
+    supervisorName: string;
+    supervisorEmail: string;
+    sectionA: {
+      descriptionOfProcedure: string;
+      furtherDetails: string;
+      numberOfProcedures: string;
+      procedurePerformedOn: string; // Patient / Wet Lab / Simulator
+    };
+    sectionB: {
+      ratings: Record<string, string>; // key: competency key, value: rating
+      comments: Record<string, string>; // key: competency key, value: comment (for major/minor concerns)
+    };
+    sectionC: {
+      ratings: Record<string, string>; // key: competency key, value: rating
+      comments: Record<string, string>; // key: competency key, value: comment (for major/minor concerns)
+    };
+    sectionD: {
+      aspectsEspeciallyGood: string;
+      suggestionsForImprovement: string;
+      agreedActionPlan: string;
+    };
   };
   osatsFormData?: {
     osatsType?: string; // OSATS form type (e.g., "OSATS - Custom", "OSATS Microsurgical skills", etc.)

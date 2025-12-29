@@ -4,10 +4,10 @@ import { GlassCard } from '../components/GlassCard';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
-  FileText, Mail, ShieldCheck, Save
+  FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
-import { SPECIALTIES, INITIAL_PROFILE } from '../constants';
+import { INITIAL_PROFILE } from '../constants';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
 interface DOPsFormProps {
@@ -22,9 +22,116 @@ interface DOPsFormProps {
   onSave: (evidence: Partial<EvidenceItem>) => void;
 }
 
+const DOPS_TYPES = [
+  "Custom",
+  "Corneal scrape",
+  "Use an exophthalmometer",
+  "Assess lacrimal function",
+  "Punctal plug insertion",
+  "Interpretation of automated visual fields",
+  "Use a pachymeter",
+  "Insertion of bandage contact lens",
+  "Removal of corneal foreign body",
+  "Laser to lens capsule",
+  "Laser for raised IOP",
+  "Laser retinopexy"
+];
+
+const DOPS_SECTIONS = [
+  "A. Procedure description",
+  "B. Procedure competencies",
+  "C. Communication",
+  "D. Supervisor comments"
+];
+
+const DOPS_SPECIALTIES = [
+  "Cataract Surgery",
+  "Community Ophthalmology",
+  "Cornea & Ocular Surface",
+  "Glaucoma",
+  "Medical Retina",
+  "Neuro-ophthalmology",
+  "Ocular Motility",
+  "Oculoplastics",
+  "Paediatric Ophthalmology",
+  "Urgent Eye Care",
+  "Uveitis",
+  "Vitreoretinal Surgery"
+];
+
+const DOPS_RATING_OPTIONS = [
+  "Major concerns",
+  "Minor concerns",
+  "Meets expectations",
+  "n/a"
+];
+
+const PROCEDURE_PERFORMED_ON_OPTIONS = [
+  "Patient",
+  "Wet Lab",
+  "Simulator"
+];
+
+const SECTION_B_COMPETENCIES = [
+  {
+    key: "demonstratesUnderstandingOfIndications",
+    label: "1. Demonstrates understanding of indications, relevant anatomy, techniques of procedure"
+  },
+  {
+    key: "obtainsInformedConsent",
+    label: "2. Obtains informed consent"
+  },
+  {
+    key: "demonstratesAppropriatePreparationPreProcedure",
+    label: "3. Demonstrates appropriate preparation pre-procedure"
+  },
+  {
+    key: "appropriateAnalgesia",
+    label: "4. Appropriate analgesia"
+  },
+  {
+    key: "technicalAbility",
+    label: "5. Technical ability"
+  },
+  {
+    key: "asepticTechnique",
+    label: "6. Aseptic technique"
+  },
+  {
+    key: "seeksHelpWhereAppropriate",
+    label: "7. Seeks help where appropriate"
+  },
+  {
+    key: "awarenessOfPotentialComplications",
+    label: "8. Awareness of potential complications and how to avoid them"
+  },
+  {
+    key: "postProcedureManagement",
+    label: "9. Post procedure management"
+  }
+];
+
+const SECTION_C_COMPETENCIES = [
+  {
+    key: "communicationSkills",
+    label: "1. Communication skills"
+  },
+  {
+    key: "considerationToPatientProfessionalism",
+    label: "2. Consideration to patient/professionalism"
+  }
+];
+
+const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div>
+    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">{label}</label>
+    {children}
+  </div>
+);
+
 const DOPsForm: React.FC<DOPsFormProps> = ({ 
   id,
-  sia = "Oculoplastics", 
+  sia = "Cataract Surgery", 
   level = 1, 
   initialAssessorName = "",
   initialAssessorEmail = "",
@@ -35,149 +142,773 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
+  const [selectedDopsType, setSelectedDopsType] = useState(DOPS_TYPES[0]); // Default to "Custom"
+  const [trainingLevel, setTrainingLevel] = useState(level.toString());
+  const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
+  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+  const [supervisorName, setSupervisorName] = useState(initialAssessorName);
+  const [supervisorEmail, setSupervisorEmail] = useState(initialAssessorEmail);
+  const [specialty, setSpecialty] = useState(sia || DOPS_SPECIALTIES[0]);
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
-  const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
-  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+
+  // Section A: Procedure description
+  const [descriptionOfProcedure, setDescriptionOfProcedure] = useState("");
+  const [furtherDetails, setFurtherDetails] = useState("");
+  const [numberOfProcedures, setNumberOfProcedures] = useState("");
+  const [procedurePerformedOn, setProcedurePerformedOn] = useState(PROCEDURE_PERFORMED_ON_OPTIONS[0]);
+
+  // Section B: Procedure competencies
+  const [sectionBRatings, setSectionBRatings] = useState<Record<string, string>>({});
+  const [sectionBComments, setSectionBComments] = useState<Record<string, string>>({});
+
+  // Section C: Communication
+  const [sectionCRatings, setSectionCRatings] = useState<Record<string, string>>({});
+  const [sectionCComments, setSectionCComments] = useState<Record<string, string>>({});
+
+  // Section D: Supervisor comments
+  const [aspectsEspeciallyGood, setAspectsEspeciallyGood] = useState("");
+  const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
+  const [agreedActionPlan, setAgreedActionPlan] = useState("");
 
   const isLocked = status === EvidenceStatus.SignedOff;
 
-  const [assessorName, setAssessorName] = useState(initialAssessorName);
-  const [assessorEmail, setAssessorEmail] = useState(initialAssessorEmail);
-  const [caseDescription, setCaseDescription] = useState("");
-  const [assessorStatus, setAssessorStatus] = useState("");
-  const [difficulty, setDifficulty] = useState("");
-  const [prevAttempts, setPrevAttempts] = useState("");
-  const [setting, setSetting] = useState("");
-  const [grading, setGrading] = useState<Record<number, string>>({});
-  const [overallAssessment, setOverallAssessment] = useState("");
-  const [strengths, setStrengths] = useState("");
-  const [improvements, setImprovements] = useState("");
+  // Reset activeSection when form loads or type changes
+  useEffect(() => {
+    setActiveSection(0);
+  }, [selectedDopsType]);
 
-  const sections = ["Details", "Grading", "Overall"];
+  // Auto-save functionality
+  useEffect(() => {
+    if (isLocked) return;
+    const timer = setInterval(() => {
+      setIsSaving(true);
+      saveToParent();
+      setTimeout(() => {
+        setIsSaving(false);
+        setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }, 800);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [isLocked, descriptionOfProcedure, furtherDetails, numberOfProcedures, procedurePerformedOn, sectionBRatings, sectionBComments, sectionCRatings, sectionCComments, aspectsEspeciallyGood, suggestionsForImprovement, agreedActionPlan, specialty, supervisorName, supervisorEmail, trainingLevel, selectedDopsType]);
 
-  const criteria = [
-    "Demonstrates understanding of indications, relevant anatomy, techniques of procedure.",
-    "Obtains informed consent.",
-    "Demonstrates appropriate preparation pre‑procedure.",
-    "Appropriate analgesia.",
-    "Technical ability.",
-    "Aseptic technique.",
-    "Seeks help where appropriate.",
-    "Awareness of potential complications and how to avoid them.",
-    "Post‑procedure management.",
-    "Communication skills.",
-    "Consideration to patient / professionalism."
-  ];
+  // Load existing data if editing
+  useEffect(() => {
+    if (id) {
+      // This would typically load from a data store
+      // For now, we'll rely on the initial props
+    }
+  }, [id]);
 
   const saveToParent = (newStatus: EvidenceStatus = status) => {
-    onSave({
+    const baseData: any = {
       id: formId,
-      title: `DOPs: ${sia} - Level ${level}`,
+      title: `DOPS: ${selectedDopsType} - ${specialty} - Level ${trainingLevel}`,
       type: EvidenceType.DOPs,
-      sia: sia,
-      level: level,
+      sia: specialty,
+      level: parseInt(trainingLevel) || 1,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: caseDescription,
+      notes: descriptionOfProcedure, // General notes field
       dopsFormData: {
-        caseDescription,
-        assessorName,
-        assessorEmail,
-        assessorStatus,
-        difficulty,
-        prevAttempts,
-        setting,
-        grading,
-        overallAssessment,
-        strengths,
-        improvements
+        dopsType: selectedDopsType,
+        specialty,
+        supervisorName,
+        supervisorEmail,
+        sectionA: {
+          descriptionOfProcedure,
+          furtherDetails,
+          numberOfProcedures,
+          procedurePerformedOn
+        },
+        sectionB: {
+          ratings: sectionBRatings,
+          comments: sectionBComments
+        },
+        sectionC: {
+          ratings: sectionCRatings,
+          comments: sectionCComments
+        },
+        sectionD: {
+          aspectsEspeciallyGood,
+          suggestionsForImprovement,
+          agreedActionPlan
+        }
       }
-    });
+    };
+    onSave(baseData);
   };
 
   const handleSaveDraft = () => {
-    setIsSaving(true);
+    setStatus(EvidenceStatus.Draft);
     saveToParent(EvidenceStatus.Draft);
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       setShowSaveMessage(true);
-      setTimeout(() => setShowSaveMessage(false), 3000);
-    }, 600);
+    setTimeout(() => setShowSaveMessage(false), 2000);
   };
 
   const handleEmailForm = () => {
-    if (!assessorName || !assessorEmail) {
-      alert("Please provide assessor name and email.");
+    if (!supervisorName || !supervisorEmail) {
+      alert("Please provide supervisor name and email.");
       return;
     }
     setStatus(EvidenceStatus.Submitted);
     saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to assessor");
+    alert("Form emailed to supervisor");
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = (gmc: string) => {
+  const handleSignOffConfirm = () => {
     setStatus(EvidenceStatus.SignedOff);
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
-    alert(`DOPs Signed Off by ${assessorName} (GMC: ${gmc})`);
+    if (onSubmitted) onSubmitted();
   };
 
-  const isSectionComplete = (idx: number) => {
-    if (idx === 0) return caseDescription.length > 5 && assessorStatus && difficulty && prevAttempts && setting;
-    if (idx === 1) return criteria.every((_, i) => grading[i]);
-    if (idx === 2) return overallAssessment !== "";
-    return false;
-  };
-
-  const completeness = (sections.filter((_, i) => isSectionComplete(i)).length / sections.length * 100).toFixed(0);
-
-  const handleMarkAllMeets = () => {
+  const handleRatingChange = (section: 'B' | 'C', key: string, value: string) => {
     if (isLocked) return;
-    const newGrading = { ...grading };
-    criteria.forEach((_, idx) => { if (!newGrading[idx]) newGrading[idx] = "Meets expectations"; });
-    setGrading(newGrading);
+    if (section === 'B') {
+      setSectionBRatings(prev => ({ ...prev, [key]: value }));
+      // Clear comments if rating is not "Major concerns" or "Minor concerns"
+      if (value !== "Major concerns" && value !== "Minor concerns") {
+        setSectionBComments(prev => {
+          const newComments = { ...prev };
+          delete newComments[key];
+          return newComments;
+        });
+      }
+    } else {
+      setSectionCRatings(prev => ({ ...prev, [key]: value }));
+      // Clear comments if rating is not "Major concerns" or "Minor concerns"
+      if (value !== "Major concerns" && value !== "Minor concerns") {
+        setSectionCComments(prev => {
+          const newComments = { ...prev };
+          delete newComments[key];
+          return newComments;
+        });
+      }
+    }
+  };
+
+  const handleCommentChange = (section: 'B' | 'C', key: string, value: string) => {
+    if (isLocked) return;
+    if (section === 'B') {
+      setSectionBComments(prev => ({ ...prev, [key]: value }));
+    } else {
+      setSectionCComments(prev => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const handleMarkAllMeets = (section: 'B' | 'C') => {
+    if (isLocked) return;
+    const allMeets = "Meets expectations";
+    
+    if (section === 'B') {
+      // Mark all Section B competencies
+      const newSectionB = { ...sectionBRatings };
+      SECTION_B_COMPETENCIES.forEach(competency => {
+        newSectionB[competency.key] = allMeets;
+      });
+      setSectionBRatings(newSectionB);
+      // Clear all comments
+      setSectionBComments({});
+    } else {
+      // Mark all Section C competencies
+      const newSectionC = { ...sectionCRatings };
+      SECTION_C_COMPETENCIES.forEach(competency => {
+        newSectionC[competency.key] = allMeets;
+      });
+      setSectionCRatings(newSectionC);
+      // Clear all comments
+      setSectionCComments({});
+    }
+  };
+
+  const isSectionComplete = (sectionIdx: number): boolean => {
+    if (sectionIdx === 0) {
+      // Section A - description and further details should have content
+      return descriptionOfProcedure.trim().length > 0 && furtherDetails.trim().length > 0;
+    } else if (sectionIdx === 1) {
+      // Section B - all 9 competencies need ratings
+      return SECTION_B_COMPETENCIES.every(competency => sectionBRatings[competency.key]);
+    } else if (sectionIdx === 2) {
+      // Section C - all 2 competencies need ratings
+      return SECTION_C_COMPETENCIES.every(competency => sectionCRatings[competency.key]);
+    } else {
+      // Section D - all 3 fields are mandatory
+      return aspectsEspeciallyGood.trim().length > 0 && 
+             suggestionsForImprovement.trim().length > 0 && 
+             agreedActionPlan.trim().length > 0;
+    }
+  };
+
+  const completeness = Math.round(
+    (DOPS_SECTIONS.filter((_, i) => isSectionComplete(i)).length / DOPS_SECTIONS.length) * 100
+  );
+
+  // Render Section A
+  const renderSectionA = () => {
+    return (
+      <div className="space-y-6">
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+            Description of procedure
+          </label>
+          <textarea
+            disabled={isLocked}
+            value={descriptionOfProcedure}
+            onChange={(e) => setDescriptionOfProcedure(e.target.value)}
+            className="w-full min-h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+            placeholder="Enter description of procedure..."
+          />
+        </GlassCard>
+
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+            Further details
+          </label>
+          <textarea
+            disabled={isLocked}
+            value={furtherDetails}
+            onChange={(e) => setFurtherDetails(e.target.value)}
+            className="w-full min-h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+            placeholder="Enter further details..."
+          />
+        </GlassCard>
+
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+                Number of complete procedures of this type done by this trainee to date:
+              </label>
+              <input
+                disabled={isLocked}
+                type="number"
+                value={numberOfProcedures}
+                onChange={(e) => setNumberOfProcedures(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Enter number of procedures"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+                Procedure performed on:
+              </label>
+              <select
+                disabled={isLocked}
+                value={procedurePerformedOn}
+                onChange={(e) => setProcedurePerformedOn(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {PROCEDURE_PERFORMED_ON_OPTIONS.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+    );
+  };
+
+  // Render Section B
+  const renderSectionB = () => {
+    return (
+      <div className="space-y-6">
+        {SECTION_B_COMPETENCIES.map((competency) => {
+          const rating = sectionBRatings[competency.key] || "";
+          const comment = sectionBComments[competency.key] || "";
+          const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
+          
+          return (
+            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {DOPS_RATING_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    disabled={isLocked}
+                    onClick={() => handleRatingChange('B', competency.key, opt)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                      rating === opt 
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+
+              {showCommentBox && (
+                <div className="mt-4">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70 mb-2 block">
+                    Comments {rating === "Minor concerns" ? "(required for Minor concerns)" : "(required for Major concerns)"}
+                  </label>
+                  <textarea
+                    disabled={isLocked}
+                    value={comment}
+                    onChange={(e) => handleCommentChange('B', competency.key, e.target.value)}
+                    className="w-full min-h-[80px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                    placeholder="Enter comments..."
+                  />
+                </div>
+              )}
+            </GlassCard>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render Section C
+  const renderSectionC = () => {
+    return (
+      <div className="space-y-6">
+        {SECTION_C_COMPETENCIES.map((competency) => {
+          const rating = sectionCRatings[competency.key] || "";
+          const comment = sectionCComments[competency.key] || "";
+          const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
+          
+          return (
+            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {DOPS_RATING_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    disabled={isLocked}
+                    onClick={() => handleRatingChange('C', competency.key, opt)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                      rating === opt 
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+
+              {showCommentBox && (
+                <div className="mt-4">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-white/70 mb-2 block">
+                    Comments {rating === "Minor concerns" ? "(required for Minor concerns)" : "(required for Major concerns)"}
+                  </label>
+                  <textarea
+                    disabled={isLocked}
+                    value={comment}
+                    onChange={(e) => handleCommentChange('C', competency.key, e.target.value)}
+                    className="w-full min-h-[80px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                    placeholder="Enter comments..."
+                  />
+                </div>
+              )}
+            </GlassCard>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render Section D
+  const renderSectionD = () => {
+    return (
+      <div className="space-y-6">
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+            Please note any aspects which were especially good: <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            disabled={isLocked}
+            value={aspectsEspeciallyGood}
+            onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+            className="w-full min-h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+            placeholder="Enter aspects which were especially good..."
+          />
+        </GlassCard>
+
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+            Suggestions for improvement and action points: <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            disabled={isLocked}
+            value={suggestionsForImprovement}
+            onChange={(e) => setSuggestionsForImprovement(e.target.value)}
+            className="w-full min-h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+            placeholder="Enter suggestions for improvement and action points..."
+          />
+        </GlassCard>
+
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4 block">
+            Agreed action plan <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            disabled={isLocked}
+            value={agreedActionPlan}
+            onChange={(e) => setAgreedActionPlan(e.target.value)}
+            className="w-full min-h-[120px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+            placeholder="Enter agreed action plan..."
+          />
+        </GlassCard>
+      </div>
+    );
   };
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      <SignOffDialog isOpen={isSignOffOpen} onClose={() => setIsSignOffOpen(false)} onConfirm={handleSignOffConfirm} formInfo={{ type: "DOPs", traineeName: INITIAL_PROFILE.name, date: new Date().toLocaleDateString(), supervisorName: assessorName || "Assessor" }} />
-      
+      <SignOffDialog 
+        isOpen={isSignOffOpen} 
+        onClose={() => setIsSignOffOpen(false)} 
+        onConfirm={handleSignOffConfirm} 
+        formInfo={{ 
+          type: "DOPS", 
+          traineeName: INITIAL_PROFILE.name, 
+          date: new Date().toLocaleDateString(), 
+          supervisorName: supervisorName || "Supervisor" 
+        }} 
+      />
+
+      {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-2"><ArrowLeft size={16} /> Back to Dashboard</button>
+        <button 
+          onClick={onBack} 
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors mb-2"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+        
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">
-            <h2 className="text-xl font-semibold text-slate-900">DOPs Assessment</h2>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>{status}</span>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">DOPS Assessment</h2>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 
+              'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+            }`}>
+              {status}
+            </span>
           </div>
+
           <div className="space-y-6">
-            <MetadataField label="Specialty / SIA"><select disabled={isLocked} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"><option>{sia}</option></select></MetadataField>
-            <MetadataField label="Assessor"><div className="space-y-2"><input disabled={isLocked} type="text" placeholder="Name" value={assessorName} onChange={(e) => setAssessorName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><input disabled={isLocked} type="email" placeholder="Email" value={assessorEmail} onChange={(e) => setAssessorEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div></MetadataField>
-            <div className="pt-6 border-t border-slate-100"><div className="flex justify-between items-center mb-4"><span className="text-xs text-slate-400 uppercase font-semibold">Completeness</span><span className="text-xs text-slate-600 font-bold">{completeness}%</span></div></div>
+            <MetadataField label="DOPS Type">
+              <select
+                disabled={isLocked}
+                value={selectedDopsType}
+                onChange={(e) => setSelectedDopsType(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {DOPS_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </MetadataField>
+
+            <MetadataField label="Level">
+              <select
+                disabled={isLocked}
+                value={trainingLevel}
+                onChange={(e) => setTrainingLevel(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="1">Level 1</option>
+                <option value="2">Level 2</option>
+                <option value="3">Level 3</option>
+                <option value="4">Level 4</option>
+              </select>
+            </MetadataField>
+
+            <MetadataField label="Specialty">
+              <select
+                disabled={isLocked}
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {DOPS_SPECIALTIES.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </select>
+            </MetadataField>
+
+            <MetadataField label="Supervisor Name">
+              <input
+                disabled={isLocked}
+                type="text"
+                value={supervisorName}
+                onChange={(e) => setSupervisorName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Enter supervisor name"
+              />
+            </MetadataField>
+
+            <MetadataField label="Supervisor Email">
+              <input
+                disabled={isLocked}
+                type="email"
+                value={supervisorEmail}
+                onChange={(e) => setSupervisorEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Enter supervisor email"
+              />
+            </MetadataField>
+
+            {/* Progress Bar */}
+            <div className="pt-6 border-t border-slate-200 dark:border-white/10">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-wider font-semibold">Progress</span>
+                <span className="text-xs text-slate-600 dark:text-white/60">
+                  {DOPS_SECTIONS.length} Sections
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {DOPS_SECTIONS.map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`h-1 rounded-full transition-colors ${
+                      isSectionComplete(i) 
+                        ? 'bg-green-500' 
+                        : activeSection === i 
+                          ? 'bg-indigo-500' 
+                          : 'bg-slate-200 dark:bg-white/10'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </div>
           </div>
         </GlassCard>
       </div>
 
+      {/* Mobile Metadata Summary */}
+      <div className="lg:hidden mb-4">
+        <button 
+          onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">DOPS Assessment</p>
+              <p className="text-xs text-slate-500 dark:text-white/40 mt-1">{specialty} - Level {trainingLevel}</p>
+            </div>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : 
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 
+              'bg-indigo-100 text-indigo-700'
+            }`}>
+              {status}
+            </span>
+          </div>
+          <ChevronDown size={20} className={`text-slate-400 transition-transform ${isMetadataExpanded ? 'rotate-180' : ''}`} />
+        </button>
+        
+        {isMetadataExpanded && (
+          <div className="mt-2 p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">DOPS Type</label>
+              <select
+                disabled={isLocked}
+                value={selectedDopsType}
+                onChange={(e) => setSelectedDopsType(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
+              >
+                {DOPS_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Level</label>
+              <select
+                disabled={isLocked}
+                value={trainingLevel}
+                onChange={(e) => setTrainingLevel(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="1">Level 1</option>
+                <option value="2">Level 2</option>
+                <option value="3">Level 3</option>
+                <option value="4">Level 4</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Specialty</label>
+              <select
+                disabled={isLocked}
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
+              >
+                {DOPS_SPECIALTIES.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Name</label>
+              <input
+                disabled={isLocked}
+                type="text"
+                value={supervisorName}
+                onChange={(e) => setSupervisorName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
+                placeholder="Enter supervisor name"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Email</label>
+              <input
+                disabled={isLocked}
+                type="email"
+                value={supervisorEmail}
+                onChange={(e) => setSupervisorEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
+                placeholder="Enter supervisor email"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right Column: Section Content */}
       <div className="lg:col-span-8 flex flex-col lg:overflow-hidden">
-        <div className="flex gap-1 mb-8 overflow-x-auto no-scrollbar">{sections.map((section, idx) => <button key={section} onClick={() => setActiveSection(idx)} className={`px-4 py-2 text-xs font-semibold uppercase tracking-widest relative ${activeSection === idx ? 'text-indigo-600' : 'text-slate-400'}`}>{section}{activeSection === idx && <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>}</button>)}</div>
-        <div className="flex-1 lg:overflow-y-auto pr-2 space-y-6">
-          {activeSection === 0 && <GlassCard className="p-6 space-y-6"><div><label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Case description</label><textarea disabled={isLocked} value={caseDescription} onChange={(e) => setCaseDescription(e.target.value)} className="w-full min-h-[100px] bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm" /></div><RadioGroup disabled={isLocked} label="Assessor Status" options={["Consultant", "Trainee"]} value={assessorStatus} onChange={setAssessorStatus} /></GlassCard>}
-          {activeSection === 1 && criteria.map((c, idx) => <GlassCard key={idx} className="p-4 flex flex-col gap-3"><p className="text-sm font-medium">{c}</p><div className="flex gap-2">{["Concerns", "Meets"].map(opt => <button key={opt} disabled={isLocked} onClick={() => setGrading(prev => ({ ...prev, [idx]: opt }))} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${grading[idx] === opt ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500'}`}>{opt}</button>)}</div></GlassCard>)}
+        {/* Section Titles at Top */}
+        <div className="sticky top-0 lg:static z-20 bg-[#f8fafc]/80 dark:bg-[#0d1117]/80 backdrop-blur-lg lg:bg-transparent py-2 lg:py-0 border-b lg:border-none border-slate-200 dark:border-white/10 flex gap-1 mb-4 lg:mb-8 overflow-x-auto no-scrollbar">
+          {DOPS_SECTIONS.map((section, idx) => (
+            <button
+              key={section}
+              onClick={() => setActiveSection(idx)}
+              className={`
+                px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
+                ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
+              `}
+            >
+              {section}
+              {activeSection === idx && (
+                <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
+              )}
+            </button>
+          ))}
         </div>
-        <div className="mt-6 flex justify-end gap-3">
-          {!isLocked && <><button onClick={handleSaveDraft} className="h-10 px-4 rounded-xl border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2"><Save size={16} /> SAVE DRAFT</button><button onClick={handleEmailForm} className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-all flex items-center gap-2"><Mail size={16} /> EMAIL FORM</button><button onClick={() => setIsSignOffOpen(true)} className="h-10 px-4 rounded-xl bg-green-600 text-white text-xs font-bold hover:bg-green-700 transition-all flex items-center gap-2"><ShieldCheck size={16} /> IN PERSON</button></>}
-          {isLocked && <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold">Close</button>}
+
+        <div className="flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-0">
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
+                {DOPS_SECTIONS[activeSection]}
+              </h3>
+              {!isLocked && (activeSection === 1 || activeSection === 2) && (
+                <button 
+                  onClick={() => handleMarkAllMeets(activeSection === 1 ? 'B' : 'C')}
+                  className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
+                >
+                  MARK ALL AS MEETS EXPECTATIONS
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {activeSection === 0 && renderSectionA()}
+              {activeSection === 1 && renderSectionB()}
+              {activeSection === 2 && renderSectionC()}
+              {activeSection === 3 && renderSectionD()}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
+          
+          {/* Row 1: Navigation */}
+          <div className="flex justify-between items-center w-full">
+            <button 
+              disabled={activeSection === 0}
+              onClick={() => setActiveSection(s => s - 1)}
+              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+            >
+              <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
+            </button>
+            
+            <div className="flex gap-1">
+              {DOPS_SECTIONS.map((_, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setActiveSection(idx)}
+                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${
+                    activeSection === idx
+                      ? 'bg-indigo-600 w-6'
+                      : isSectionComplete(idx)
+                        ? 'bg-indigo-300 dark:bg-indigo-600'
+                        : 'bg-slate-300 dark:bg-white/10'
+                  }`}
+                ></div>
+              ))}
+            </div>
+            <button 
+              disabled={activeSection === DOPS_SECTIONS.length - 1}
+              onClick={() => setActiveSection(s => s + 1)}
+              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+            >
+              <span className="hidden lg:inline">Next</span> <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Row 2: Action Buttons */}
+          <div className="flex flex-wrap gap-3 justify-center lg:justify-end">
+            {!isLocked && (
+              <>
+                <button
+                  onClick={handleSaveDraft}
+                  className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
+                >
+                  <Save size={16} /> <span>SAVE DRAFT</span>
+                </button>
+                
+                <button 
+                  onClick={handleEmailForm}
+                  className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                >
+                  <Mail size={16} /> <span>EMAIL FORM</span>
+                </button>
+                
+                <button 
+                  onClick={() => setIsSignOffOpen(true)}
+                  className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+                >
+                  <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Save Status */}
+          {(isSaving || showSaveMessage) && (
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-white/40">
+              {isSaving ? (
+                <>
+                  <Clock size={12} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={12} className="text-green-500" />
+                  <span>Draft saved {lastSaved}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (<div><label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5 block">{label}</label>{children}</div>);
-const RadioGroup: React.FC<{ label: string; options: string[]; value: string; onChange: (v: string) => void; disabled?: boolean }> = ({ label, options, value, onChange, disabled }) => (<div><label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">{label}</label><div className="flex gap-2">{options.map(opt => <button key={opt} disabled={disabled} onClick={() => onChange(opt)} className={`px-3 py-2 rounded-lg text-xs font-medium border flex-1 ${value === opt ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}>{opt}</button>)}</div></div>);
 
 export default DOPsForm;
