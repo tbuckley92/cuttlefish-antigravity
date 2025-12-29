@@ -191,9 +191,425 @@ export interface EvidenceItem {
   };
   crsFormData?: {
     crsType: string;
-    caseDescription: string;
+    caseDescription?: string;
     assessorName: string;
     assessorEmail: string;
+    // Vision-specific fields
+    visionData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Visual Acuity
+      sectionB: {
+        method: string; // "Snellen" | "LogMAR" | "Sheridan-Gardner" | "Other"
+        otherMethod?: string; // Free text if "Other" selected
+        appropriateOcclusion: string;
+        technique: string;
+        refractiveCorrection: string;
+        pinhole: string;
+        distanceAcuity: string;
+        nearAcuity: string;
+      };
+      // Section C: Colour Vision
+      sectionC: {
+        method: string; // "Ishihara" | "Other pseudoisochromatic" | "Other"
+        otherMethod?: string; // Free text if "Other" selected
+        appropriateOcclusion: string;
+        technique: string;
+        colourVisionTest: string;
+        accurateRecording: string;
+      };
+      // Comments and Recommendations
+      comments: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Retinoscopy-specific fields
+    retinoscopyData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Retinoscopy
+      sectionB: {
+        patientPositioning: string;
+        appropriateCycloplegia: string;
+        useOfTrialFrame: string;
+        timeTaken: string;
+        accuracy: string;
+        notation: string;
+        appropriatePrescription: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string;
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Indirect Ophthalmoscopy-specific fields
+    indirectOphthalmoscopyData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Indirect Ophthalmoscopy
+      sectionB: {
+        instructionsToPatient: string;
+        familiarityWithOphthalmoscope: string;
+        correctUseOfIllumination: string;
+        appropriateUseOfLenses: string;
+        indentationTechnique: string;
+        descriptionOfFindings: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Pupil-specific fields
+    pupilData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Examination of the Pupils
+      sectionB: {
+        generalInspection: string;
+        appropriateUseOfDistanceTarget: string;
+        directPupillaryReaction: string;
+        consensualReaction: string;
+        swingingFlashlightTest: string;
+        accommodativeReaction: string;
+        slitLampExamination: string;
+        correctReactionsIdentified: string;
+        suggestionOfSuitableAetiology: string;
+        suggestionsForSuitableFurtherTests: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Contact Lenses-specific fields
+    contactLensesData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Fundus Contact Lenses
+      sectionB: {
+        instructionsToPatient: string;
+        familiarityWithLenses: string;
+        correctUseOfSlitLampIllumination: string;
+        appropriateUseOfLenses: string;
+        descriptionOfFindings: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // 78D/90D lens-specific fields
+    lens78D90DData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: 78D / 90D (or Equivalent) Lenses
+      sectionB: {
+        instructionsToPatient: string;
+        familiarityWithLenses: string;
+        correctUseOfSlitLampIllumination: string;
+        appropriateUseOfLenses: string;
+        descriptionOfFindings: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Gonioscopy-specific fields
+    gonioscopyData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Gonioscopy (with subsections)
+      sectionB: {
+        // Subsection: Slit Lamp
+        roomSetup: string;
+        anteriorChamberDepth: string;
+        // Subsection: Gonioscopy Technique
+        lensChoice: string;
+        applicationAndPlacement: string;
+        identificationOfStructures: string;
+        examination360: string;
+        careOfPatientAndLens: string;
+        // Subsection: Dynamic Assessment
+        useOfAppropriateLens: string;
+        adjustmentOfSlitLamp: string;
+        indentationTechnique: string;
+        // Subsection: Interpretation
+        understandingOfGrading: string;
+        interpretationAndDocumentation: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Direct Ophthalmoscopy-specific fields
+    directOphthalmoscopyData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Use of Direct Ophthalmoscope
+      sectionB: {
+        instructionsToPatient: string;
+        familiarityWithOphthalmoscope: string;
+        correctUseOfIllumination: string;
+        appropriateUseOfLenses: string;
+        descriptionOfFindings: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Slit Lamp-specific fields
+    slitLampData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Knowledge of Slit Lamp
+      sectionB: {
+        appropriateIPD: string;
+        appropriateEyepieceFocus: string;
+        appropriateSlitBeamSizeAndAngle: string;
+        useOfFullRangeOfMagnification: string;
+        useOfAppropriateFilters: string;
+      };
+      // Section C: Examination of Anterior Segment
+      sectionC: {
+        lidsAndLashes: string;
+        conjunctiva: string;
+        cornea: string;
+        irisStructures: string;
+        lens: string;
+        aqueousHumour: string;
+        anteriorChamberDepth: string;
+      };
+      // Section D: Overall
+      sectionD: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // IOP-specific fields
+    iopData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: IOP Measurement
+      sectionB: {
+        technique: string; // "Goldmann" | "Tonopen" | "Perkins" | "Other"
+        otherTechnique?: string;
+        consentForTest: string;
+        applicationOfAnaesthesiaAndFluorescein: string;
+        stabilisationOfLidsAndEye: string;
+        useOfTonometerAccuratePlacement: string;
+        accurateIOPRecording: string;
+        interpretationOfResult: string;
+        cornealAppearanceAfterExamination: string;
+        careOfTonometerHead: string;
+        infectionControl: string;
+      };
+      // Section C: Checking Calibration of Tonometer
+      sectionC: {
+        knowledgeOfReasonsForCalibration: string;
+        appropriateUseOfCalibrationArm: string;
+        interpretationOfResults: string;
+        appropriateActionTaken: string;
+      };
+      // Section D: Overall
+      sectionD: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Ocular Motility-specific fields
+    ocularMotilityData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: Cover Test and Eye Movements
+      sectionB: {
+        observationOfAssociatedOcularSignsAndHeadPosition: string;
+        useOfFixationTargets: string;
+        performanceOfCoverTests: string;
+        assessmentOfVersionsDuctionsVergencesAndSaccades: string;
+        interpretationOfFindings: string;
+      };
+      // Section C: Prism Cover Test
+      sectionC: {
+        explanationOfTest: string;
+        appropriatePositioningOfPrismBar: string;
+        assessmentOfAngle: string;
+        interpretationOfResults: string;
+      };
+      // Section D: Overall
+      sectionD: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // External Eye-specific fields
+    externalEyeData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        respect: string;
+      };
+      // Section B: External Eye Examination
+      sectionB: {
+        assessmentOfFaceAndHead: string;
+        palpationOfOrbitalMargins: string;
+        examinationOfLacrimalSystem: string;
+        assessmentOfLidPositionWithAppropriateMeasurements: string;
+        examinationOfLashes: string;
+        examinationOfMeibomianGlands: string;
+        examinationOfConjunctiva: string;
+        examinationOfCornea: string;
+      };
+      // Section C: Use of Ancillary Tests
+      sectionC: {
+        lidEversion: string;
+        useOfExophthalmometer: string;
+        otherAncillaryTests: string;
+      };
+      // Section D: Overall
+      sectionD: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Fields-specific fields
+    fieldsData?: {
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        listeningSkills: string;
+        empathy: string;
+        respect: string;
+      };
+      // Section B: Information Gathering (Visual Fields)
+      sectionB: {
+        appropriateOcclusion: string;
+        appropriateTechnique: string;
+        identificationOfVisualFieldDefect: string;
+        understandingOfPossibleCauses: string;
+        appropriateRecommendationForFurtherFieldTesting: string;
+      };
+      // Section C: Overall
+      sectionC: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
+    // Consultation Skills-specific fields
+    consultationSkillsData?: {
+      specialty?: string; // Specialty selection
+      // Section A: Attitude and Manner
+      sectionA: {
+        introduction: string; // "Major concerns" | "Minor concerns" | "Meets expectations"
+        rapport: string;
+        listeningSkills: string;
+        empathy: string;
+        respect: string;
+      };
+      // Section B: Information Gathering
+      sectionB: {
+        historyOfPresentingComplaint: string;
+        pastOphthalmicHistory: string;
+        familyHistory: string;
+        pastMedicalHistory: string;
+        systemsEnquiry: string;
+        drugHistoryAndAllergies: string;
+        socialHistory: string;
+        otherRelevantEnquiries: string;
+        assessmentOfMentalState: string;
+      };
+      // Section C: Awareness
+      sectionC: {
+        sensitiveAndResponsiveToPatientAnxieties: string;
+        awarenessOfSocialImpact: string;
+        interviewSensitiveAndResponsive: string;
+      };
+      // Section D: Management of Consultation and Delivery of Information
+      sectionD: {
+        modeOfEnquiry: string;
+        appropriateControlAndDirection: string;
+        efficientUseOfTime: string;
+        deliveryOfInformation: string;
+        involvementOfPatientInDecisions: string;
+        terminationOfInterview: string;
+      };
+      // Section E: Overall
+      sectionE: {
+        especiallyGood: string; // Mandatory
+        suggestionsForImprovement: string; // Mandatory
+        agreedActionPlan: string; // Mandatory
+      };
+    };
   };
 }
 
