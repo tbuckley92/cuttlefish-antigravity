@@ -170,17 +170,29 @@ export interface EvidenceItem {
     improvements: string;
   };
   osatsFormData?: {
-    operationDetails: string;
-    assessorName: string;
-    assessorEmail: string;
-    assessorStatus: string;
-    difficulty: string;
-    procedureCount: string;
-    setting: string;
-    grading: Record<number, string>;
-    overallAssessment: string;
-    strengths: string;
-    improvements: string;
+    osatsType?: string; // OSATS form type (e.g., "OSATS - Custom", "OSATS Microsurgical skills", etc.)
+    specialty: string;
+    supervisorName: string;
+    supervisorEmail: string;
+    sectionA: {
+      caseDescription: string;
+      operativeDetails: string;
+      numberOfProcedures: string;
+      procedurePerformedOn: string; // Patient / Wet Lab / Simulator
+    };
+    sectionB: {
+      ratings: Record<string, string>; // key: competency key, value: rating
+      comments: Record<string, string>; // key: competency key, value: comment (for major/minor concerns)
+    };
+    sectionC: {
+      ratings: Record<string, string>; // key: competency key, value: rating
+      comments: Record<string, string>; // key: competency key, value: comment (for major/minor concerns)
+    };
+    sectionD: {
+      aspectsEspeciallyGood: string;
+      suggestionsForImprovement: string;
+      agreedActionPlan: string;
+    };
   };
   cbdFormData?: {
     specialty: string;
