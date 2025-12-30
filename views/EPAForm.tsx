@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
   Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2, 
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
-  FileText, Mail, ShieldCheck, Save, X
+  FileText, Mail, ShieldCheck, Save, X, Eye
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
@@ -455,10 +455,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const handleViewEvidence = (evId: string) => {
     const ev = allEvidence.find(e => e.id === evId);
     if (ev) {
-      setViewingEvidence(ev);
-      setIsEvidenceDialogOpen(true);
-      // Debug: Check if onViewLinkedEvidence is available
-      console.log('handleViewEvidence: onViewLinkedEvidence available?', !!onViewLinkedEvidence, 'Type:', typeof onViewLinkedEvidence);
+      // If onViewLinkedEvidence is available, navigate directly to the evidence view
+      if (onViewLinkedEvidence) {
+        onViewLinkedEvidence(evId);
+      } else {
+        // Fallback to dialog if onViewLinkedEvidence is not available
+        setViewingEvidence(ev);
+        setIsEvidenceDialogOpen(true);
+      }
     }
   };
 
@@ -550,7 +554,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       return (
                         <tr 
                           key={evId}
-                          onClick={() => handleViewEvidence(evId)}
+                          onClick={() => {
+                            if (onViewLinkedEvidence) {
+                              onViewLinkedEvidence(evId);
+                            }
+                          }}
                           className="group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.03]"
                         >
                           <td className="px-4 py-2">
@@ -733,7 +741,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       return (
                         <tr 
                           key={evId}
-                          onClick={() => handleViewEvidence(evId)}
+                          onClick={() => {
+                            if (onViewLinkedEvidence) {
+                              onViewLinkedEvidence(evId);
+                            }
+                          }}
                           className="group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.03]"
                         >
                           <td className="px-4 py-2">
@@ -776,7 +788,31 @@ const EPAForm: React.FC<EPAFormProps> = ({
                           </td>
                           {!isLocked && (
                             <td className="px-4 py-2">
-                              <div className="flex items-center justify-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log('Eye icon clicked for evidence:', evId);
+                                    console.log('onViewLinkedEvidence type:', typeof onViewLinkedEvidence);
+                                    console.log('onViewLinkedEvidence value:', onViewLinkedEvidence);
+                                    try {
+                                      if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
+                                        console.log('Calling onViewLinkedEvidence with:', evId);
+                                        onViewLinkedEvidence(evId);
+                                      } else {
+                                        console.error('onViewLinkedEvidence is not a function! Type:', typeof onViewLinkedEvidence, 'Value:', onViewLinkedEvidence);
+                                        alert('Unable to view evidence: navigation handler not available.');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error viewing evidence:', error);
+                                      alert('An error occurred while trying to view the evidence: ' + error.message);
+                                    }
+                                  }}
+                                  className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                                  title="View evidence"
+                                >
+                                  <Eye size={14} />
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

@@ -600,32 +600,86 @@ const App: React.FC = () => {
           });
         }
         
-        // Ensure handleViewLinkedEvidence is always defined - useCallback should always return a function
-        // But if it's somehow undefined, provide a fallback
-        const safeHandleViewLinkedEvidence = (() => {
+        // Create a wrapper function that ensures handleViewLinkedEvidence is always called
+        const viewLinkedEvidenceHandler = (evidenceId: string, section?: number) => {
+          console.log('viewLinkedEvidenceHandler called with:', evidenceId, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
           if (typeof handleViewLinkedEvidence === 'function') {
-            return handleViewLinkedEvidence;
-          }
-          console.error('CRITICAL: handleViewLinkedEvidence is not a function! Type:', typeof handleViewLinkedEvidence, 'Creating fallback.');
-          return (evidenceId: string) => {
-            console.error('FALLBACK: handleViewLinkedEvidence was undefined, called with:', evidenceId);
-            // Try to call the actual function if it exists in closure
-            if (typeof handleViewLinkedEvidence === 'function') {
-              return handleViewLinkedEvidence(evidenceId);
+            return handleViewLinkedEvidence(evidenceId, section);
+          } else {
+            console.error('CRITICAL: handleViewLinkedEvidence is not a function! Type:', typeof handleViewLinkedEvidence);
+            // Fallback: try to navigate directly
+            const evidence = allEvidence.find(e => e.id === evidenceId);
+            if (evidence) {
+              const originView = currentView;
+              const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
+              const readOnlyStatus = EvidenceStatus.Submitted;
+              
+              if (evidence.type === EvidenceType.EPA) {
+                setSelectedFormParams({ 
+                  sia: evidence.sia || '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.EPAForm);
+              } else if (evidence.type === EvidenceType.DOPs) {
+                setSelectedFormParams({ 
+                  sia: evidence.sia || '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.DOPsForm);
+              } else if (evidence.type === EvidenceType.OSATs) {
+                setSelectedFormParams({ 
+                  sia: evidence.sia || '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.OSATSForm);
+              } else if (evidence.type === EvidenceType.CbD) {
+                setSelectedFormParams({ 
+                  sia: evidence.sia || '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.CBDForm);
+              } else if (evidence.type === EvidenceType.CRS) {
+                setSelectedFormParams({ 
+                  sia: evidence.sia || '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.CRSForm);
+              } else if (evidence.type === EvidenceType.GSAT) {
+                setSelectedFormParams({ 
+                  sia: '', 
+                  level: evidence.level || 1, 
+                  id: evidence.id, 
+                  status: readOnlyStatus,
+                  originView,
+                  originFormParams
+                });
+                setCurrentView(View.GSATForm);
+              }
             }
-          };
-        })();
+          }
+        };
         
-        console.log('App.tsx: Passing to EPAForm, safeHandleViewLinkedEvidence type:', typeof safeHandleViewLinkedEvidence, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
-        
-        // Final verification before passing
-        const finalHandler = typeof safeHandleViewLinkedEvidence === 'function' 
-          ? safeHandleViewLinkedEvidence 
-          : ((evidenceId: string) => {
-              console.error('FINAL FALLBACK: safeHandleViewLinkedEvidence was not a function! Called with:', evidenceId);
-            });
-        
-        console.log('App.tsx: Final handler type before passing:', typeof finalHandler);
+        console.log('App.tsx: Passing viewLinkedEvidenceHandler to EPAForm, type:', typeof viewLinkedEvidenceHandler);
         
         return (
           <EPAForm 
@@ -655,84 +709,7 @@ const App: React.FC = () => {
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
             linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
-            onViewLinkedEvidence={(evidenceId: string, section?: number) => {
-              console.log('App.tsx: Direct inline handler called with:', evidenceId, 'section:', section, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
-              if (typeof handleViewLinkedEvidence === 'function') {
-                return handleViewLinkedEvidence(evidenceId, section);
-              }
-              console.error('App.tsx: handleViewLinkedEvidence is not a function! Calling fallback.');
-              // Fallback: try to find and navigate to the evidence
-              const evidence = allEvidence.find(e => e.id === evidenceId);
-              if (evidence) {
-                const originView = currentView;
-                const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
-                const readOnlyStatus = EvidenceStatus.Submitted;
-                
-                if (evidence.type === EvidenceType.EPA) {
-                  setSelectedFormParams({ 
-                    sia: evidence.sia || '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.EPAForm);
-                } else if (evidence.type === EvidenceType.DOPs) {
-                  setSelectedFormParams({ 
-                    sia: evidence.sia || '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.DOPsForm);
-                } else if (evidence.type === EvidenceType.OSATs) {
-                  setSelectedFormParams({ 
-                    sia: evidence.sia || '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.OSATSForm);
-                } else if (evidence.type === EvidenceType.CbD) {
-                  setSelectedFormParams({ 
-                    sia: evidence.sia || '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.CBDForm);
-                } else if (evidence.type === EvidenceType.CRS) {
-                  setSelectedFormParams({ 
-                    sia: evidence.sia || '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.CRSForm);
-                } else if (evidence.type === EvidenceType.GSAT) {
-                  setSelectedFormParams({ 
-                    sia: '', 
-                    level: evidence.level || 1, 
-                    id: evidence.id, 
-                    status: readOnlyStatus,
-                    originView,
-                    originFormParams
-                  });
-                  setCurrentView(View.GSATForm);
-                }
-              } else {
-                console.error('Evidence not found:', evidenceId);
-              }
-            }}
+            onViewLinkedEvidence={viewLinkedEvidenceHandler}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={allEvidence}
