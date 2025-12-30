@@ -190,6 +190,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [entrustment, setEntrustment] = useState("");
   const [aspectsEspeciallyGood, setAspectsEspeciallyGood] = useState("");
   const [additionalEvidenceNeeded, setAdditionalEvidenceNeeded] = useState("");
+  const [traineeNarrative, setTraineeNarrative] = useState("");
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
@@ -232,7 +233,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       const scrollTimer = setTimeout(() => {
         // Try to find the criterion element by its key
         const sectionKey = activeSection === 0 ? 'A' : activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
-        const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : '';
+        const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : selectedLevel === 4 ? 'L4' : '';
         const reqKey = `EPA-${levelPrefix}-${sectionKey}-${autoScrollToIdx}`;
         const el = document.getElementById(`epa-criterion-${reqKey}`);
         if (el) {
@@ -251,7 +252,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
     if (id && allEvidence.length > 0) {
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.EPA);
       if (savedForm?.epaFormData) {
-        const levelPrefix = selectedLevel === 1 ? 'EPA-L1-' : selectedLevel === 2 ? 'EPA-L2-' : selectedLevel === 3 ? 'EPA-L3-' : '';
+        const levelPrefix = selectedLevel === 1 ? 'EPA-L1-' : selectedLevel === 2 ? 'EPA-L2-' : selectedLevel === 3 ? 'EPA-L3-' : selectedLevel === 4 ? 'EPA-L4-' : '';
         
         // Load grading filtered by level
         const levelGrading: Record<string, string> = {};
@@ -285,6 +286,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
         if (savedForm.epaFormData.additionalEvidenceNeeded) {
           setAdditionalEvidenceNeeded(savedForm.epaFormData.additionalEvidenceNeeded);
         }
+        if (savedForm.epaFormData.traineeNarrative) {
+          setTraineeNarrative(savedForm.epaFormData.traineeNarrative);
+        }
         if (savedForm.epaFormData.supervisorName) {
           setSupervisorName(savedForm.epaFormData.supervisorName);
         }
@@ -317,7 +321,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
         supervisorEmail,
         linkedEvidence: linkedEvidenceData || {},
         aspectsEspeciallyGood: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? aspectsEspeciallyGood : undefined,
-        additionalEvidenceNeeded: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? additionalEvidenceNeeded : undefined
+        additionalEvidenceNeeded: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? additionalEvidenceNeeded : undefined,
+        traineeNarrative
       }
     });
   };
@@ -333,7 +338,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, [isLocked, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData]);
+  }, [isLocked, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData, traineeNarrative]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
@@ -549,23 +554,87 @@ const EPAForm: React.FC<EPAFormProps> = ({
       }
     }
     
-    if (outcomes.length === 0) {
-      return (
-        <div className="space-y-4">
-          <GlassCard className="p-5 lg:p-6">
-            <p className="text-sm text-slate-500 italic">No learning outcomes defined for this level and specialty.</p>
-          </GlassCard>
-        </div>
-      );
-    }
+    const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : 'L4';
+    const narrativeKey = `EPA-${levelPrefix}-A-NARRATIVE`;
+    const linkedNarrativeIds = linkedEvidenceData[narrativeKey] || [];
     
     return (
       <div className="space-y-4">
-        {outcomes.map((outcome, idx) => (
-          <GlassCard key={idx} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white/90">{outcome}</p>
+        {outcomes.length > 0 ? (
+          outcomes.map((outcome, idx) => (
+            <GlassCard key={idx} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white/90">{outcome}</p>
+            </GlassCard>
+          ))
+        ) : (
+          <GlassCard className="p-5 lg:p-6">
+            <p className="text-sm text-slate-500 italic">No learning outcomes defined for this level and specialty.</p>
           </GlassCard>
-        ))}
+        )}
+        
+        {/* Trainee Narrative Section */}
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+          <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
+            Trainee Narrative
+          </h4>
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+            <p className="text-xs text-slate-600 dark:text-white/70 italic">
+              Comment on how the above learning outcomes have been achieved, and link supportive relevant evidence not linked in the subsequent sections.
+            </p>
+          </div>
+          
+          <div className="mb-4">
+            <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">
+              Trainee Narrative <span className="text-red-500">*</span>
+            </label>
+            <textarea 
+              disabled={isLocked}
+              required
+              value={traineeNarrative}
+              onChange={(e) => setTraineeNarrative(e.target.value)}
+              placeholder="Enter your narrative..."
+              className={`w-full min-h-[120px] bg-slate-50 dark:bg-white/[0.03] border ${!traineeNarrative ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-white/10'} rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
+            />
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
+              {!isLocked && (
+                <button 
+                  onClick={() => onLinkRequested(narrativeKey, 0)} 
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
+                >
+                  <Plus size={14} /> Link Evidence
+                </button>
+              )}
+            </div>
+            
+            {linkedNarrativeIds.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {linkedNarrativeIds.map(evId => {
+                  const ev = allEvidence.find(e => e.id === evId);
+                  return (
+                    <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
+                      <LinkIcon size={12} />
+                      <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                      {!isLocked && (
+                        <button 
+                          onClick={() => onRemoveLink(narrativeKey, evId)}
+                          className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : !isLocked && (
+              <p className="text-[10px] italic text-slate-400 dark:text-white/20">No evidence linked yet.</p>
+            )}
+          </div>
+        </GlassCard>
       </div>
     );
   };
