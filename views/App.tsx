@@ -411,8 +411,10 @@ const App: React.FC = () => {
         
         // Filter linked evidence to only include keys for the current level
         const levelLinkedEvidence: Record<string, string[]> = {};
-        if (existingEPA?.epaFormData?.linkedEvidence) {
-          const levelPrefix = `EPA-L${selectedFormParams?.level || 1}-`;
+        const currentLevel = selectedFormParams?.level || 1;
+        const levelPrefix = currentLevel === 1 ? 'EPA-L1-' : currentLevel === 2 ? 'EPA-L2-' : currentLevel === 3 ? 'EPA-L3-' : currentLevel === 4 ? 'EPA-L4-' : '';
+        
+        if (existingEPA?.epaFormData?.linkedEvidence && levelPrefix) {
           Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
             if (key.startsWith(levelPrefix)) {
               levelLinkedEvidence[key] = existingEPA.epaFormData.linkedEvidence[key];
@@ -421,12 +423,13 @@ const App: React.FC = () => {
         }
         
         // Merge with any current linkedEvidence that matches this level
-        const currentLevelPrefix = `EPA-L${selectedFormParams?.level || 1}-`;
-        Object.keys(linkedEvidence).forEach(key => {
-          if (key.startsWith(currentLevelPrefix)) {
-            levelLinkedEvidence[key] = linkedEvidence[key];
-          }
-        });
+        if (levelPrefix) {
+          Object.keys(linkedEvidence).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelLinkedEvidence[key] = linkedEvidence[key];
+            }
+          });
+        }
         
         return (
           <EPAForm 
