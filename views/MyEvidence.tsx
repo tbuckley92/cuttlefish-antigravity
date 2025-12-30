@@ -39,10 +39,23 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 }) => {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
+  const [filterYear, setFilterYear] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    allEvidence.forEach(item => {
+      if (item.date) {
+        const year = new Date(item.date).getFullYear().toString();
+        years.add(year);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a)); // Most recent first
+  }, [allEvidence]);
 
   const filteredEvidence = useMemo(() => {
     return allEvidence.filter(item => {
@@ -54,9 +67,19 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       
       const typeMatch = filterType === 'All' || item.type === filterType;
       const siaMatch = filterSIA === 'All' || item.sia === filterSIA;
-      return typeMatch && siaMatch;
+      
+      // Year filter
+      const yearMatch = filterYear === 'All' || (item.date && new Date(item.date).getFullYear().toString() === filterYear);
+      
+      // Status filter
+      const statusMatch = filterStatus === 'All' || 
+        (filterStatus === 'Draft' && item.status === EvidenceStatus.Draft) ||
+        (filterStatus === 'Submitted' && item.status === EvidenceStatus.Submitted) ||
+        (filterStatus === 'Complete' && item.status === EvidenceStatus.SignedOff);
+      
+      return typeMatch && siaMatch && yearMatch && statusMatch;
     });
-  }, [allEvidence, filterType, filterSIA, selectionMode, excludeType]);
+  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -287,6 +310,24 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             <option value="All">All SIAs</option>
             {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <select 
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <option value="All">All Years</option>
+            {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+          </select>
+          <select 
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <option value="All">All Status</option>
+            <option value="Draft">Draft</option>
+            <option value="Submitted">Submitted</option>
+            <option value="Complete">Complete</option>
+          </select>
           <button className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 dark:text-white/40">
             <Filter size={18} />
           </button>
@@ -294,18 +335,18 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       </GlassCard>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse table-fixed">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-32">Type</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">SIA</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">Level</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-32">Date</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-32">Status</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">Actions</th>
-              <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24 text-center">SELECT</th>
-              {selectionMode && <th className="px-6 py-4 w-12"></th>}
+              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[100px]">Type</th>
+              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
+              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[120px]">SIA</th>
+              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[50px] text-center">Level</th>
+              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[90px]">Date</th>
+              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[80px] text-center">Status</th>
+              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[60px] text-center">Actions</th>
+              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[55px] text-center">Select</th>
+              {selectionMode && <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[45px] text-center">Link</th>}
             </tr>
           </thead>
           <tbody>
@@ -320,67 +361,67 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                     ${selectionMode && isSelected ? 'bg-teal-500/5 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'}
                   `}
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3">
                     <span className={`
-                      inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight
+                      inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight truncate max-w-full
                       ${getTypeColors(item.type)}
-                    `}>
+                    `} title={item.type}>
                       {item.type}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white">
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white truncate">
                         {item.title}
                       </span>
                       {item.fileName && (
-                        <div className="flex items-center justify-center w-5 h-5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${item.fileName}`}>
-                          <FileText size={10} />
+                        <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${item.fileName}`}>
+                          <FileText size={8} />
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-white/50">
+                  <td className="px-3 py-3 text-xs text-slate-500 dark:text-white/50 truncate" title={item.sia || ''}>
                     {item.sia || '–'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-white/50 text-center">
+                  <td className="px-2 py-3 text-xs text-slate-500 dark:text-white/50 text-center">
                     {item.level || '–'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-white/50 font-mono text-xs">
-                    {item.date}
+                  <td className="px-3 py-3 text-slate-500 dark:text-white/50 font-mono text-[11px]">
+                    {formatDate(item.date)}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-2 py-3 text-center">
                     <span className={`
-                      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                      inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium
                       ${getStatusColors(item.status)}
                     `}>
                       {getStatusIcon(item.status)}
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center gap-2">
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
                       {item.status === EvidenceStatus.SignedOff && (
                         <button
                           onClick={(e) => handlePDFClick(e, item)}
-                          className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                          className="p-1 rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
                           title="Download PDF"
                         >
-                          <FileDown size={16} />
+                          <FileDown size={14} />
                         </button>
                       )}
                       {item.status === EvidenceStatus.Draft && onDeleteEvidence && (
                         <button
                           onClick={(e) => handleDeleteClick(e, item.id)}
-                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                          className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                           title="Delete"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-2 py-3 text-center">
                     <div className="flex items-center justify-center">
                       {item.status === EvidenceStatus.SignedOff ? (
                         <input
@@ -399,12 +440,14 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                     </div>
                   </td>
                   {selectionMode && (
-                    <td className="px-6 py-4">
-                      <div className={`
-                        w-5 h-5 rounded border flex items-center justify-center transition-all
-                        ${isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-300 dark:border-white/20 text-transparent'}
-                      `}>
-                        <CheckCircle2 size={12} strokeWidth={3} />
+                    <td className="px-2 py-3 text-center">
+                      <div className="flex justify-center">
+                        <div className={`
+                          w-4 h-4 rounded border flex items-center justify-center transition-all
+                          ${isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-300 dark:border-white/20 text-transparent'}
+                        `}>
+                          <CheckCircle2 size={10} strokeWidth={3} />
+                        </div>
                       </div>
                     </td>
                   )}
@@ -465,6 +508,15 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       )}
     </div>
   );
+};
+
+const formatDate = (dateString: string): string => {
+  if (!dateString) return '–';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
 const getTypeColors = (type: EvidenceType) => {
