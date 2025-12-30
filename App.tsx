@@ -17,7 +17,7 @@ import ARCPPrep from './views/ARCPPrep';
 import SupervisorDashboard from './views/SupervisorDashboard';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft } from './components/Icons';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
@@ -50,6 +50,10 @@ interface FormParams {
   supervisorEmail?: string;
   type?: string;
   id?: string; // Existing ID if editing
+  status?: EvidenceStatus;
+  initialSection?: number; // Section to navigate to when opening the form
+  originView?: View; // View we came from when viewing linked evidence
+  originFormParams?: FormParams; // Form params of the origin form
 }
 
 interface ReturnTarget {
@@ -58,10 +62,26 @@ interface ReturnTarget {
   index?: number;
 }
 
+// Helper to map View to EvidenceType for filtering same-type evidence when linking
+const viewToEvidenceType = (view: View): EvidenceType | undefined => {
+  switch (view) {
+    case View.EPAForm: return EvidenceType.EPA;
+    case View.GSATForm: return EvidenceType.GSAT;
+    case View.DOPsForm: return EvidenceType.DOPs;
+    case View.OSATSForm: return EvidenceType.OSATs;
+    case View.CBDForm: return EvidenceType.CbD;
+    case View.CRSForm: return EvidenceType.CRS;
+    case View.MARForm: return EvidenceType.MAR;
+    case View.MSFForm: return EvidenceType.MSF;
+    default: return undefined;
+  }
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
+  const [addEvidenceKey, setAddEvidenceKey] = useState(0); // Counter for unique AddEvidence keys
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
     const savedEvidence = localStorage.getItem('ophthaPortfolio_evidence');
@@ -130,21 +150,37 @@ const App: React.FC = () => {
 
   const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
     setAllEvidence(prev => {
-      const exists = prev.find(e => e.id === item.id);
+      const { id: itemId, ...itemData } = item;
+      const exists = itemId ? prev.find(e => e.id === itemId) : null;
+      
       if (exists) {
-        return prev.map(e => e.id === item.id ? { ...e, ...item } as EvidenceItem : e);
+        return prev.map(e => e.id === itemId ? { ...e, ...itemData } as EvidenceItem : e);
       } else {
         const newItem: EvidenceItem = {
-          id: item.id || Math.random().toString(36).substr(2, 9),
+          id: itemId || Math.random().toString(36).substr(2, 9),
           date: new Date().toISOString().split('T')[0],
           status: EvidenceStatus.Draft,
           title: 'Untitled Evidence',
           type: EvidenceType.Other,
-          ...item
+          ...itemData
         } as EvidenceItem;
         return [newItem, ...prev];
       }
     });
+  };
+
+  const handleBackToOrigin = () => {
+    if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+      setSelectedFormParams({
+        ...selectedFormParams.originFormParams,
+        initialSection: selectedFormParams.originFormParams.initialSection
+      });
+      setCurrentView(selectedFormParams.originView);
+    } else if (selectedFormParams?.originView) {
+      setCurrentView(selectedFormParams.originView);
+    } else {
+      setCurrentView(View.RecordForm);
+    }
   };
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
@@ -156,7 +192,8 @@ const App: React.FC = () => {
       level, 
       supervisorName, 
       supervisorEmail,
-      id: existing?.id 
+      id: existing?.id,
+      originView: View.Dashboard
     });
     setCurrentView(View.EPAForm);
   };
@@ -169,7 +206,8 @@ const App: React.FC = () => {
       level, 
       supervisorName, 
       supervisorEmail,
-      id: existing?.id 
+      id: existing?.id,
+      originView: View.Dashboard
     });
     setCurrentView(View.DOPsForm);
   };
@@ -182,7 +220,8 @@ const App: React.FC = () => {
       level, 
       supervisorName, 
       supervisorEmail,
-      id: existing?.id 
+      id: existing?.id,
+      originView: View.Dashboard
     });
     setCurrentView(View.OSATSForm);
   };
@@ -195,7 +234,8 @@ const App: React.FC = () => {
       level, 
       supervisorName, 
       supervisorEmail,
-      id: existing?.id 
+      id: existing?.id,
+      originView: View.Dashboard
     });
     setCurrentView(View.CBDForm);
   };
@@ -208,13 +248,15 @@ const App: React.FC = () => {
       level, 
       supervisorName, 
       supervisorEmail,
-      id: existing?.id 
+      id: existing?.id,
+      originView: View.Dashboard
     });
     setCurrentView(View.CRSForm);
   };
 
   const handleNavigateToAddEvidence = (sia?: string, level?: number, type?: string) => {
     setEditingEvidence(null);
+    setAddEvidenceKey(prev => prev + 1); // Increment to force remount
     if (sia && level) {
       setSelectedFormParams({ sia, level, type });
     } else {
@@ -228,22 +270,22 @@ const App: React.FC = () => {
     if (item.type === EvidenceType.MSF) {
       setCurrentView(View.MSFSubmission);
     } else if (item.type === EvidenceType.EPA) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.EPAForm);
     } else if (item.type === EvidenceType.DOPs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.DOPsForm);
     } else if (item.type === EvidenceType.OSATs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.OSATSForm);
     } else if (item.type === EvidenceType.CbD) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.CBDForm);
     } else if (item.type === EvidenceType.CRS) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.CRSForm);
     } else if (item.type === EvidenceType.GSAT) {
-      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
       setCurrentView(View.GSATForm);
     } else {
       setCurrentView(View.AddEvidence);
@@ -341,7 +383,7 @@ const App: React.FC = () => {
     if (linkingReqIdx !== null) {
       setLinkedEvidence(prev => ({
         ...prev,
-        [linkingReqIdx]: ids
+        [linkingReqIdx]: [...new Set([...(prev[linkingReqIdx] || []), ...ids])]
       }));
     }
     setIsSelectionMode(false);
@@ -368,6 +410,99 @@ const App: React.FC = () => {
       ...prev,
       [reqKey]: (prev[reqKey] || []).filter(id => id !== evId)
     }));
+  };
+
+  const handleViewLinkedEvidence = (evidenceId: string, section?: number) => {
+    console.log('handleViewLinkedEvidence called with evidenceId:', evidenceId);
+    const evidence = allEvidence.find(e => e.id === evidenceId);
+    if (!evidence) {
+      console.error('Evidence not found:', evidenceId, 'Available evidence:', allEvidence.map(e => e.id));
+      return;
+    }
+    console.log('Found evidence:', evidence.type, evidence.title);
+
+    // Store current view and form params as origin context
+    const originView = currentView;
+    const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
+    console.log('Origin view:', originView, 'Origin params:', originFormParams);
+
+    // Force status to Submitted to ensure read-only mode
+    const readOnlyStatus = EvidenceStatus.Submitted;
+
+    // Navigate to the appropriate form view based on evidence type
+    if (evidence.type === EvidenceType.EPA) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.EPAForm);
+    } else if (evidence.type === EvidenceType.DOPs) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.DOPsForm);
+    } else if (evidence.type === EvidenceType.OSATs) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.OSATSForm);
+    } else if (evidence.type === EvidenceType.CbD) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.CBDForm);
+    } else if (evidence.type === EvidenceType.CRS) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.CRSForm);
+    } else if (evidence.type === EvidenceType.GSAT) {
+      setSelectedFormParams({ 
+        sia: '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.GSATForm);
+    } else {
+      // Handle "Add Evidence" types (Reflection, QIP, Audit, Award, etc.)
+      setEditingEvidence(evidence);
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.AddEvidence);
+    }
   };
 
   const handleDeleteEvidence = (id: string) => {
@@ -442,6 +577,7 @@ const App: React.FC = () => {
               setViewingTraineeId(null);
               setCurrentView(View.SupervisorDashboard);
             } : undefined}
+            excludeType={isSelectionMode && returnTarget ? viewToEvidenceType(returnTarget.originView) : undefined}
           />
         );
       case View.Progress:
@@ -472,13 +608,14 @@ const App: React.FC = () => {
       case View.AddEvidence:
         return (
           <AddEvidence 
+            key={editingEvidence?.id || `new-${addEvidenceKey}`}
             sia={selectedFormParams?.sia} 
             level={selectedFormParams?.level} 
             initialType={selectedFormParams?.type}
             editingEvidence={editingEvidence || undefined}
             onBack={() => {
               setEditingEvidence(null);
-              setCurrentView(View.Evidence);
+              handleBackToOrigin();
             }} 
             onCreated={(item) => {
               handleUpsertEvidence(item);
@@ -493,7 +630,7 @@ const App: React.FC = () => {
             evidence={editingEvidence || undefined}
             onBack={() => {
               setEditingEvidence(null);
-              setCurrentView(View.Evidence);
+              handleBackToOrigin();
             }}
             onSave={(data) => {
                if (editingEvidence) handleUpsertEvidence({ ...data, id: editingEvidence.id });
@@ -524,7 +661,10 @@ const App: React.FC = () => {
       case View.RecordForm:
         return <RecordForm onBack={() => setCurrentView(View.Dashboard)} onSelectForm={(type) => {
           setReturnTarget(null);
-          if (type === 'EPA') setCurrentView(View.EPAForm);
+          if (type === 'EPA') {
+            setSelectedFormParams(null);
+            setCurrentView(View.EPAForm);
+          }
           else if (type === 'GSAT') {
             // Find existing GSAT for level 1 (default)
             const existing = findExistingEvidence(EvidenceType.GSAT, 1);
@@ -535,14 +675,56 @@ const App: React.FC = () => {
             });
             setCurrentView(View.GSATForm);
           }
-          else if (type === 'DOPs') setCurrentView(View.DOPsForm);
-          else if (type === 'OSATs') setCurrentView(View.OSATSForm);
-          else if (type === 'CBD') setCurrentView(View.CBDForm);
-          else if (type === 'CRS') setCurrentView(View.CRSForm);
-          else if (type === 'MAR') setCurrentView(View.MARForm);
+          else if (type === 'DOPs') {
+            setSelectedFormParams(null);
+            setCurrentView(View.DOPsForm);
+          }
+          else if (type === 'OSATs') {
+            setSelectedFormParams(null);
+            setCurrentView(View.OSATSForm);
+          }
+          else if (type === 'CBD') {
+            setSelectedFormParams(null);
+            setCurrentView(View.CBDForm);
+          }
+          else if (type === 'CRS') {
+            setSelectedFormParams(null);
+            setCurrentView(View.CRSForm);
+          }
+          else if (type === 'MAR') {
+            setSelectedFormParams(null);
+            setCurrentView(View.MARForm);
+          }
           else if (type === 'MSF') handleNavigateToMSF();
         }} />;
       case View.EPAForm:
+        // Load linked evidence from saved form if editing, filtered by level
+        const existingEPA = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
+          : null;
+        
+        // Filter linked evidence to only include keys for the current level
+        const levelLinkedEvidence: Record<string, string[]> = {};
+        const currentLevel = selectedFormParams?.level || 1;
+        const levelPrefix = currentLevel === 1 ? 'EPA-L1-' : currentLevel === 2 ? 'EPA-L2-' : currentLevel === 3 ? 'EPA-L3-' : currentLevel === 4 ? 'EPA-L4-' : '';
+        
+        if (existingEPA?.epaFormData?.linkedEvidence && levelPrefix) {
+          Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelLinkedEvidence[key] = existingEPA.epaFormData.linkedEvidence[key];
+            }
+          });
+        }
+        
+        // Merge with any current linkedEvidence that matches this level
+        if (levelPrefix) {
+          Object.keys(linkedEvidence).forEach(key => {
+            if (key.startsWith(levelPrefix)) {
+              levelLinkedEvidence[key] = linkedEvidence[key];
+            }
+          });
+        }
+        
         return (
           <EPAForm 
             id={selectedFormParams?.id}
@@ -550,13 +732,17 @@ const App: React.FC = () => {
             level={selectedFormParams?.level} 
             initialSupervisorName={selectedFormParams?.supervisorName} 
             initialSupervisorEmail={selectedFormParams?.supervisorEmail} 
-            onBack={() => setCurrentView(View.RecordForm)} 
+            initialStatus={selectedFormParams?.status || existingEPA?.status || EvidenceStatus.Draft}
+            initialSection={selectedFormParams?.initialSection ?? returnTarget?.section}
+            originView={selectedFormParams?.originView}
+            originFormParams={selectedFormParams?.originFormParams}
+            onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
-            linkedEvidenceData={linkedEvidence}
+            linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
-            initialSection={returnTarget?.section}
+            onViewLinkedEvidence={handleViewLinkedEvidence}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={allEvidence}
           />
@@ -566,7 +752,7 @@ const App: React.FC = () => {
           <GSATForm 
             id={selectedFormParams?.id}
             initialLevel={selectedFormParams?.level || 1} 
-            onBack={() => setCurrentView(View.RecordForm)} 
+            onBack={handleBackToOrigin} 
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)} 
@@ -578,15 +764,95 @@ const App: React.FC = () => {
           />
         );
       case View.DOPsForm:
-        return <DOPsForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingDOPs = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.DOPs)
+          : null;
+        return (
+          <DOPsForm 
+            id={selectedFormParams?.id} 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialAssessorName={selectedFormParams?.supervisorName} 
+            initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+            initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
+            onBack={handleBackToOrigin} 
+            onSubmitted={handleFormSubmitted} 
+            onSave={handleUpsertEvidence}
+            allEvidence={allEvidence}
+          />
+        );
       case View.OSATSForm:
-        return <OSATSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingOSATs = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.OSATs)
+          : null;
+        return (
+          <OSATSForm 
+            id={selectedFormParams?.id} 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialAssessorName={selectedFormParams?.supervisorName} 
+            initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+            initialStatus={selectedFormParams?.status || existingOSATs?.status || EvidenceStatus.Draft}
+            onBack={handleBackToOrigin} 
+            onSubmitted={handleFormSubmitted} 
+            onSave={handleUpsertEvidence}
+            allEvidence={allEvidence}
+          />
+        );
       case View.CBDForm:
-        return <CBDForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingCBD = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CbD)
+          : null;
+        return (
+          <CBDForm 
+            id={selectedFormParams?.id} 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialAssessorName={selectedFormParams?.supervisorName} 
+            initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+            initialStatus={selectedFormParams?.status || existingCBD?.status || EvidenceStatus.Draft}
+            onBack={handleBackToOrigin} 
+            onSubmitted={handleFormSubmitted} 
+            onSave={handleUpsertEvidence}
+            allEvidence={allEvidence}
+          />
+        );
       case View.CRSForm:
-        return <CRSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingCRS = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CRS)
+          : null;
+        return (
+          <CRSForm 
+            id={selectedFormParams?.id} 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialAssessorName={selectedFormParams?.supervisorName} 
+            initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+            initialStatus={selectedFormParams?.status || existingCRS?.status || EvidenceStatus.Draft}
+            onBack={handleBackToOrigin} 
+            onSubmitted={handleFormSubmitted} 
+            onSave={handleUpsertEvidence}
+            allEvidence={allEvidence}
+          />
+        );
       case View.MARForm:
-        return <MARForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingMAR = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.MAR)
+          : null;
+        return (
+          <MARForm 
+            id={selectedFormParams?.id} 
+            sia={selectedFormParams?.sia} 
+            level={selectedFormParams?.level} 
+            initialAssessorName={selectedFormParams?.supervisorName} 
+            initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+            initialStatus={selectedFormParams?.status || existingMAR?.status || EvidenceStatus.Draft}
+            onBack={handleBackToOrigin} 
+            onSubmitted={handleFormSubmitted} 
+            onSave={handleUpsertEvidence}
+            allEvidence={allEvidence}
+          />
+        );
       case View.ARCPPrep:
         return (
           <ARCPPrep 
@@ -650,6 +916,7 @@ const App: React.FC = () => {
   };
 
   const isFormViewActive = [View.EPAForm, View.GSATForm, View.DOPsForm, View.OSATSForm, View.CBDForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
+  const isViewingLinkedEvidence = !!selectedFormParams?.originFormParams;
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-[#f8fafc] text-slate-900">
@@ -658,7 +925,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-teal-500/[0.03] blur-[120px] rounded-full"></div>
       </div>
 
-      {!isSelectionMode && (
+      {!isSelectionMode && !isViewingLinkedEvidence && (
         <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 px-6">
           <div className="max-w-7xl mx-auto h-20 flex items-center justify-between">
             <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {
@@ -713,7 +980,7 @@ const App: React.FC = () => {
                   />
                   <NavTab 
                     active={currentView === View.AddEvidence} 
-                    onClick={() => setCurrentView(View.AddEvidence)} 
+                    onClick={() => handleNavigateToAddEvidence()} 
                     icon={<Plus size={16} />} 
                     label="ADD EVIDENCE" 
                   />
@@ -757,7 +1024,30 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      <main className="pt-8 pb-20">
+      {isViewingLinkedEvidence && (
+        <div className="fixed top-0 left-0 right-0 z-50 px-6 py-4 backdrop-blur-xl bg-purple-600/10 dark:bg-purple-900/40 border-b border-purple-500/20 flex justify-between items-center shadow-lg animate-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleBackToOrigin}
+              className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-purple-700 dark:text-white/70"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h2 className="text-purple-900 dark:text-white font-medium">Viewing Linked Evidence</h2>
+              <p className="text-xs text-purple-700/60 dark:text-white/60">Currently viewing evidence record in read-only mode</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleBackToOrigin}
+            className="px-6 py-2 rounded-lg bg-purple-600 text-white font-semibold text-sm hover:bg-purple-500 transition-all shadow-lg shadow-purple-500/20"
+          >
+            Back to Form
+          </button>
+        </div>
+      )}
+
+      <main className={`pb-20 ${isViewingLinkedEvidence ? 'pt-24' : 'pt-8'}`}>
         {renderContent()}
       </main>
 

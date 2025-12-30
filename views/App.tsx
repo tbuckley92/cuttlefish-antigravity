@@ -422,7 +422,7 @@ const App: React.FC = () => {
     if (linkingReqIdx !== null) {
       setLinkedEvidence(prev => ({
         ...prev,
-        [linkingReqIdx]: ids
+        [linkingReqIdx]: [...new Set([...(prev[linkingReqIdx] || []), ...ids])]
       }));
     }
     setIsSelectionMode(false);

@@ -20,6 +20,7 @@ interface CBDFormProps {
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  allEvidence?: EvidenceItem[];
 }
 
 const CBD_SECTIONS = [
@@ -113,7 +114,8 @@ const CBDForm: React.FC<CBDFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   onBack,
   onSubmitted,
-  onSave
+  onSave,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
@@ -164,11 +166,41 @@ const CBDForm: React.FC<CBDFormProps> = ({
 
   // Load existing data if editing
   useEffect(() => {
-    if (id) {
-      // This would typically load from a data store
-      // For now, we'll rely on the initial props
+    if (id && allEvidence.length > 0) {
+      const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.CbD);
+      if (savedForm?.cbdFormData) {
+        const data = savedForm.cbdFormData;
+        
+        // Load specialty and supervisor info
+        if (data.specialty) setSpecialty(data.specialty);
+        if (data.supervisorName) setSupervisorName(data.supervisorName);
+        if (data.supervisorEmail) setSupervisorEmail(data.supervisorEmail);
+        
+        // Load Section A
+        if (data.sectionA) {
+          if (data.sectionA.clinicalScenario) setClinicalScenario(data.sectionA.clinicalScenario);
+          if (data.sectionA.clinicalDiscussion) setClinicalDiscussion(data.sectionA.clinicalDiscussion);
+        }
+        
+        // Load Section B
+        if (data.sectionB) {
+          if (data.sectionB.ratings) setSectionBRatings(data.sectionB.ratings);
+          if (data.sectionB.comments) setSectionBComments(data.sectionB.comments);
+        }
+        
+        // Load Section C
+        if (data.sectionC) {
+          if (data.sectionC.aspectsEspeciallyGood) setAspectsEspeciallyGood(data.sectionC.aspectsEspeciallyGood);
+          if (data.sectionC.suggestionsForImprovement) setSuggestionsForImprovement(data.sectionC.suggestionsForImprovement);
+          if (data.sectionC.agreedActionPlan) setAgreedActionPlan(data.sectionC.agreedActionPlan);
+        }
+        
+        // Load status and level
+        if (savedForm.status) setStatus(savedForm.status);
+        if (savedForm.level) setTrainingLevel(savedForm.level.toString());
+      }
     }
-  }, [id]);
+  }, [id, allEvidence]);
 
   const saveToParent = (newStatus: EvidenceStatus = status) => {
     const baseData: any = {

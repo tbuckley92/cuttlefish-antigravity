@@ -20,6 +20,7 @@ interface CRSFormProps {
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  allEvidence?: EvidenceItem[];
 }
 
 const CRS_TYPES = ["Consultation skills", "Vision", "Fields", "Pupil", "IOP", "Retinoscopy", "External eye", "78D/90D lens", "Slit lamp funduscopy", "Slit lamp anterior segment", "Direct Ophthalmoscopy", "Indirect Ophthalmoscopy", "Gonioscopy", "Contact lenses", "Ocular motility"];
@@ -446,7 +447,8 @@ const CRSForm: React.FC<CRSFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   onBack,
   onSubmitted,
-  onSave
+  onSave,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
@@ -626,9 +628,64 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   // Load existing data if editing
   useEffect(() => {
-    if (id) {
-      // This would load from existing evidence if id is provided
-      // For now, we'll handle the initial state
+    if (id && allEvidence.length > 0) {
+      const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.CRS);
+      if (savedForm?.crsFormData) {
+        const data = savedForm.crsFormData;
+        
+        // Load basic fields
+        if (data.crsType) setSelectedCrsType(data.crsType);
+        if (data.caseDescription) setCaseDescription(data.caseDescription);
+        if (data.assessorName) setAssessorName(data.assessorName);
+        if (data.assessorEmail) setAssessorEmail(data.assessorEmail);
+        
+        // Load Vision data
+        if (data.visionData) {
+          const v = data.visionData;
+          if (v.sectionA) {
+            setSectionARatings({
+              introduction: v.sectionA.introduction || "",
+              rapport: v.sectionA.rapport || "",
+              respect: v.sectionA.respect || ""
+            });
+          }
+          if (v.sectionB) setSectionBRatings(v.sectionB);
+          if (v.sectionC) setSectionCRatings(v.sectionC);
+          if (v.visualAcuityMethod) setVisualAcuityMethod(v.visualAcuityMethod);
+          if (v.visualAcuityOther) setVisualAcuityOther(v.visualAcuityOther);
+          if (v.colourVisionMethod) setColourVisionMethod(v.colourVisionMethod);
+          if (v.colourVisionOther) setColourVisionOther(v.colourVisionOther);
+          if (v.comments) setComments(v.comments);
+        }
+        
+        // Load Retinoscopy data
+        if (data.retinoscopyData) {
+          const r = data.retinoscopyData;
+          if (r.sectionA) setRetinoscopySectionARatings(r.sectionA);
+          if (r.sectionB) setRetinoscopySectionBRatings(r.sectionB);
+          if (r.comments) setRetinoscopyComments(r.comments);
+        }
+        
+        // Load Indirect Ophthalmoscopy data
+        if (data.indirectOphthalmoscopyData) {
+          const io = data.indirectOphthalmoscopyData;
+          if (io.sectionA) setIndirectOphthalmoscopySectionARatings(io.sectionA);
+          if (io.sectionB) setIndirectOphthalmoscopySectionBRatings(io.sectionB);
+          if (io.comments) setIndirectOphthalmoscopyComments(io.comments);
+        }
+        
+        // Load Pupil data
+        if (data.pupilData) {
+          const p = data.pupilData;
+          if (p.sectionA) setPupilSectionARatings(p.sectionA);
+          if (p.sectionB) setPupilSectionBRatings(p.sectionB);
+          if (p.comments) setPupilComments(p.comments);
+        }
+        
+        // Load status and level
+        if (savedForm.status) setStatus(savedForm.status);
+        if (savedForm.level) setTrainingLevel(savedForm.level.toString());
+      }
     }
   }, [id]);
 

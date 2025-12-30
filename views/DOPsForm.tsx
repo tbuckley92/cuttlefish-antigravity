@@ -20,6 +20,7 @@ interface DOPsFormProps {
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  allEvidence?: EvidenceItem[];
 }
 
 const DOPS_TYPES = [
@@ -138,7 +139,8 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   onBack,
   onSubmitted,
-  onSave
+  onSave,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
@@ -196,11 +198,52 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
 
   // Load existing data if editing
   useEffect(() => {
-    if (id) {
-      // This would typically load from a data store
-      // For now, we'll rely on the initial props
+    if (id && allEvidence.length > 0) {
+      const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.DOPs);
+      if (savedForm?.dopsFormData) {
+        const data = savedForm.dopsFormData;
+        
+        // Load DOPS type and specialty
+        if (data.dopsType) setSelectedDopsType(data.dopsType);
+        if (data.specialty) setSpecialty(data.specialty);
+        if (data.supervisorName) setSupervisorName(data.supervisorName);
+        if (data.supervisorEmail) setSupervisorEmail(data.supervisorEmail);
+        
+        // Load Section A
+        if (data.sectionA) {
+          if (data.sectionA.descriptionOfProcedure) setDescriptionOfProcedure(data.sectionA.descriptionOfProcedure);
+          if (data.sectionA.furtherDetails) setFurtherDetails(data.sectionA.furtherDetails);
+          if (data.sectionA.numberOfProcedures) setNumberOfProcedures(data.sectionA.numberOfProcedures);
+          if (data.sectionA.procedurePerformedOn) setProcedurePerformedOn(data.sectionA.procedurePerformedOn);
+        }
+        
+        // Load Section B
+        if (data.sectionB) {
+          if (data.sectionB.ratings) setSectionBRatings(data.sectionB.ratings);
+          if (data.sectionB.comments) setSectionBComments(data.sectionB.comments);
+        }
+        
+        // Load Section C
+        if (data.sectionC) {
+          if (data.sectionC.ratings) setSectionCRatings(data.sectionC.ratings);
+          if (data.sectionC.comments) setSectionCComments(data.sectionC.comments);
+        }
+        
+        // Load Section D
+        if (data.sectionD) {
+          if (data.sectionD.aspectsEspeciallyGood) setAspectsEspeciallyGood(data.sectionD.aspectsEspeciallyGood);
+          if (data.sectionD.suggestionsForImprovement) setSuggestionsForImprovement(data.sectionD.suggestionsForImprovement);
+          if (data.sectionD.agreedActionPlan) setAgreedActionPlan(data.sectionD.agreedActionPlan);
+        }
+        
+        // Load status
+        if (savedForm.status) setStatus(savedForm.status);
+        
+        // Load level
+        if (savedForm.level) setTrainingLevel(savedForm.level.toString());
+      }
     }
-  }, [id]);
+  }, [id, allEvidence]);
 
   const saveToParent = (newStatus: EvidenceStatus = status) => {
     const baseData: any = {

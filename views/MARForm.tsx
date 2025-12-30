@@ -20,6 +20,7 @@ interface MARFormProps {
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  allEvidence?: EvidenceItem[];
 }
 
 const MAR_SECTIONS = [
@@ -100,7 +101,8 @@ const MARForm: React.FC<MARFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   onBack,
   onSubmitted,
-  onSave
+  onSave,
+  allEvidence = []
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
@@ -147,6 +149,90 @@ const MARForm: React.FC<MARFormProps> = ({
     }, 15000);
     return () => clearInterval(timer);
   }, [isLocked, sectionARatings, sectionAComments, sectionBRatings, sectionBComments, complimentsComplaints, healthIssues, probityConcerns, overallPerformanceAtExpectedLevel, suggestionsForImprovement, specialty, assessorName, assessorEmail, trainingLevel]);
+
+  // Load existing data if editing
+  useEffect(() => {
+    if (id && allEvidence.length > 0) {
+      const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.MAR);
+      if (savedForm?.marFormData) {
+        const data = savedForm.marFormData;
+        
+        // Load specialty
+        if (data.specialty) setSpecialty(data.specialty);
+        
+        // Load Section A
+        if (data.sectionA) {
+          const aRatings: Record<string, string> = {};
+          const aComments: Record<string, string> = {};
+          if (data.sectionA.efficiency) {
+            aRatings["efficiency"] = data.sectionA.efficiency.rating || "";
+            aComments["efficiency"] = data.sectionA.efficiency.comments || "";
+          }
+          if (data.sectionA.clinicalSkills) {
+            aRatings["clinicalSkills"] = data.sectionA.clinicalSkills.rating || "";
+            aComments["clinicalSkills"] = data.sectionA.clinicalSkills.comments || "";
+          }
+          if (data.sectionA.proceduralSkills) {
+            aRatings["proceduralSkills"] = data.sectionA.proceduralSkills.rating || "";
+            aComments["proceduralSkills"] = data.sectionA.proceduralSkills.comments || "";
+          }
+          if (data.sectionA.diagnosticSkills) {
+            aRatings["diagnosticSkills"] = data.sectionA.diagnosticSkills.rating || "";
+            aComments["diagnosticSkills"] = data.sectionA.diagnosticSkills.comments || "";
+          }
+          setSectionARatings(aRatings);
+          setSectionAComments(aComments);
+        }
+        
+        // Load Section B
+        if (data.sectionB) {
+          const bRatings: Record<string, string> = {};
+          const bComments: Record<string, string> = {};
+          if (data.sectionB.clarityAccuracyDetail) {
+            bRatings["clarityAccuracyDetail"] = data.sectionB.clarityAccuracyDetail.rating || "";
+            bComments["clarityAccuracyDetail"] = data.sectionB.clarityAccuracyDetail.comments || "";
+          }
+          if (data.sectionB.recognisingNeedForSeniorHelp) {
+            bRatings["recognisingNeedForSeniorHelp"] = data.sectionB.recognisingNeedForSeniorHelp.rating || "";
+            bComments["recognisingNeedForSeniorHelp"] = data.sectionB.recognisingNeedForSeniorHelp.comments || "";
+          }
+          if (data.sectionB.displayOfCareAndCompassion) {
+            bRatings["displayOfCareAndCompassion"] = data.sectionB.displayOfCareAndCompassion.rating || "";
+            bComments["displayOfCareAndCompassion"] = data.sectionB.displayOfCareAndCompassion.comments || "";
+          }
+          setSectionBRatings(bRatings);
+          setSectionBComments(bComments);
+        }
+        
+        // Load Section C
+        if (data.sectionC) {
+          if (data.sectionC.complimentsComplaints) {
+            setComplimentsComplaints(data.sectionC.complimentsComplaints);
+          }
+          if (data.sectionC.healthIssues) {
+            setHealthIssues(data.sectionC.healthIssues);
+          }
+          if (data.sectionC.probityConcerns) {
+            setProbityConcerns(data.sectionC.probityConcerns);
+          }
+        }
+        
+        // Load Section D
+        if (data.sectionD) {
+          if (data.sectionD.overallPerformanceAtExpectedLevel !== undefined) {
+            setOverallPerformanceAtExpectedLevel(data.sectionD.overallPerformanceAtExpectedLevel);
+          }
+          if (data.sectionD.suggestionsForImprovement) {
+            setSuggestionsForImprovement(data.sectionD.suggestionsForImprovement);
+          }
+        }
+        
+        // Load status and level
+        if (savedForm.status) setStatus(savedForm.status);
+        if (savedForm.level) setTrainingLevel(savedForm.level.toString());
+      }
+    }
+  }, [id, allEvidence]);
 
   const saveToParent = (newStatus: EvidenceStatus = status) => {
     const baseData: Partial<EvidenceItem> = {

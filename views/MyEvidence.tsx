@@ -21,6 +21,7 @@ interface MyEvidenceProps {
   maxSelection?: number;
   isSupervisorView?: boolean;
   onBack?: () => void;
+  excludeType?: EvidenceType;
 }
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({ 
@@ -31,9 +32,10 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   onCancel,
   onEditEvidence,
   onDeleteEvidence,
-  maxSelection = 5,
+  maxSelection = Infinity,
   isSupervisorView = false,
-  onBack
+  onBack,
+  excludeType
 }) => {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
@@ -47,19 +49,20 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       // Exclude ARCP Prep items from the main Evidence table
       if (item.type === EvidenceType.ARCPPrep) return false;
       
+      // In selection mode, exclude same-type evidence (e.g., EPAs can't link to EPAs)
+      if (selectionMode && excludeType && item.type === excludeType) return false;
+      
       const typeMatch = filterType === 'All' || item.type === filterType;
       const siaMatch = filterSIA === 'All' || item.sia === filterSIA;
       return typeMatch && siaMatch;
     });
-  }, [allEvidence, filterType, filterSIA]);
+  }, [allEvidence, filterType, filterSIA, selectionMode, excludeType]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter(i => i !== id));
     } else {
-      if (selectedIds.length < maxSelection) {
-        setSelectedIds([...selectedIds, id]);
-      }
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
@@ -197,10 +200,10 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             </button>
             <div>
               <h2 className="text-teal-900 dark:text-white font-medium">Link Evidence</h2>
-              <p className="text-xs text-teal-700/60 dark:text-white/60">Select up to {maxSelection} records to attach to this requirement</p>
+              <p className="text-xs text-teal-700/60 dark:text-white/60">Select records to attach to this requirement</p>
             </div>
             <span className="px-3 py-1 rounded-full bg-teal-500/10 dark:bg-white/10 text-teal-700 dark:text-white font-mono text-xs border border-teal-500/20 dark:border-white/20">
-              {selectedIds.length} / {maxSelection}
+              {selectedIds.length} selected
             </span>
           </div>
           <button 

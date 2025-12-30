@@ -222,7 +222,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [viewingEvidence, setViewingEvidence] = useState<EvidenceItem | null>(null);
   const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
 
-  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
+  // Lock based on status only (Submitted or SignedOff/Complete)
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
+  
+  // When viewing linked evidence (has originFormParams), force read-only mode
+  const isReadOnly = isLocked || !!originFormParams;
+
+  // Determine back button text based on origin
+  const backButtonText = originFormParams ? 'Back to Form' : originView ? 'Back to Evidence' : 'Back';
 
   // Level 1, 2 & 3/4 logic: auto-set subspecialty and disable
   useEffect(() => {
@@ -231,8 +238,20 @@ const EPAForm: React.FC<EPAFormProps> = ({
     } else if (selectedLevel === 3 || selectedLevel === 4) {
       // For Level 3/4, set to first available specialty in the data, or keep current if valid
       const availableSpecialties = EPA_SPECIALTY_DATA[selectedLevel] ? Object.keys(EPA_SPECIALTY_DATA[selectedLevel]) : [];
-      if (availableSpecialties.length > 0 && !availableSpecialties.includes(selectedSia)) {
-        setSelectedSia(availableSpecialties[0]);
+      if (availableSpecialties.length > 0) {
+        // Use case-insensitive matching to prevent accidental reset due to minor casing differences (e.g. "Neuro-Ophthalmology" vs "Neuro-ophthalmology")
+        const currentSiaLower = selectedSia.toLowerCase();
+        const matchingSpecialty = availableSpecialties.find(s => s.toLowerCase() === currentSiaLower);
+        
+        if (matchingSpecialty) {
+          // If match exists but casing is different, update to the correct casing from data
+          if (matchingSpecialty !== selectedSia) {
+            setSelectedSia(matchingSpecialty);
+          }
+        } else {
+          // No match at all, default to first available
+          setSelectedSia(availableSpecialties[0]);
+        }
       }
     }
   }, [selectedLevel]);
@@ -350,7 +369,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   };
 
   useEffect(() => {
-    if (isLocked) return;
+    if (isReadOnly) return;
     const timer = setInterval(() => {
       setIsSaving(true);
       saveToParent();
@@ -360,7 +379,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, [isLocked, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData, traineeNarrative]);
+  }, [isReadOnly, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData, traineeNarrative]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
@@ -392,17 +411,17 @@ const EPAForm: React.FC<EPAFormProps> = ({
   };
 
   const handleCommentChange = (key: string, text: string) => {
-    if (isLocked) return;
+    if (isReadOnly) return;
     setComments(prev => ({ ...prev, [key]: text }));
   };
 
   const handleGradingChange = (key: string, value: string) => {
-    if (isLocked) return;
+    if (isReadOnly) return;
     setGrading(prev => ({ ...prev, [key]: value }));
   };
 
   const handleMarkAllMeets = () => {
-    if (isLocked) return;
+    if (isReadOnly) return;
     const newGrading = { ...grading };
     
     if (selectedLevel === 1) {
@@ -479,7 +498,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       <GlassCard 
         id={`epa-criterion-${reqKey}`}
         key={reqKey} 
-        className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}
+        className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}
       >
         <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{req}</p>
         
@@ -492,7 +511,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           {gradingOptions.map(opt => (
             <button
               key={opt}
-              disabled={isLocked}
+              disabled={isReadOnly}
               onClick={() => handleGradingChange(reqKey, opt)}
               className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${currentGrading === opt ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'}`}
             >
@@ -508,11 +527,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 {isLevel1Or2Or3Or4 ? "Comments" : "Comments (Optional)"}
               </label>
               <textarea 
-                disabled={isLocked}
+                disabled={isReadOnly}
                 value={comments[reqKey] || ''}
                 onChange={(e) => handleCommentChange(reqKey, e.target.value.slice(0, 1000))}
                 placeholder={isLevel1Or2Or3Or4 ? "Enter comments..." : "Add clinical observations or context..."}
-                className={`w-full min-h-[60px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
+                className={`w-full min-h-[60px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isReadOnly ? 'cursor-default' : ''}`}
               />
             </div>
           )}
@@ -520,7 +539,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
-              {!isLocked && (
+              {!isReadOnly && (
                 <button 
                   onClick={() => onLinkRequested(reqKey, activeSection)} 
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
@@ -541,7 +560,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-20 text-center">Level</th>
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Date</th>
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Status</th>
-                      {!isLocked && (
+                      {!isReadOnly && (
                         <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-16 text-center">Actions</th>
                       )}
                     </tr>
@@ -599,7 +618,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               {ev.status}
                             </span>
                           </td>
-                          {!isLocked && (
+                          {!isReadOnly && (
                             <td className="px-4 py-2">
                               <div className="flex items-center justify-center">
                                 <button
@@ -621,7 +640,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   </tbody>
                 </table>
               </div>
-            ) : !isLocked && (
+            ) : !isReadOnly && (
               <p className="text-[10px] italic text-slate-400 dark:text-white/20 mt-3">No evidence linked yet.</p>
             )}
           </div>
@@ -669,7 +688,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       <div className="space-y-4">
         {outcomes.length > 0 ? (
           outcomes.map((outcome, idx) => (
-            <GlassCard key={idx} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={idx} className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90">{outcome}</p>
             </GlassCard>
           ))
@@ -680,7 +699,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
         )}
         
         {/* Trainee Narrative Section */}
-        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+        <GlassCard className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
             Trainee Narrative
           </h4>
@@ -695,19 +714,19 @@ const EPAForm: React.FC<EPAFormProps> = ({
               Trainee Narrative <span className="text-red-500">*</span>
             </label>
             <textarea 
-              disabled={isLocked}
+              disabled={isReadOnly}
               required
               value={traineeNarrative}
               onChange={(e) => setTraineeNarrative(e.target.value)}
               placeholder="Enter your narrative..."
-              className={`w-full min-h-[120px] bg-slate-50 dark:bg-white/[0.03] border ${!traineeNarrative ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-white/10'} rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isLocked ? 'cursor-default' : ''}`}
+              className={`w-full min-h-[120px] bg-slate-50 dark:bg-white/[0.03] border ${!traineeNarrative ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-white/10'} rounded-xl p-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
           
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
-              {!isLocked && (
+              {!isReadOnly && (
                 <button 
                   onClick={() => onLinkRequested(narrativeKey, 0)} 
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
@@ -728,7 +747,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-20 text-center">Level</th>
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Date</th>
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Status</th>
-                      {!isLocked && (
+                      {!isReadOnly && (
                         <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-16 text-center">Actions</th>
                       )}
                     </tr>
@@ -786,7 +805,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               {ev.status}
                             </span>
                           </td>
-                          {!isLocked && (
+                          {!isReadOnly && (
                             <td className="px-4 py-2">
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -832,7 +851,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   </tbody>
                 </table>
               </div>
-            ) : !isLocked && (
+            ) : !isReadOnly && (
               <p className="text-[10px] italic text-slate-400 dark:text-white/20 mt-3">No evidence linked yet.</p>
             )}
           </div>
@@ -860,15 +879,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Mobile Metadata Summary & Editor */}
       <div className="lg:hidden mb-2">
-        {originView ? (
-          <button onClick={onBack} className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4">
-            <ArrowLeft size={14} /> BACK TO FORM
-          </button>
-        ) : (
-          <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-4">
-            <ArrowLeft size={14} /> Back
-          </button>
-        )}
+        <button 
+          onClick={onBack} 
+          className={`flex items-center gap-2 text-xs mb-4 ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-white/40'}`}
+        >
+          <ArrowLeft size={14} /> {backButtonText}
+        </button>
         <GlassCard className="p-4">
           <div 
             className="flex justify-between items-center cursor-pointer"
@@ -892,7 +908,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
             <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Level">
                 <select 
-                  disabled={isLocked} 
+                  disabled={isReadOnly} 
                   value={selectedLevel}
                   onChange={(e) => setSelectedLevel(Number(e.target.value))}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
@@ -902,7 +918,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </MetadataField>
               <MetadataField label="Specialty / SIA">
                 <select 
-                  disabled={isLocked || selectedLevel === 1 || selectedLevel === 2} 
+                  disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2} 
                   value={selectedSia}
                   onChange={(e) => setSelectedSia(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none disabled:opacity-50"
@@ -911,12 +927,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 </select>
               </MetadataField>
               <MetadataField label="Date">
-                <input disabled={isLocked} type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
+                <input disabled={isReadOnly} type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
               </MetadataField>
               <MetadataField label="Supervisor">
                 <div className="space-y-2">
-                  <input disabled={isLocked} type="text" placeholder="Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
-                  <input disabled={isLocked} type="email" placeholder="Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isReadOnly} type="text" placeholder="Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  <input disabled={isReadOnly} type="email" placeholder="Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
                 </div>
               </MetadataField>
             </div>
@@ -926,21 +942,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        {originView ? (
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors mb-2"
-          >
-            <ArrowLeft size={16} /> BACK TO FORM
-          </button>
-        ) : (
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors mb-2"
-          >
-            <ArrowLeft size={16} /> Back to Dashboard
-          </button>
-        )}
+        <button 
+          onClick={onBack}
+          className={`flex items-center gap-2 text-sm transition-colors mb-2 ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300' : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70'}`}
+        >
+          <ArrowLeft size={16} /> {backButtonText}
+        </button>
 
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">
@@ -952,7 +959,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           <div className="space-y-6">
             <MetadataField label="EPA Level">
               <select 
-                disabled={isLocked} 
+                disabled={isReadOnly} 
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(Number(e.target.value))}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
@@ -963,7 +970,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
             <MetadataField label="Subspecialty">
               <select 
-                disabled={isLocked || selectedLevel === 1 || selectedLevel === 2} 
+                disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2} 
                 value={selectedSia}
                 onChange={(e) => setSelectedSia(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors disabled:opacity-50"
@@ -976,13 +983,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
             </MetadataField>
             
             <MetadataField label="Assessment Date">
-              <input disabled={isLocked} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+              <input disabled={isReadOnly} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
             </MetadataField>
             
             <MetadataField label="Supervisor">
               <div className="space-y-2">
-                <input disabled={isLocked} type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
-                <input disabled={isLocked} type="email" placeholder="Supervisor Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isReadOnly} type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                <input disabled={isReadOnly} type="email" placeholder="Supervisor Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
               </div>
             </MetadataField>
 
@@ -1006,7 +1013,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </div>
             </div>
 
-            {isLocked && (
+            {isReadOnly && (
               <div className="pt-6 flex flex-col items-center gap-2 p-4 bg-green-50 dark:bg-green-500/5 border border-green-100 dark:border-green-500/10 rounded-2xl">
                 <ShieldCheck className="text-green-500" size={24} />
                 <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">COMPLETE</p>
@@ -1045,7 +1052,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
                 {selectedLevel === 1 ? LEVEL_1_SECTIONS[activeSection] : selectedLevel === 2 ? LEVEL_2_SECTIONS[activeSection] : selectedLevel === 3 || selectedLevel === 4 ? LEVEL_3_SECTIONS[activeSection] : `EPA Level ${selectedLevel} Requirements`}
               </h3>
-              {!isLocked && (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
+              {!isReadOnly && (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
                 <button 
                   onClick={handleMarkAllMeets}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
@@ -1102,7 +1109,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 type="radio" 
                                 name="entrustment" 
                                 className="hidden" 
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
@@ -1120,7 +1127,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               Please note any aspects which were especially good: <span className="text-red-500">*</span>
                             </label>
                             <textarea
-                              disabled={isLocked}
+                              disabled={isReadOnly}
                               value={aspectsEspeciallyGood}
                               onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
                               className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1134,7 +1141,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
                               </label>
                               <textarea
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 value={additionalEvidenceNeeded}
                                 onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
                                 className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1193,7 +1200,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 type="radio" 
                                 name="entrustment" 
                                 className="hidden" 
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
@@ -1211,7 +1218,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               Please note any aspects which were especially good: <span className="text-red-500">*</span>
                             </label>
                             <textarea
-                              disabled={isLocked}
+                              disabled={isReadOnly}
                               value={aspectsEspeciallyGood}
                               onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
                               className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1225,7 +1232,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
                               </label>
                               <textarea
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 value={additionalEvidenceNeeded}
                                 onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
                                 className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1350,7 +1357,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 type="radio" 
                                 name="entrustment" 
                                 className="hidden" 
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
@@ -1368,7 +1375,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                               Please note any aspects which were especially good: <span className="text-red-500">*</span>
                             </label>
                             <textarea
-                              disabled={isLocked}
+                              disabled={isReadOnly}
                               value={aspectsEspeciallyGood}
                               onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
                               className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1382,7 +1389,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
                               </label>
                               <textarea
-                                disabled={isLocked}
+                                disabled={isReadOnly}
                                 value={additionalEvidenceNeeded}
                                 onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
                                 className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -1440,7 +1447,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </span>
             )}
             
-            {!isLocked && (
+            {!isReadOnly && (
               <>
                 <button 
                   onClick={handleSaveDraft}
@@ -1465,7 +1472,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </>
             )}
             
-            {isLocked && (
+            {isReadOnly && (
               <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
             )}
           </div>
