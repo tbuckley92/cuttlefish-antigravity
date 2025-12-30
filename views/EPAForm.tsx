@@ -28,7 +28,7 @@ interface EPAFormProps {
   onSave: (evidence: Partial<EvidenceItem>) => void;
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
-  onViewLinkedEvidence?: (evidenceId: string) => void;
+  onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
 }
@@ -219,6 +219,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [isMetadataExpanded, setIsMetadataExpanded] = useState(false);
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+  const [viewingEvidence, setViewingEvidence] = useState<EvidenceItem | null>(null);
+  const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
 
   const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
 
@@ -450,6 +452,16 @@ const EPAForm: React.FC<EPAFormProps> = ({
     setGrading(newGrading);
   };
 
+  const handleViewEvidence = (evId: string) => {
+    const ev = allEvidence.find(e => e.id === evId);
+    if (ev) {
+      setViewingEvidence(ev);
+      setIsEvidenceDialogOpen(true);
+      // Debug: Check if onViewLinkedEvidence is available
+      console.log('handleViewEvidence: onViewLinkedEvidence available?', !!onViewLinkedEvidence, 'Type:', typeof onViewLinkedEvidence);
+    }
+  };
+
   const renderCriterion = (req: string, idx: number, sectionKey: string, showCommentForAll: boolean = false) => {
     const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : selectedLevel === 4 ? 'L4' : '';
     const reqKey = `EPA-${levelPrefix}-${sectionKey}-${idx}`;
@@ -515,73 +527,94 @@ const EPAForm: React.FC<EPAFormProps> = ({
             </div>
             
             {linkedIds.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {linkedIds.map(evId => {
-                  const ev = allEvidence.find(e => e.id === evId);
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:505',message:'Rendering linked evidence lozenge',data:{evId,evFound:!!ev,evTitle:ev?.title,evType:ev?.type,handlerExists:!!onViewLinkedEvidence,reqKey},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                  // #endregion
-                  return (
-                    <div 
-                      key={evId} 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Linked evidence clicked:', evId, 'Handler exists:', !!onViewLinkedEvidence, 'Handler type:', typeof onViewLinkedEvidence);
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:510',message:'Linked evidence lozenge clicked',data:{evId,handlerExists:!!onViewLinkedEvidence,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                        // #endregion
-                        if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
-                          console.log('Calling onViewLinkedEvidence with evId:', evId);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:515',message:'Calling onViewLinkedEvidence handler',data:{evId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                          // #endregion
-                          try {
-                            onViewLinkedEvidence(evId);
-                          } catch (error) {
-                            console.error('Error calling onViewLinkedEvidence:', error);
-                          }
-                        } else {
-                          console.error('onViewLinkedEvidence handler is not defined or not a function. Type:', typeof onViewLinkedEvidence);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:517',message:'ERROR: onViewLinkedEvidence handler is undefined',data:{evId,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                          // #endregion
-                        }
-                      }}
-                      className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-50/10 dark:hover:bg-indigo-500/20 transition-colors"
-                      style={{ pointerEvents: 'auto' }}
-                    >
-                      <div 
-                        className="flex items-center gap-2 flex-1"
-                        onClick={(e) => {
-                          // Allow clicks on the text/icon area to bubble up to parent
-                          e.stopPropagation();
-                          if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
-                            onViewLinkedEvidence(evId);
-                          }
-                        }}
-                      >
-                        <LinkIcon size={12} />
-                        <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
-                      </div>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Type</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">SIA</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-20 text-center">Level</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Date</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Status</th>
                       {!isLocked && (
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onRemoveLink(reqKey, evId);
-                          }}
-                          className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                        >
-                          <X size={12} />
-                        </button>
+                        <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-16 text-center">Actions</th>
                       )}
-                    </div>
-                  );
-                })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linkedIds.map(evId => {
+                      const ev = allEvidence.find(e => e.id === evId);
+                      if (!ev) return null;
+                      
+                      return (
+                        <tr 
+                          key={evId}
+                          onClick={() => handleViewEvidence(evId)}
+                          className="group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                        >
+                          <td className="px-4 py-2">
+                            <span className={`
+                              inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
+                              ${getLinkedEvidenceTypeColors(ev.type)}
+                            `}>
+                              {ev.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white">
+                                {ev.title}
+                              </span>
+                              {ev.fileName && (
+                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName}`}>
+                                  <FileText size={8} />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50">
+                            {ev.sia || '–'}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50 text-center">
+                            {ev.level || '–'}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50 font-mono">
+                            {ev.date}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`
+                              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium
+                              ${getLinkedEvidenceStatusColors(ev.status)}
+                            `}>
+                              {getLinkedEvidenceStatusIcon(ev.status)}
+                              {ev.status}
+                            </span>
+                          </td>
+                          {!isLocked && (
+                            <td className="px-4 py-2">
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveLink(reqKey, evId);
+                                  }}
+                                  className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                  title="Remove link"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             ) : !isLocked && (
-              <p className="text-[10px] italic text-slate-400 dark:text-white/20">No evidence linked yet.</p>
+              <p className="text-[10px] italic text-slate-400 dark:text-white/20 mt-3">No evidence linked yet.</p>
             )}
           </div>
         </div>
@@ -677,70 +710,94 @@ const EPAForm: React.FC<EPAFormProps> = ({
             </div>
             
             {linkedNarrativeIds.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {linkedNarrativeIds.map(evId => {
-                  const ev = allEvidence.find(e => e.id === evId);
-                  return (
-                    <div 
-                      key={evId} 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Linked evidence clicked (narrative):', evId, 'Handler exists:', !!onViewLinkedEvidence, 'Handler type:', typeof onViewLinkedEvidence);
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:640',message:'Narrative linked evidence lozenge clicked',data:{evId,handlerExists:!!onViewLinkedEvidence,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                        // #endregion
-                        if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
-                          console.log('Calling onViewLinkedEvidence (narrative) with evId:', evId);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:645',message:'Calling onViewLinkedEvidence handler (narrative)',data:{evId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                          // #endregion
-                          try {
-                            onViewLinkedEvidence(evId);
-                          } catch (error) {
-                            console.error('Error calling onViewLinkedEvidence (narrative):', error);
-                          }
-                        } else {
-                          console.error('onViewLinkedEvidence handler is not defined or not a function (narrative). Type:', typeof onViewLinkedEvidence);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:648',message:'ERROR: onViewLinkedEvidence handler is undefined (narrative)',data:{evId,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                          // #endregion
-                        }
-                      }}
-                      className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-50/10 dark:hover:bg-indigo-500/20 transition-colors"
-                      style={{ pointerEvents: 'auto' }}
-                    >
-                      <div 
-                        className="flex items-center gap-2 flex-1"
-                        onClick={(e) => {
-                          // Allow clicks on the text/icon area to bubble up to parent
-                          e.stopPropagation();
-                          if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
-                            onViewLinkedEvidence(evId);
-                          }
-                        }}
-                      >
-                        <LinkIcon size={12} />
-                        <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
-                      </div>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Type</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">SIA</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-20 text-center">Level</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Date</th>
+                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Status</th>
                       {!isLocked && (
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onRemoveLink(narrativeKey, evId);
-                          }}
-                          className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                        >
-                          <X size={12} />
-                        </button>
+                        <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-16 text-center">Actions</th>
                       )}
-                    </div>
-                  );
-                })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linkedNarrativeIds.map(evId => {
+                      const ev = allEvidence.find(e => e.id === evId);
+                      if (!ev) return null;
+                      
+                      return (
+                        <tr 
+                          key={evId}
+                          onClick={() => handleViewEvidence(evId)}
+                          className="group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                        >
+                          <td className="px-4 py-2">
+                            <span className={`
+                              inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
+                              ${getLinkedEvidenceTypeColors(ev.type)}
+                            `}>
+                              {ev.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white">
+                                {ev.title}
+                              </span>
+                              {ev.fileName && (
+                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName}`}>
+                                  <FileText size={8} />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50">
+                            {ev.sia || '–'}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50 text-center">
+                            {ev.level || '–'}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500 dark:text-white/50 font-mono">
+                            {ev.date}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`
+                              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium
+                              ${getLinkedEvidenceStatusColors(ev.status)}
+                            `}>
+                              {getLinkedEvidenceStatusIcon(ev.status)}
+                              {ev.status}
+                            </span>
+                          </td>
+                          {!isLocked && (
+                            <td className="px-4 py-2">
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveLink(narrativeKey, evId);
+                                  }}
+                                  className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                  title="Remove link"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             ) : !isLocked && (
-              <p className="text-[10px] italic text-slate-400 dark:text-white/20">No evidence linked yet.</p>
+              <p className="text-[10px] italic text-slate-400 dark:text-white/20 mt-3">No evidence linked yet.</p>
             )}
           </div>
         </GlassCard>
@@ -1378,8 +1435,199 @@ const EPAForm: React.FC<EPAFormProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Evidence Summary Dialog */}
+      {isEvidenceDialogOpen && viewingEvidence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
+            <GlassCard className="p-6 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                    {viewingEvidence.title}
+                  </h2>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className={`
+                      inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tight
+                      ${getLinkedEvidenceTypeColors(viewingEvidence.type)}
+                    `}>
+                      {viewingEvidence.type}
+                    </span>
+                    <span className={`
+                      inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
+                      ${getLinkedEvidenceStatusColors(viewingEvidence.status)}
+                    `}>
+                      {getLinkedEvidenceStatusIcon(viewingEvidence.status)}
+                      {viewingEvidence.status}
+                    </span>
+                    {viewingEvidence.sia && (
+                      <span className="text-xs text-slate-500 dark:text-white/50">
+                        SIA: {viewingEvidence.sia}
+                      </span>
+                    )}
+                    {viewingEvidence.level && (
+                      <span className="text-xs text-slate-500 dark:text-white/50">
+                        Level: {viewingEvidence.level}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-500 dark:text-white/50 font-mono">
+                      {viewingEvidence.date}
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsEvidenceDialogOpen(false);
+                    setViewingEvidence(null);
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Show form-specific summary based on type */}
+                {viewingEvidence.type === EvidenceType.EPA && viewingEvidence.epaFormData && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                      EPA Form Summary
+                    </h3>
+                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 space-y-2 text-sm">
+                      <p><span className="font-medium">Level:</span> {viewingEvidence.level || 'N/A'}</p>
+                      <p><span className="font-medium">SIA:</span> {viewingEvidence.sia || 'N/A'}</p>
+                      {viewingEvidence.epaFormData.entrustment && (
+                        <p><span className="font-medium">Entrustment:</span> {viewingEvidence.epaFormData.entrustment}</p>
+                      )}
+                      {viewingEvidence.epaFormData.traineeNarrative && (
+                        <div>
+                          <p className="font-medium mb-1">Trainee Narrative:</p>
+                          <p className="text-slate-600 dark:text-white/70 text-xs">{viewingEvidence.epaFormData.traineeNarrative}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {viewingEvidence.type === EvidenceType.CRS && viewingEvidence.crsFormData && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                      CRS Form Summary
+                    </h3>
+                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 space-y-2 text-sm">
+                      <p><span className="font-medium">Type:</span> {viewingEvidence.crsFormData.type || 'N/A'}</p>
+                      <p><span className="font-medium">Level:</span> {viewingEvidence.level || 'N/A'}</p>
+                    </div>
+                  </div>
+                )}
+
+                {viewingEvidence.type === EvidenceType.CbD && viewingEvidence.cbdFormData && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                      CBD Form Summary
+                    </h3>
+                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 space-y-2 text-sm">
+                      {viewingEvidence.cbdFormData.clinicalScenario && (
+                        <div>
+                          <p className="font-medium mb-1">Clinical Scenario:</p>
+                          <p className="text-slate-600 dark:text-white/70 text-xs">{viewingEvidence.cbdFormData.clinicalScenario}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {viewingEvidence.type === EvidenceType.DOPs && viewingEvidence.dopsFormData && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                      DOPS Form Summary
+                    </h3>
+                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 space-y-2 text-sm">
+                      <p><span className="font-medium">Type:</span> {viewingEvidence.dopsFormData.dopsType || 'N/A'}</p>
+                      {viewingEvidence.dopsFormData.sectionA?.descriptionOfProcedure && (
+                        <div>
+                          <p className="font-medium mb-1">Procedure Description:</p>
+                          <p className="text-slate-600 dark:text-white/70 text-xs">{viewingEvidence.dopsFormData.sectionA.descriptionOfProcedure}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {viewingEvidence.type === EvidenceType.OSATs && viewingEvidence.osatsFormData && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                      OSATS Form Summary
+                    </h3>
+                    <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 space-y-2 text-sm">
+                      <p><span className="font-medium">Type:</span> {viewingEvidence.osatsFormData.osatsType || 'N/A'}</p>
+                      {viewingEvidence.osatsFormData.sectionA?.caseDescription && (
+                        <div>
+                          <p className="font-medium mb-1">Case Description:</p>
+                          <p className="text-slate-600 dark:text-white/70 text-xs">{viewingEvidence.osatsFormData.sectionA.caseDescription}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Generic fallback for other types */}
+                {!viewingEvidence.epaFormData && !viewingEvidence.crsFormData && !viewingEvidence.cbdFormData && !viewingEvidence.dopsFormData && !viewingEvidence.osatsFormData && (
+                  <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-4 text-sm text-slate-600 dark:text-white/70">
+                    <p>No additional details available for this evidence type.</p>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <button
+                    onClick={() => {
+                      setIsEvidenceDialogOpen(false);
+                      setViewingEvidence(null);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
+      )}
     </div>
   );
+};
+
+// Helper functions for linked evidence table styling
+const getLinkedEvidenceTypeColors = (type: EvidenceType) => {
+  switch (type) {
+    case EvidenceType.CbD: return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 dark:border-blue-500/30';
+    case EvidenceType.DOPs: return 'bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/20 dark:border-purple-500/30';
+    case EvidenceType.OSATs: return 'bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-300 border border-orange-500/20 dark:border-orange-500/30';
+    case EvidenceType.CRS: return 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30';
+    case EvidenceType.EPA: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
+    case EvidenceType.GSAT: return 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 dark:border-emerald-500/30';
+    default: return 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 border border-slate-200 dark:border-white/20';
+  }
+};
+
+const getLinkedEvidenceStatusColors = (status: EvidenceStatus) => {
+  switch (status) {
+    case EvidenceStatus.SignedOff: return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20';
+    case EvidenceStatus.Submitted: return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20';
+    case EvidenceStatus.Draft: return 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10';
+    default: return 'bg-white/5 text-white/40';
+  }
+};
+
+const getLinkedEvidenceStatusIcon = (status: EvidenceStatus) => {
+  switch (status) {
+    case EvidenceStatus.SignedOff: return <ShieldCheck size={10} />;
+    case EvidenceStatus.Submitted: return <Clock size={10} />;
+    case EvidenceStatus.Draft: return <FileText size={10} />;
+    default: return null;
+  }
 };
 
 const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (

@@ -73,21 +73,47 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
   };
 
   const handleSave = (final: boolean) => {
-    if (!title || !date || isLocked) return;
+    // Add validation with user feedback
+    if (!title || !title.trim()) {
+      alert('Please enter a title for the evidence.');
+      return;
+    }
+    
+    if (!date) {
+      alert('Please select a date for the evidence.');
+      return;
+    }
+    
+    if (isLocked) {
+      return;
+    }
+    
     const typeLabel = evidenceTypes.find(t => t.id === selectedType)?.label as EvidenceType;
-    onCreated({
-      id: editingEvidence?.id,
-      title,
+    
+    // Ensure we have a valid type
+    if (!typeLabel && !selectedType) {
+      alert('Please select an evidence type.');
+      return;
+    }
+    
+    const evidenceItem = {
+      // Only include id if we're editing, otherwise let it be generated
+      ...(editingEvidence?.id && { id: editingEvidence.id }),
+      title: title.trim(),
       date,
-      sia: selectedSia,
-      level: parseInt(selectedLevel) || undefined,
+      sia: selectedSia === 'All' ? undefined : selectedSia,
+      level: selectedLevel === 'N/A' ? undefined : parseInt(selectedLevel) || undefined,
       type: typeLabel || EvidenceType.Other,
-      notes,
+      notes: notes.trim() || undefined,
       fileName: fileName || undefined,
       fileUrl: fileUrl || undefined,
       fileType: fileName ? 'application/pdf' : undefined,
       status: final ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
-    });
+    };
+    
+    console.log('AddEvidence: Creating evidence:', evidenceItem); // Debug log
+    
+    onCreated(evidenceItem);
   };
 
   return (

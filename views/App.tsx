@@ -46,6 +46,7 @@ interface FormParams {
   type?: string;
   id?: string; // Existing ID if editing
   status?: EvidenceStatus;
+  initialSection?: number; // Section to navigate to when opening the form
   originView?: View; // View we came from when viewing linked evidence
   originFormParams?: FormParams; // Form params of the origin form
 }
@@ -74,22 +75,62 @@ const App: React.FC = () => {
   // Respondent simulation state
   const [activeRespondentId, setActiveRespondentId] = useState<string | null>(null);
 
+  // Use a ref to track a counter for unique IDs even when created in same millisecond
+  const evidenceIdCounter = useRef(0);
+  
   const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
+    console.log('App.tsx: handleUpsertEvidence called with:', item); // Debug log
+    
+    // Increment counter BEFORE the state update to ensure uniqueness
+    evidenceIdCounter.current += 1;
+    const counterValue = evidenceIdCounter.current;
+    
     setAllEvidence(prev => {
-      const exists = prev.find(e => e.id === item.id);
-      if (exists) {
-        return prev.map(e => e.id === item.id ? { ...e, ...item } as EvidenceItem : e);
-      } else {
-        const newItem: EvidenceItem = {
-          id: item.id || Math.random().toString(36).substr(2, 9),
-          date: new Date().toISOString().split('T')[0],
-          status: EvidenceStatus.Draft,
-          title: 'Untitled Evidence',
-          type: EvidenceType.Other,
-          ...item
-        } as EvidenceItem;
-        return [newItem, ...prev];
+      // Only check for existing if we have an ID
+      if (item.id) {
+        const exists = prev.find(e => e.id === item.id);
+        if (exists) {
+          console.log('App.tsx: Updating existing evidence:', item.id); // Debug log
+          return prev.map(e => e.id === item.id ? { ...e, ...item } as EvidenceItem : e);
+        }
       }
+      
+      // Generate a truly unique ID using timestamp + counter + random
+      // Counter is incremented outside state update to ensure uniqueness
+      const generateUniqueId = () => {
+        const timestamp = Date.now().toString(36);
+        const counter = counterValue.toString(36);
+        const random = Math.random().toString(36).substring(2, 11);
+        return `ev-${timestamp}-${counter}-${random}`;
+      };
+      
+      // Generate ID and ensure it doesn't exist (shouldn't happen with counter, but safety check)
+      let newId = item.id || generateUniqueId();
+      let attempts = 0;
+      while (prev.find(e => e.id === newId) && attempts < 10) {
+        // If somehow we get a duplicate, increment counter and regenerate
+        evidenceIdCounter.current += 1;
+        newId = generateUniqueId();
+        attempts++;
+      }
+      
+      if (attempts >= 10) {
+        console.error('App.tsx: Failed to generate unique ID after 10 attempts!');
+      }
+      
+      const newItem: EvidenceItem = {
+        id: newId,
+        date: item.date || new Date().toISOString().split('T')[0],
+        status: item.status || EvidenceStatus.Draft,
+        title: item.title || 'Untitled Evidence',
+        type: item.type || EvidenceType.Other,
+        ...item
+      } as EvidenceItem;
+      
+      console.log('App.tsx: Creating new evidence item with ID:', newItem.id, 'Title:', newItem.title, 'Full item:', newItem); // Debug log
+      const updated = [newItem, ...prev];
+      console.log('App.tsx: Total evidence count after creation:', updated.length, 'IDs:', updated.map(e => `${e.id}:${e.title}`)); // Debug log
+      return updated;
     });
   };
 
@@ -159,7 +200,7 @@ const App: React.FC = () => {
   };
 
   // Define the function directly (not using useCallback) to debug
-  const handleViewLinkedEvidence = ((evidenceId: string) => {
+  const handleViewLinkedEvidence = ((evidenceId: string, section?: number) => {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:161',message:'handleViewLinkedEvidence called',data:{evidenceId,allEvidenceCount:allEvidence.length,allEvidenceIds:allEvidence.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
@@ -179,7 +220,7 @@ const App: React.FC = () => {
 
     // Store current view and form params as origin context
     const originView = currentView;
-    const originFormParams = selectedFormParams ? { ...selectedFormParams } : undefined;
+    const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:172',message:'Preparing navigation',data:{originView,hasOriginParams:!!originFormParams,evidenceType:evidence.type,evidenceId:evidence.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
@@ -469,9 +510,16 @@ const App: React.FC = () => {
               setCurrentView(View.Evidence);
             }} 
             onCreated={(item) => {
+              console.log('App.tsx: onCreated callback triggered with:', item); // Debug log
               handleUpsertEvidence(item);
-              setEditingEvidence(null);
-              setCurrentView(View.Evidence);
+              console.log('App.tsx: After handleUpsertEvidence call'); // Debug log
+              
+              // Delay navigation to ensure state update completes
+              // Use setTimeout to let React process the state update first
+              setTimeout(() => {
+                setEditingEvidence(null);
+                setCurrentView(View.Evidence);
+              }, 10);
             }} 
           />
         );
@@ -587,12 +635,16 @@ const App: React.FC = () => {
             initialSupervisorName={selectedFormParams?.supervisorName} 
             initialSupervisorEmail={selectedFormParams?.supervisorEmail} 
             initialStatus={selectedFormParams?.status || existingEPA?.status || EvidenceStatus.Draft}
+            initialSection={selectedFormParams?.initialSection ?? returnTarget?.section}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
             onBack={() => {
               if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
-                // Return to origin form
-                setSelectedFormParams(selectedFormParams.originFormParams);
+                // Return to origin form with the section preserved
+                setSelectedFormParams({
+                  ...selectedFormParams.originFormParams,
+                  initialSection: selectedFormParams.originFormParams.initialSection
+                });
                 setCurrentView(selectedFormParams.originView);
               } else {
                 setCurrentView(View.RecordForm);
@@ -603,17 +655,17 @@ const App: React.FC = () => {
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
             linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
-            onViewLinkedEvidence={(evidenceId: string) => {
-              console.log('App.tsx: Direct inline handler called with:', evidenceId, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
+            onViewLinkedEvidence={(evidenceId: string, section?: number) => {
+              console.log('App.tsx: Direct inline handler called with:', evidenceId, 'section:', section, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
               if (typeof handleViewLinkedEvidence === 'function') {
-                return handleViewLinkedEvidence(evidenceId);
+                return handleViewLinkedEvidence(evidenceId, section);
               }
               console.error('App.tsx: handleViewLinkedEvidence is not a function! Calling fallback.');
               // Fallback: try to find and navigate to the evidence
               const evidence = allEvidence.find(e => e.id === evidenceId);
               if (evidence) {
                 const originView = currentView;
-                const originFormParams = selectedFormParams ? { ...selectedFormParams } : undefined;
+                const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
                 const readOnlyStatus = EvidenceStatus.Submitted;
                 
                 if (evidence.type === EvidenceType.EPA) {
