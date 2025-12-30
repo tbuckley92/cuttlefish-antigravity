@@ -141,7 +141,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
   const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
   const [agreedActionPlan, setAgreedActionPlan] = useState("");
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
 
   // Reset activeSection when form loads
   useEffect(() => {

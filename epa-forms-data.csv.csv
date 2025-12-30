@@ -3,8 +3,9 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 3,Oculoplastics,A,LearningOutcome,"OO3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
 3,Oculoplastics,A,LearningOutcome,OO3.3 - Independently perform low complexity oculoplastic procedures.,FALSE,FALSE,3
 3,Oculoplastics,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
-3,Oculoplastics,C,Criterion,Assessment and detailed interpretation of lacrimal function (syringing / sac wash-out),TRUE,TRUE,1
-3,Oculoplastics,C,Criterion,Initial management of sight-threatening orbital emergencies (e.g. orbital cellulitis),TRUE,TRUE,2
+3,Oculoplastics,C,Criterion,Botox administration,TRUE,TRUE,1
+3,Oculoplastics,C,Criterion,Assessment and detailed interpretation of lacrimal function (syringing / sac wash-out),TRUE,TRUE,2
+3,Oculoplastics,C,Criterion,Initial management of sight-threatening orbital emergencies (e.g. orbital cellulitis),TRUE,TRUE,3
 3,Oculoplastics,D,Criterion,OSATS Lid Surgery,FALSE,FALSE,1
 3,Oculoplastics,D,Criterion,OSATS Lateral canthotomy and cantholysis,FALSE,FALSE,2
 3,Oculoplastics,E,Criterion,Local anaesthesia,TRUE,TRUE,1

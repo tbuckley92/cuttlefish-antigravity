@@ -17,11 +17,14 @@ interface GSATFormProps {
   initialSection?: number;
   autoScrollToIdx?: number;
   initialStatus?: EvidenceStatus;
+  originView?: any; // View enum type
+  originFormParams?: any; // FormParams type
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
   onLinkRequested: (reqIndex: number, domain: string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
+  onViewLinkedEvidence?: (evidenceId: string) => void;
   linkedEvidenceData: Record<string, string[]>; // "domain-reqIndex" -> evidenceIds
   allEvidence?: EvidenceItem[];
 }
@@ -41,11 +44,14 @@ const GSATForm: React.FC<GSATFormProps> = ({
   initialSection = 0,
   autoScrollToIdx,
   initialStatus = EvidenceStatus.Draft,
+  originView,
+  originFormParams,
   onBack, 
   onSubmitted,
   onSave,
   onLinkRequested,
   onRemoveLink,
+  onViewLinkedEvidence,
   linkedEvidenceData,
   allEvidence = []
 }) => {
@@ -71,7 +77,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
     r.specialty === currentDomain
   );
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
 
   // Handle saving data to parent
   const saveToParent = (newStatus: EvidenceStatus = status) => {
@@ -185,9 +191,15 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
       {/* Mobile Metadata Summary */}
       <div className="lg:hidden mb-2">
-        <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 mb-4">
-          <ArrowLeft size={14} /> Back
-        </button>
+        {originView ? (
+          <button onClick={onBack} className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-4">
+            <ArrowLeft size={14} /> BACK TO FORM
+          </button>
+        ) : (
+          <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 mb-4">
+            <ArrowLeft size={14} /> Back
+          </button>
+        )}
         <GlassCard className="p-4">
           <div 
             className="flex justify-between items-center cursor-pointer"
@@ -235,9 +247,15 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
       {/* Left Column: Metadata (Desktop Only) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-2">
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
+        {originView ? (
+          <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors mb-2">
+            <ArrowLeft size={16} /> BACK TO FORM
+          </button>
+        ) : (
+          <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-2">
+            <ArrowLeft size={16} /> Back to Dashboard
+          </button>
+        )}
 
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">
@@ -368,13 +386,20 @@ const GSATForm: React.FC<GSATFormProps> = ({
                           {linkedIds.map(evId => {
                             const ev = allEvidence.find(e => e.id === evId);
                             return (
-                              <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600">
+                              <div 
+                                key={evId} 
+                                onClick={() => onViewLinkedEvidence?.(evId)}
+                                className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600 cursor-pointer hover:bg-indigo-100/80 transition-colors"
+                              >
                                 <LinkIcon size={10} />
                                 <span className="max-w-[150px] truncate">{ev?.title || "Evidence Record"}</span>
                                 {!isLocked && (
                                   <button 
-                                    onClick={() => onRemoveLink(reqKey, evId)}
-                                    className="p-0.5 hover:bg-indigo-100 rounded-full transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onRemoveLink(reqKey, evId);
+                                    }}
+                                    className="p-0.5 hover:bg-indigo-200 rounded-full transition-colors"
                                   >
                                     <X size={10} />
                                   </button>
@@ -447,6 +472,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
             {!isLocked && (
               <>
                 <button 
+                  key="save-draft"
                   onClick={handleSaveDraft}
                   className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
                 >
@@ -454,6 +480,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 </button>
                 
                 <button 
+                  key="email-form"
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
@@ -461,6 +488,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 </button>
 
                 <button 
+                  key="sign-off"
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >

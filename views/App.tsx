@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
@@ -45,6 +45,9 @@ interface FormParams {
   supervisorEmail?: string;
   type?: string;
   id?: string; // Existing ID if editing
+  status?: EvidenceStatus;
+  originView?: View; // View we came from when viewing linked evidence
+  originFormParams?: FormParams; // Form params of the origin form
 }
 
 interface ReturnTarget {
@@ -133,27 +136,143 @@ const App: React.FC = () => {
     } else if (item.type === EvidenceType.ARCPPrep) {
       setCurrentView(View.ARCPPrep);
     } else if (item.type === EvidenceType.EPA) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.EPAForm);
     } else if (item.type === EvidenceType.DOPs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.DOPsForm);
     } else if (item.type === EvidenceType.OSATs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.OSATSForm);
     } else if (item.type === EvidenceType.CbD) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.CBDForm);
     } else if (item.type === EvidenceType.CRS) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.CRSForm);
     } else if (item.type === EvidenceType.GSAT) {
-      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id });
+      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status });
       setCurrentView(View.GSATForm);
     } else {
       setCurrentView(View.AddEvidence);
     }
   };
+
+  // Define the function directly (not using useCallback) to debug
+  const handleViewLinkedEvidence = ((evidenceId: string) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:161',message:'handleViewLinkedEvidence called',data:{evidenceId,allEvidenceCount:allEvidence.length,allEvidenceIds:allEvidence.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    console.log('handleViewLinkedEvidence called with evidenceId:', evidenceId);
+    const evidence = allEvidence.find(e => e.id === evidenceId);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:163',message:'Evidence lookup result',data:{evidenceId,evidenceFound:!!evidence,evidenceType:evidence?.type,evidenceTitle:evidence?.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    if (!evidence) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:164',message:'ERROR: Evidence not found',data:{evidenceId,allEvidenceIds:allEvidence.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      console.error('Evidence not found:', evidenceId, 'Available evidence:', allEvidence.map(e => e.id));
+      return;
+    }
+    console.log('Found evidence:', evidence.type, evidence.title);
+
+    // Store current view and form params as origin context
+    const originView = currentView;
+    const originFormParams = selectedFormParams ? { ...selectedFormParams } : undefined;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:172',message:'Preparing navigation',data:{originView,hasOriginParams:!!originFormParams,evidenceType:evidence.type,evidenceId:evidence.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    console.log('Origin view:', originView, 'Origin params:', originFormParams);
+
+    // Force status to Submitted to ensure read-only mode
+    const readOnlyStatus = EvidenceStatus.Submitted;
+
+    // Navigate to the appropriate form view based on evidence type
+    if (evidence.type === EvidenceType.EPA) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.EPAForm);
+    } else if (evidence.type === EvidenceType.DOPs) {
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.DOPsForm);
+    } else if (evidence.type === EvidenceType.OSATs) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:199',message:'Navigating to OSATS form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.OSATSForm);
+    } else if (evidence.type === EvidenceType.CbD) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:209',message:'Navigating to CBD form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.CBDForm);
+    } else if (evidence.type === EvidenceType.CRS) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:219',message:'Navigating to CRS form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      setSelectedFormParams({ 
+        sia: evidence.sia || '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.CRSForm);
+    } else if (evidence.type === EvidenceType.GSAT) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:229',message:'Navigating to GSAT form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      setSelectedFormParams({ 
+        sia: '', 
+        level: evidence.level || 1, 
+        id: evidence.id, 
+        status: readOnlyStatus,
+        originView,
+        originFormParams
+      });
+      setCurrentView(View.GSATForm);
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:263',message:'ERROR: Unknown evidence type, no navigation',data:{evidenceType:evidence.type,evidenceId:evidence.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+    }
+  }) as (evidenceId: string) => void;
+
+  // Debug: Verify function is created - this should always be a function
+  console.log('App.tsx: handleViewLinkedEvidence defined, type:', typeof handleViewLinkedEvidence);
+  if (typeof handleViewLinkedEvidence !== 'function') {
+    console.error('CRITICAL: handleViewLinkedEvidence is not a function! Type:', typeof handleViewLinkedEvidence, 'Value:', handleViewLinkedEvidence);
+  }
 
   const handleNavigateToMSF = () => {
     const existingActiveMSF = allEvidence.find(e => 
@@ -296,6 +415,8 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    // Debug: Verify handleViewLinkedEvidence is accessible in renderContent
+    console.log('App.tsx: renderContent called, handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
     switch (currentView) {
       case View.Dashboard:
         return (
@@ -431,6 +552,33 @@ const App: React.FC = () => {
           });
         }
         
+        // Ensure handleViewLinkedEvidence is always defined - useCallback should always return a function
+        // But if it's somehow undefined, provide a fallback
+        const safeHandleViewLinkedEvidence = (() => {
+          if (typeof handleViewLinkedEvidence === 'function') {
+            return handleViewLinkedEvidence;
+          }
+          console.error('CRITICAL: handleViewLinkedEvidence is not a function! Type:', typeof handleViewLinkedEvidence, 'Creating fallback.');
+          return (evidenceId: string) => {
+            console.error('FALLBACK: handleViewLinkedEvidence was undefined, called with:', evidenceId);
+            // Try to call the actual function if it exists in closure
+            if (typeof handleViewLinkedEvidence === 'function') {
+              return handleViewLinkedEvidence(evidenceId);
+            }
+          };
+        })();
+        
+        console.log('App.tsx: Passing to EPAForm, safeHandleViewLinkedEvidence type:', typeof safeHandleViewLinkedEvidence, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
+        
+        // Final verification before passing
+        const finalHandler = typeof safeHandleViewLinkedEvidence === 'function' 
+          ? safeHandleViewLinkedEvidence 
+          : ((evidenceId: string) => {
+              console.error('FINAL FALLBACK: safeHandleViewLinkedEvidence was not a function! Called with:', evidenceId);
+            });
+        
+        console.log('App.tsx: Final handler type before passing:', typeof finalHandler);
+        
         return (
           <EPAForm 
             id={selectedFormParams?.id}
@@ -438,40 +586,240 @@ const App: React.FC = () => {
             level={selectedFormParams?.level} 
             initialSupervisorName={selectedFormParams?.supervisorName} 
             initialSupervisorEmail={selectedFormParams?.supervisorEmail} 
-            onBack={() => setCurrentView(View.RecordForm)} 
+            initialStatus={selectedFormParams?.status || existingEPA?.status || EvidenceStatus.Draft}
+            originView={selectedFormParams?.originView}
+            originFormParams={selectedFormParams?.originFormParams}
+            onBack={() => {
+              if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+                // Return to origin form
+                setSelectedFormParams(selectedFormParams.originFormParams);
+                setCurrentView(selectedFormParams.originView);
+              } else {
+                setCurrentView(View.RecordForm);
+              }
+            }}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)} 
             linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
+            onViewLinkedEvidence={(evidenceId: string) => {
+              console.log('App.tsx: Direct inline handler called with:', evidenceId, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
+              if (typeof handleViewLinkedEvidence === 'function') {
+                return handleViewLinkedEvidence(evidenceId);
+              }
+              console.error('App.tsx: handleViewLinkedEvidence is not a function! Calling fallback.');
+              // Fallback: try to find and navigate to the evidence
+              const evidence = allEvidence.find(e => e.id === evidenceId);
+              if (evidence) {
+                const originView = currentView;
+                const originFormParams = selectedFormParams ? { ...selectedFormParams } : undefined;
+                const readOnlyStatus = EvidenceStatus.Submitted;
+                
+                if (evidence.type === EvidenceType.EPA) {
+                  setSelectedFormParams({ 
+                    sia: evidence.sia || '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.EPAForm);
+                } else if (evidence.type === EvidenceType.DOPs) {
+                  setSelectedFormParams({ 
+                    sia: evidence.sia || '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.DOPsForm);
+                } else if (evidence.type === EvidenceType.OSATs) {
+                  setSelectedFormParams({ 
+                    sia: evidence.sia || '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.OSATSForm);
+                } else if (evidence.type === EvidenceType.CbD) {
+                  setSelectedFormParams({ 
+                    sia: evidence.sia || '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.CBDForm);
+                } else if (evidence.type === EvidenceType.CRS) {
+                  setSelectedFormParams({ 
+                    sia: evidence.sia || '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.CRSForm);
+                } else if (evidence.type === EvidenceType.GSAT) {
+                  setSelectedFormParams({ 
+                    sia: '', 
+                    level: evidence.level || 1, 
+                    id: evidence.id, 
+                    status: readOnlyStatus,
+                    originView,
+                    originFormParams
+                  });
+                  setCurrentView(View.GSATForm);
+                }
+              } else {
+                console.error('Evidence not found:', evidenceId);
+              }
+            }}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={allEvidence}
           />
         );
       case View.GSATForm:
+        const existingGSAT = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.GSAT)
+          : null;
         return (
           <GSATForm 
             id={selectedFormParams?.id}
             initialLevel={selectedFormParams?.level || 1} 
-            onBack={() => setCurrentView(View.RecordForm)} 
+            initialStatus={selectedFormParams?.status || existingGSAT?.status || EvidenceStatus.Draft}
+            originView={selectedFormParams?.originView}
+            originFormParams={selectedFormParams?.originFormParams}
+            onBack={() => {
+              if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+                setSelectedFormParams(selectedFormParams.originFormParams);
+                setCurrentView(selectedFormParams.originView);
+              } else {
+                setCurrentView(View.RecordForm);
+              }
+            }}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)} 
             linkedEvidenceData={linkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
+            onViewLinkedEvidence={handleViewLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
+            allEvidence={allEvidence}
           />
         );
       case View.DOPsForm:
-        return <DOPsForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingDOPs = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.DOPs)
+          : null;
+        return <DOPsForm 
+          id={selectedFormParams?.id} 
+          sia={selectedFormParams?.sia} 
+          level={selectedFormParams?.level} 
+          initialAssessorName={selectedFormParams?.supervisorName} 
+          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+          initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
+          originView={selectedFormParams?.originView}
+          originFormParams={selectedFormParams?.originFormParams}
+          onBack={() => {
+            if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+              setSelectedFormParams(selectedFormParams.originFormParams);
+              setCurrentView(selectedFormParams.originView);
+            } else {
+              setCurrentView(View.RecordForm);
+            }
+          }}
+          onSubmitted={handleFormSubmitted} 
+          onSave={handleUpsertEvidence}
+          onViewLinkedEvidence={handleViewLinkedEvidence}
+          allEvidence={allEvidence}
+        />;
       case View.OSATSForm:
-        return <OSATSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingOSATS = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.OSATs)
+          : null;
+        return <OSATSForm 
+          id={selectedFormParams?.id} 
+          sia={selectedFormParams?.sia} 
+          level={selectedFormParams?.level} 
+          initialAssessorName={selectedFormParams?.supervisorName} 
+          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+          initialStatus={selectedFormParams?.status || existingOSATS?.status || EvidenceStatus.Draft}
+          originView={selectedFormParams?.originView}
+          originFormParams={selectedFormParams?.originFormParams}
+          onBack={() => {
+            if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+              setSelectedFormParams(selectedFormParams.originFormParams);
+              setCurrentView(selectedFormParams.originView);
+            } else {
+              setCurrentView(View.RecordForm);
+            }
+          }}
+          onSubmitted={handleFormSubmitted} 
+          onSave={handleUpsertEvidence}
+          onViewLinkedEvidence={handleViewLinkedEvidence}
+          allEvidence={allEvidence}
+        />;
       case View.CBDForm:
-        return <CBDForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingCBD = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CbD)
+          : null;
+        return <CBDForm 
+          id={selectedFormParams?.id} 
+          sia={selectedFormParams?.sia} 
+          level={selectedFormParams?.level} 
+          initialAssessorName={selectedFormParams?.supervisorName} 
+          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+          initialStatus={selectedFormParams?.status || existingCBD?.status || EvidenceStatus.Draft}
+          originView={selectedFormParams?.originView}
+          originFormParams={selectedFormParams?.originFormParams}
+          onBack={() => {
+            if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+              setSelectedFormParams(selectedFormParams.originFormParams);
+              setCurrentView(selectedFormParams.originView);
+            } else {
+              setCurrentView(View.RecordForm);
+            }
+          }}
+          onSubmitted={handleFormSubmitted} 
+          onSave={handleUpsertEvidence}
+          onViewLinkedEvidence={handleViewLinkedEvidence}
+          allEvidence={allEvidence}
+        />;
       case View.CRSForm:
-        return <CRSForm id={selectedFormParams?.id} sia={selectedFormParams?.sia} level={selectedFormParams?.level} initialAssessorName={selectedFormParams?.supervisorName} initialAssessorEmail={selectedFormParams?.supervisorEmail} onBack={() => setCurrentView(View.RecordForm)} onSubmitted={handleFormSubmitted} onSave={handleUpsertEvidence} />;
+        const existingCRS = selectedFormParams?.id 
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CRS)
+          : null;
+        return <CRSForm 
+          id={selectedFormParams?.id} 
+          sia={selectedFormParams?.sia} 
+          level={selectedFormParams?.level} 
+          initialAssessorName={selectedFormParams?.supervisorName} 
+          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+          initialStatus={selectedFormParams?.status || existingCRS?.status || EvidenceStatus.Draft}
+          originView={selectedFormParams?.originView}
+          originFormParams={selectedFormParams?.originFormParams}
+          onBack={() => {
+            if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {
+              setSelectedFormParams(selectedFormParams.originFormParams);
+              setCurrentView(selectedFormParams.originView);
+            } else {
+              setCurrentView(View.RecordForm);
+            }
+          }}
+          onSubmitted={handleFormSubmitted} 
+          onSave={handleUpsertEvidence}
+          onViewLinkedEvidence={handleViewLinkedEvidence}
+          allEvidence={allEvidence}
+        />;
       case View.MARForm:
         return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
       case View.ARCPPrep:

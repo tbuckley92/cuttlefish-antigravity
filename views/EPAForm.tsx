@@ -21,11 +21,14 @@ interface EPAFormProps {
   initialSection?: number;
   autoScrollToIdx?: number;
   initialStatus?: EvidenceStatus;
+  originView?: any; // View enum type
+  originFormParams?: any; // FormParams type
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
+  onViewLinkedEvidence?: (evidenceId: string) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
 }
@@ -173,14 +176,31 @@ const EPAForm: React.FC<EPAFormProps> = ({
   initialSection = 0,
   autoScrollToIdx,
   initialStatus = EvidenceStatus.Draft,
+  originView,
+  originFormParams,
   onBack, 
   onSubmitted,
   onSave,
   onLinkRequested,
   onRemoveLink,
+  onViewLinkedEvidence,
   linkedEvidenceData,
   allEvidence = []
 }) => {
+  // #region agent log
+  // Log the actual props object to see what React is passing
+  const propsObj = {id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, linkedEvidenceData, allEvidence};
+  const receivedProps = {
+    hasOnViewLinkedEvidence: !!onViewLinkedEvidence,
+    onViewLinkedEvidenceType: typeof onViewLinkedEvidence,
+    onViewLinkedEvidenceValue: onViewLinkedEvidence ? 'defined' : 'undefined',
+    allPropsReceived: Object.keys(propsObj),
+    onViewLinkedEvidenceInProps: 'onViewLinkedEvidence' in propsObj,
+    onViewLinkedEvidenceValueInProps: propsObj.onViewLinkedEvidence ? 'defined' : 'undefined'
+  };
+  console.log('EPAForm.tsx: Props received, onViewLinkedEvidence:', onViewLinkedEvidence, 'in props:', 'onViewLinkedEvidence' in propsObj, 'propsObj.onViewLinkedEvidence:', propsObj.onViewLinkedEvidence);
+  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:189',message:'EPAForm props received',data:receivedProps,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((e)=>{console.error('Log fetch failed:',e);});
+  // #endregion
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedLevel, setSelectedLevel] = useState(level);
@@ -200,7 +220,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
 
   // Level 1, 2 & 3/4 logic: auto-set subspecialty and disable
   useEffect(() => {
@@ -498,13 +518,59 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <div className="flex flex-wrap gap-2">
                 {linkedIds.map(evId => {
                   const ev = allEvidence.find(e => e.id === evId);
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:505',message:'Rendering linked evidence lozenge',data:{evId,evFound:!!ev,evTitle:ev?.title,evType:ev?.type,handlerExists:!!onViewLinkedEvidence,reqKey},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                  // #endregion
                   return (
-                    <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
-                      <LinkIcon size={12} />
-                      <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                    <div 
+                      key={evId} 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Linked evidence clicked:', evId, 'Handler exists:', !!onViewLinkedEvidence, 'Handler type:', typeof onViewLinkedEvidence);
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:510',message:'Linked evidence lozenge clicked',data:{evId,handlerExists:!!onViewLinkedEvidence,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                        // #endregion
+                        if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
+                          console.log('Calling onViewLinkedEvidence with evId:', evId);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:515',message:'Calling onViewLinkedEvidence handler',data:{evId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                          // #endregion
+                          try {
+                            onViewLinkedEvidence(evId);
+                          } catch (error) {
+                            console.error('Error calling onViewLinkedEvidence:', error);
+                          }
+                        } else {
+                          console.error('onViewLinkedEvidence handler is not defined or not a function. Type:', typeof onViewLinkedEvidence);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:517',message:'ERROR: onViewLinkedEvidence handler is undefined',data:{evId,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                          // #endregion
+                        }
+                      }}
+                      className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-50/10 dark:hover:bg-indigo-500/20 transition-colors"
+                      style={{ pointerEvents: 'auto' }}
+                    >
+                      <div 
+                        className="flex items-center gap-2 flex-1"
+                        onClick={(e) => {
+                          // Allow clicks on the text/icon area to bubble up to parent
+                          e.stopPropagation();
+                          if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
+                            onViewLinkedEvidence(evId);
+                          }
+                        }}
+                      >
+                        <LinkIcon size={12} />
+                        <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                      </div>
                       {!isLocked && (
                         <button 
-                          onClick={() => onRemoveLink(reqKey, evId)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveLink(reqKey, evId);
+                          }}
                           className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
                         >
                           <X size={12} />
@@ -615,12 +681,55 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 {linkedNarrativeIds.map(evId => {
                   const ev = allEvidence.find(e => e.id === evId);
                   return (
-                    <div key={evId} className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300">
-                      <LinkIcon size={12} />
-                      <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                    <div 
+                      key={evId} 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Linked evidence clicked (narrative):', evId, 'Handler exists:', !!onViewLinkedEvidence, 'Handler type:', typeof onViewLinkedEvidence);
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:640',message:'Narrative linked evidence lozenge clicked',data:{evId,handlerExists:!!onViewLinkedEvidence,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                        // #endregion
+                        if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
+                          console.log('Calling onViewLinkedEvidence (narrative) with evId:', evId);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:645',message:'Calling onViewLinkedEvidence handler (narrative)',data:{evId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                          // #endregion
+                          try {
+                            onViewLinkedEvidence(evId);
+                          } catch (error) {
+                            console.error('Error calling onViewLinkedEvidence (narrative):', error);
+                          }
+                        } else {
+                          console.error('onViewLinkedEvidence handler is not defined or not a function (narrative). Type:', typeof onViewLinkedEvidence);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:648',message:'ERROR: onViewLinkedEvidence handler is undefined (narrative)',data:{evId,handlerType:typeof onViewLinkedEvidence},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                          // #endregion
+                        }
+                      }}
+                      className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50/5 dark:bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 text-xs text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-50/10 dark:hover:bg-indigo-500/20 transition-colors"
+                      style={{ pointerEvents: 'auto' }}
+                    >
+                      <div 
+                        className="flex items-center gap-2 flex-1"
+                        onClick={(e) => {
+                          // Allow clicks on the text/icon area to bubble up to parent
+                          e.stopPropagation();
+                          if (onViewLinkedEvidence && typeof onViewLinkedEvidence === 'function') {
+                            onViewLinkedEvidence(evId);
+                          }
+                        }}
+                      >
+                        <LinkIcon size={12} />
+                        <span className="max-w-[120px] truncate">{ev?.title || evId}</span>
+                      </div>
                       {!isLocked && (
                         <button 
-                          onClick={() => onRemoveLink(narrativeKey, evId)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveLink(narrativeKey, evId);
+                          }}
                           className="p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
                         >
                           <X size={12} />
@@ -635,7 +744,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
             )}
           </div>
         </GlassCard>
-      </div>
+              </div>
     );
   };
 
@@ -658,9 +767,15 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Mobile Metadata Summary & Editor */}
       <div className="lg:hidden mb-2">
-        <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-4">
-          <ArrowLeft size={14} /> Back
-        </button>
+        {originView ? (
+          <button onClick={onBack} className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4">
+            <ArrowLeft size={14} /> BACK TO FORM
+          </button>
+        ) : (
+          <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-4">
+            <ArrowLeft size={14} /> Back
+          </button>
+        )}
         <GlassCard className="p-4">
           <div 
             className="flex justify-between items-center cursor-pointer"
@@ -718,12 +833,21 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors mb-2"
-        >
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
+        {originView ? (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors mb-2"
+          >
+            <ArrowLeft size={16} /> BACK TO FORM
+          </button>
+        ) : (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors mb-2"
+          >
+            <ArrowLeft size={16} /> Back to Dashboard
+          </button>
+        )}
 
         <GlassCard className="p-8">
           <div className="flex justify-between items-start mb-6">

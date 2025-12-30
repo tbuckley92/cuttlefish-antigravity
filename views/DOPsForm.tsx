@@ -173,7 +173,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
   const [agreedActionPlan, setAgreedActionPlan] = useState("");
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
 
   // Reset activeSection when form loads or type changes
   useEffect(() => {
@@ -903,7 +903,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
                   <span>Draft saved {lastSaved}</span>
                 </>
               )}
-            </div>
+        </div>
           )}
         </div>
       </div>

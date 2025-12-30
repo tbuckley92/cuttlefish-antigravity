@@ -602,7 +602,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   });
   const [consultationSkillsSpecialty, setConsultationSkillsSpecialty] = useState("No specialty SIA");
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
   const isVisionForm = selectedCrsType === "Vision";
   const isRetinoscopyForm = selectedCrsType === "Retinoscopy";
   const isIndirectOphthalmoscopyForm = selectedCrsType === "Indirect Ophthalmoscopy";

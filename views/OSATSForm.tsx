@@ -226,7 +226,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
   const [agreedActionPlan, setAgreedActionPlan] = useState("");
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
 
   // Reset activeSection when form loads or type changes
   useEffect(() => {
@@ -297,7 +297,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   const handleSaveDraft = () => {
     setStatus(EvidenceStatus.Draft);
     saveToParent(EvidenceStatus.Draft);
-    setShowSaveMessage(true);
+      setShowSaveMessage(true);
     setTimeout(() => setShowSaveMessage(false), 2000);
   };
 
@@ -968,7 +968,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                   <span>Draft saved {lastSaved}</span>
                 </>
               )}
-            </div>
+        </div>
           )}
         </div>
       </div>
