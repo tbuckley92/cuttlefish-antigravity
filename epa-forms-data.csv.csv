@@ -36,12 +36,136 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 3,Cataract Surgery,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
 3,Cataract Surgery,D,Criterion,OSATS Cataract Surgery,FALSE,FALSE,1
 3,Cataract Surgery,D,Criterion,DOPS Biometry,FALSE,TRUE,1
-3,Cataract Surgery,E,Criterion,Local anaesthesia,TRUE,TRUE,1
-3,Cataract Surgery,E,Criterion,Aqueous / vitreous biopsy,TRUE,TRUE,2
-3,Cataract Surgery,E,Criterion,Anterior chamber paracentesis,TRUE,TRUE,3
-3,Cataract Surgery,E,Criterion,Periocular and intraocular drug delivery,TRUE,TRUE,4
+3,Cataract Surgery,E,Criterion,Perform an indicative number of 100 complete cataract procedures during training,TRUE,TRUE,1
+3,Cataract Surgery,E,Criterion,Local anaesthesia,TRUE,TRUE,2
+3,Cataract Surgery,E,Criterion,Aqueous / vitreous biopsy,TRUE,TRUE,3
+3,Cataract Surgery,E,Criterion,Anterior chamber paracentesis,TRUE,TRUE,4
+3,Cataract Surgery,E,Criterion,Periocular and intraocular drug delivery,TRUE,TRUE,5
 3,Cataract Surgery,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
 3,Cataract Surgery,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
 3,Cataract Surgery,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
 3,Cataract Surgery,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
 3,Cataract Surgery,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Glaucoma,A,LearningOutcome,GS3.3 - Independently perform low complexity glaucoma procedures.,FALSE,FALSE,1
+3,Glaucoma,A,LearningOutcome,"G3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Glaucoma,A,LearningOutcome,"G3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of glaucoma procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Glaucoma,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Glaucoma,C,Criterion,Laser - YAG PI,TRUE,TRUE,1
+3,Glaucoma,C,Criterion,Laser - SLT,TRUE,TRUE,2
+3,Glaucoma,C,Criterion,Management of acute angle closure,TRUE,TRUE,3
+3,Glaucoma,D,Criterion,OSATS Microsurgical skills,FALSE,FALSE,1
+3,Glaucoma,D,Criterion,OSATS Cataract Surgery,FALSE,FALSE,2
+3,Glaucoma,E,Criterion,Local anaesthesia,TRUE,TRUE,1
+3,Glaucoma,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Glaucoma,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Glaucoma,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Glaucoma,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Glaucoma,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Uveitis,A,LearningOutcome,U3.3 - Independently perform low complexity procedures for uveitic patients.,FALSE,FALSE,1
+3,Uveitis,A,LearningOutcome,"U3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Uveitis,A,LearningOutcome,"U3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of practical and surgical procedures used in the setting of uveitis and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Uveitis,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Uveitis,C,Criterion,DOPS Periocular and intraocular drug delivery,TRUE,TRUE,1
+3,Uveitis,C,Criterion,Interpretation and use of FFA and ICG,TRUE,TRUE,2
+3,Uveitis,C,Criterion,Interpretation of electrophysiology,TRUE,TRUE,3
+3,Uveitis,C,Criterion,Aqueous and vitreous sampling,TRUE,TRUE,4
+3,Uveitis,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Uveitis,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Uveitis,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Uveitis,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Uveitis,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Medical Retina,A,LearningOutcome,MR3.3 - Independently perform low complexity medical retina procedures,FALSE,FALSE,1
+3,Medical Retina,A,LearningOutcome,"MR3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Medical Retina,A,LearningOutcome,"MR3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of medical retina procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Medical Retina,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Medical Retina,C,Criterion,DOPS Retinal laser,TRUE,TRUE,1
+3,Medical Retina,C,Criterion,Subtenons injection,TRUE,TRUE,2
+3,Medical Retina,C,Criterion,Interpretation of FFA/ICG,TRUE,TRUE,3
+3,Medical Retina,C,Criterion,Interpretation of electrophysiology,TRUE,TRUE,4
+3,Medical Retina,C,Criterion,Interpretation of OCT,TRUE,TRUE,5
+3,Medical Retina,C,Criterion,Interpretation of autofluorescence,TRUE,TRUE,6
+3,Medical Retina,D,Criterion,OSATS Intravitreal injection,FALSE,FALSE,1
+3,Medical Retina,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Medical Retina,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Medical Retina,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Medical Retina,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Medical Retina,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Vitreoretinal Surgery,A,LearningOutcome,VR3.3 - Independently perform low complexity vitreoretinal procedures.,FALSE,FALSE,1
+3,Vitreoretinal Surgery,A,LearningOutcome,"VR3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Vitreoretinal Surgery,A,LearningOutcome,"VR3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of vitreoretinal procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Vitreoretinal Surgery,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Vitreoretinal Surgery,C,Criterion,"Ultrasound of the vitreous cavity, retina and choroid",TRUE,TRUE,1
+3,Vitreoretinal Surgery,C,Criterion,DOPS Laser retinopexy,TRUE,TRUE,2
+3,Vitreoretinal Surgery,D,Criterion,OSATS Microsurgical skills,FALSE,FALSE,1
+3,Vitreoretinal Surgery,D,Criterion,OSATS Cataract Surgery,FALSE,FALSE,2
+3,Vitreoretinal Surgery,E,Criterion,Local anaesthesia,TRUE,TRUE,1
+3,Vitreoretinal Surgery,E,Criterion,Vitreous biopsy,TRUE,TRUE,2
+3,Vitreoretinal Surgery,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Vitreoretinal Surgery,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Vitreoretinal Surgery,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Vitreoretinal Surgery,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Vitreoretinal Surgery,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Ocular Motility,A,LearningOutcome,OM3.3 - Independently perform low complexity ocular motility procedures.,FALSE,FALSE,1
+3,Ocular Motility,A,LearningOutcome,"OM3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Ocular Motility,A,LearningOutcome,"OM3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of ocular motility procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Ocular Motility,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Ocular Motility,C,Criterion,Interpretation of orthoptic assessment,TRUE,TRUE,1
+3,Ocular Motility,D,Criterion,OSATS Extraocular Muscle Surgery,FALSE,FALSE,1
+3,Ocular Motility,E,Criterion,DOPS Forced duction test,TRUE,TRUE,1
+3,Ocular Motility,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Ocular Motility,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Ocular Motility,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Ocular Motility,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Ocular Motility,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Neuro-ophthalmology,A,LearningOutcome,NO3.3 - Independently perform low complexity procedures.,FALSE,FALSE,1
+3,Neuro-ophthalmology,A,LearningOutcome,"NO3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Neuro-ophthalmology,A,LearningOutcome,"NO3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of neuro-ophthalmology procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Neuro-ophthalmology,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Neuro-ophthalmology,C,Criterion,Use of neuroimaging,TRUE,TRUE,1
+3,Neuro-ophthalmology,C,Criterion,Liason with medical and surgical specialties,TRUE,TRUE,1
+3,Neuro-ophthalmology,E,Criterion,DOPS Forced duction test,TRUE,TRUE,1
+3,Neuro-ophthalmology,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Neuro-ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Neuro-ophthalmology,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Neuro-ophthalmology,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Neuro-ophthalmology,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Paediatric Ophthalmology,A,LearningOutcome,PO3.3 - Independently perform low complexity procedures.,FALSE,FALSE,1
+3,Paediatric Ophthalmology,A,LearningOutcome,"PO3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Paediatric Ophthalmology,A,LearningOutcome,"PO3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of paediatric ophthalmology procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Paediatric Ophthalmology,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Paediatric Ophthalmology,C,Criterion,Interpretation of orthoptic assessment,TRUE,TRUE,1
+3,Paediatric Ophthalmology,C,Criterion,Indirect ophthalmoscopy with indentation (ROP screening),TRUE,TRUE,2
+3,Paediatric Ophthalmology,C,Criterion,Examination for suspected NAI,TRUE,TRUE,3
+3,Paediatric Ophthalmology,C,Criterion,Referral for genetic counselling,TRUE,TRUE,4
+3,Paediatric Ophthalmology,C,Criterion,Refract and provide glasses prescription,TRUE,TRUE,5
+3,Paediatric Ophthalmology,D,Criterion,OSATS Extraocular Muscle Surgery,FALSE,FALSE,1
+3,Paediatric Ophthalmology,E,Criterion,DOPS Assess lacrimal function,TRUE,TRUE,1
+3,Paediatric Ophthalmology,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Paediatric Ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Paediatric Ophthalmology,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Paediatric Ophthalmology,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Paediatric Ophthalmology,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Urgent Eye Care,A,LearningOutcome,UE3.3 - Independently perform low complexity procedures.,FALSE,FALSE,1
+3,Urgent Eye Care,A,LearningOutcome,"UE3.2 - Risk assess and prioritise patients appropriately, recognising the need for special interest input.",FALSE,FALSE,2
+3,Urgent Eye Care,A,LearningOutcome,"UE3.1 - Independently assess and manage moderate complexity patients, demonstrating an understanding of urgent eye care procedures and selecting the most appropriate treatment according to current accepted practice.",FALSE,FALSE,3
+3,Urgent Eye Care,B,Criterion,CRS Consultation skills,FALSE,FALSE,1
+3,Urgent Eye Care,C,Criterion,DOPS Vitreous biopsy,TRUE,TRUE,1
+3,Urgent Eye Care,C,Criterion,Corneal gluing,TRUE,TRUE,2
+3,Urgent Eye Care,D,Criterion,OSATS Microsurgical skills,FALSE,FALSE,1
+3,Urgent Eye Care,D,Criterion,OSATS Lateral canthotomy and cantholysis,FALSE,FALSE,2
+3,Urgent Eye Care,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Urgent Eye Care,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Urgent Eye Care,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Urgent Eye Care,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Urgent Eye Care,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
+3,Community Ophthalmology,A,LearningOutcome,CO3.3 - Understand role of commissioning,FALSE,FALSE,1
+3,Community Ophthalmology,A,LearningOutcome,CO3.2 - Understand visual impairment epidemiology and prevention,FALSE,FALSE,2
+3,Community Ophthalmology,A,LearningOutcome,CO3.1 - Understand screening programmes,FALSE,FALSE,3
+3,Community Ophthalmology,C,Criterion,"Knowledge of community ophthalmology commissioning frameworks, local community ophthalmology provision and referral pathways",TRUE,TRUE,1
+3,Community Ophthalmology,C,Criterion,Knowledge of screening programmes,TRUE,TRUE,2
+3,Community Ophthalmology,C,Criterion,Appplication of improvement methodologies,TRUE,TRUE,3
+3,Community Ophthalmology,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and/or on call setting, where possible:",FALSE,TRUE,1
+3,Community Ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting:,FALSE,TRUE,2
+3,Community Ophthalmology,F,Criterion,Review of record keeping and letters:,FALSE,TRUE,3
+3,Community Ophthalmology,F,Criterion,Case-based Discussions (CbDs),FALSE,TRUE,4
+3,Community Ophthalmology,F,Criterion,Please indicate if Multi-assessor Report (MAR) have been reviewed before completing EPA,FALSE,TRUE,5
