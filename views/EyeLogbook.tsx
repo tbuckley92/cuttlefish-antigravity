@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { UploadCloud, Eye, X, BarChart2, FileText } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -28,12 +28,60 @@ type TimePeriod = 'LAST_MONTH' | 'LAST_6_MONTHS' | 'LAST_YEAR' | 'ALL_TIME' | 'C
 
 const EyeLogbook: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [cases, setCases] = useState<PhacoCase[]>([]);
+  const [cases, setCases] = useState<PhacoCase[]>(() => {
+    // Load cases from localStorage on mount
+    const savedCases = localStorage.getItem('ophthaPortfolio_eyelogbook_cases');
+    if (savedCases) {
+      try {
+        return JSON.parse(savedCases);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('LAST_YEAR');
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>(() => {
+    // Load time period preference from localStorage
+    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_timePeriod');
+    return (saved as TimePeriod) || 'LAST_YEAR';
+  });
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_customStartDate');
+    return saved || '';
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_customEndDate');
+    return saved || '';
+  });
+  const [fileName, setFileName] = useState<string>(() => {
+    // Load filename from localStorage
+    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_filename');
+    return saved || '';
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Persist cases to localStorage whenever they change
+  useEffect(() => {
+    if (cases.length > 0) {
+      localStorage.setItem('ophthaPortfolio_eyelogbook_cases', JSON.stringify(cases));
+    }
+  }, [cases]);
+
+  // Persist time period preference
+  useEffect(() => {
+    localStorage.setItem('ophthaPortfolio_eyelogbook_timePeriod', timePeriod);
+  }, [timePeriod]);
+
+  // Persist custom dates
+  useEffect(() => {
+    if (customStartDate) {
+      localStorage.setItem('ophthaPortfolio_eyelogbook_customStartDate', customStartDate);
+    }
+    if (customEndDate) {
+      localStorage.setItem('ophthaPortfolio_eyelogbook_customEndDate', customEndDate);
+    }
+  }, [customStartDate, customEndDate]);
 
   // Parse YYYY-MM-DD date format to Date object (EyeLogbook.co.uk format)
   const parseDate = (dateStr: string): Date | null => {
@@ -115,6 +163,9 @@ const EyeLogbook: React.FC = () => {
 
       // Keep all cases (don't deduplicate - each row is a separate procedure)
       setCases(extractedCases);
+      // Save filename to localStorage
+      localStorage.setItem('ophthaPortfolio_eyelogbook_filename', file.name);
+      setFileName(file.name);
     } catch (error) {
       console.error('Error parsing PDF:', error);
       alert('Error parsing PDF. Please ensure the file is a valid EyeLogbook PDF from EyeLogbook.co.uk');
@@ -138,6 +189,9 @@ const EyeLogbook: React.FC = () => {
   const removeFile = () => {
     setUploadedFile(null);
     setCases([]);
+    setFileName('');
+    localStorage.removeItem('ophthaPortfolio_eyelogbook_cases');
+    localStorage.removeItem('ophthaPortfolio_eyelogbook_filename');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -262,7 +316,7 @@ const EyeLogbook: React.FC = () => {
           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">
             Upload Summary PDF
           </label>
-          {!uploadedFile ? (
+          {!uploadedFile && !fileName ? (
             <div 
               onClick={() => fileInputRef.current?.click()}
               className="group relative h-40 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer"
@@ -286,7 +340,7 @@ const EyeLogbook: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <FileText size={20} className="text-indigo-600" />
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{uploadedFile.name}</p>
+                    <p className="text-sm font-medium text-slate-900">{uploadedFile?.name || fileName}</p>
                     <p className="text-xs text-slate-500">
                       {cases.length} Phacoemulsification with IOL cases extracted
                     </p>
