@@ -15,9 +15,10 @@ import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
 import ARCPPrep from './views/ARCPPrep';
 import SupervisorDashboard from './views/SupervisorDashboard';
+import EyeLogbook from './views/EyeLogbook';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye } from './components/Icons';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
@@ -40,7 +41,8 @@ enum View {
   MSFSubmission = 'msf-submission',
   MSFResponse = 'msf-response',
   ARCPPrep = 'arcp-prep',
-  SupervisorDashboard = 'supervisor-dashboard'
+  SupervisorDashboard = 'supervisor-dashboard',
+  EyeLogbook = 'eye-logbook'
 }
 
 interface FormParams {
@@ -900,6 +902,8 @@ const App: React.FC = () => {
             }}
           />
         ) : null;
+      case View.EyeLogbook:
+        return <EyeLogbook />;
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -983,6 +987,15 @@ const App: React.FC = () => {
                     onClick={() => handleNavigateToAddEvidence()} 
                     icon={<Plus size={16} />} 
                     label="ADD EVIDENCE" 
+                  />
+                  <NavTab 
+                    active={currentView === View.EyeLogbook} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.EyeLogbook);
+                    }} 
+                    icon={<Eye size={16} />} 
+                    label="EYE LOGBOOK" 
                   />
                 </>
               ) : (
