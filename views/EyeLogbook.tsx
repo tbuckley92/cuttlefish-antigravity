@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2 } from '../components/Icons';
+import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -30,6 +30,7 @@ type ComplicationType =
   | 'Lens fragments dislocated into vitreous'
   | 'IOL dislocated into vitreous'
   | 'Suprachoroidal haemorrhage'
+  | 'Vitreous loss'
   | 'Other';
 
 const COMPLICATION_TYPES: ComplicationType[] = [
@@ -42,6 +43,7 @@ const COMPLICATION_TYPES: ComplicationType[] = [
   'Lens fragments dislocated into vitreous',
   'IOL dislocated into vitreous',
   'Suprachoroidal haemorrhage',
+  'Vitreous loss',
   'Other'
 ];
 
@@ -67,8 +69,8 @@ interface ComplicationCase {
   date: string;           // YYYY-MM-DD
   laterality: LateralityType;
   operation: OperationType;
-  complication: ComplicationType;
-  otherDetails?: string;  // Only when complication is 'Other'
+  complications: ComplicationType[];  // Up to 3 complications
+  otherDetails?: Record<string, string>;  // Map of "Other" complication to details
   cause: string;          // Cause of complication (free text)
   actionTaken: string;    // Action taken to avoid repeat (free text)
 }
@@ -156,7 +158,21 @@ const EyeLogbook: React.FC = () => {
     const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_complications');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Migrate old format (single complication) to new format (array)
+        return parsed.map((caseItem: any) => {
+          if (caseItem.complication && !caseItem.complications) {
+            // Old format - migrate to new format
+            return {
+              ...caseItem,
+              complications: [caseItem.complication],
+              otherDetails: caseItem.complication === 'Other' && caseItem.otherDetails 
+                ? { 'Other': caseItem.otherDetails } 
+                : undefined
+            };
+          }
+          return caseItem;
+        });
       } catch {
         return [];
       }
@@ -172,8 +188,8 @@ const EyeLogbook: React.FC = () => {
   const [formDate, setFormDate] = useState('');
   const [formLaterality, setFormLaterality] = useState<LateralityType>('R');
   const [formOperation, setFormOperation] = useState<OperationType>('Phacoemulsification with IOL');
-  const [formComplication, setFormComplication] = useState<ComplicationType>('PC rupture');
-  const [formOtherDetails, setFormOtherDetails] = useState('');
+  const [formComplications, setFormComplications] = useState<ComplicationType[]>([]);
+  const [formOtherDetails, setFormOtherDetails] = useState<Record<string, string>>({});
   const [formCause, setFormCause] = useState('');
   const [formActionTaken, setFormActionTaken] = useState('');
   
@@ -610,8 +626,8 @@ const EyeLogbook: React.FC = () => {
     setFormDate('');
     setFormLaterality('R');
     setFormOperation('Phacoemulsification with IOL');
-    setFormComplication('PC rupture');
-    setFormOtherDetails('');
+    setFormComplications([]);
+    setFormOtherDetails({});
     setFormCause('');
     setFormActionTaken('');
   };
@@ -627,8 +643,8 @@ const EyeLogbook: React.FC = () => {
     setFormDate(caseItem.date);
     setFormLaterality(caseItem.laterality);
     setFormOperation(caseItem.operation);
-    setFormComplication(caseItem.complication);
-    setFormOtherDetails(caseItem.otherDetails || '');
+    setFormComplications(caseItem.complications || []);
+    setFormOtherDetails(caseItem.otherDetails || {});
     setFormCause(caseItem.cause);
     setFormActionTaken(caseItem.actionTaken);
     setEditingCaseId(caseItem.id);
@@ -641,14 +657,57 @@ const EyeLogbook: React.FC = () => {
     resetComplicationForm();
   };
 
+  const toggleComplication = (complication: ComplicationType) => {
+    if (formComplications.includes(complication)) {
+      // Remove complication
+      setFormComplications(prev => prev.filter(c => c !== complication));
+      // Remove other details if it was "Other"
+      if (complication === 'Other') {
+        setFormOtherDetails(prev => {
+          const updated = { ...prev };
+          delete updated['Other'];
+          return updated;
+        });
+      }
+    } else {
+      // Add complication (max 3)
+      if (formComplications.length < 3) {
+        setFormComplications(prev => [...prev, complication]);
+      }
+    }
+  };
+
+  const updateOtherDetails = (complication: ComplicationType, details: string) => {
+    setFormOtherDetails(prev => ({
+      ...prev,
+      [complication]: details
+    }));
+  };
+
   const saveComplicationCase = () => {
-    if (!formPatientId || !formDate || !formComplication) {
-      alert('Please fill in all required fields');
+    if (!formPatientId || !formDate || formComplications.length === 0) {
+      alert('Please fill in all required fields and select at least one complication');
       return;
     }
-    if (formComplication === 'Other' && !formOtherDetails) {
-      alert('Please provide details for "Other" complication');
+    if (formComplications.length > 3) {
+      alert('Maximum 3 complications allowed');
       return;
+    }
+    
+    // Validate "Other" complications have details
+    for (const comp of formComplications) {
+      if (comp === 'Other' && !formOtherDetails['Other']?.trim()) {
+        alert('Please provide details for "Other" complication');
+        return;
+      }
+    }
+
+    // Build otherDetails object only for "Other" complications
+    const otherDetails: Record<string, string> = {};
+    for (const comp of formComplications) {
+      if (comp === 'Other' && formOtherDetails['Other']) {
+        otherDetails['Other'] = formOtherDetails['Other'];
+      }
     }
 
     const caseData: ComplicationCase = {
@@ -657,8 +716,8 @@ const EyeLogbook: React.FC = () => {
       date: formDate,
       laterality: formLaterality,
       operation: formOperation,
-      complication: formComplication,
-      otherDetails: formComplication === 'Other' ? formOtherDetails : undefined,
+      complications: formComplications,
+      otherDetails: Object.keys(otherDetails).length > 0 ? otherDetails : undefined,
       cause: formCause,
       actionTaken: formActionTaken
     };
@@ -740,9 +799,18 @@ const EyeLogbook: React.FC = () => {
         <div className="space-y-6">
           {/* Complication Log Header */}
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Cataract Complication Log</h2>
-              <p className="text-sm text-slate-500">Track and analyze complications from cataract surgery</p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowComplicationLog(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 hover:text-slate-900"
+                title="Back to Eye Logbook"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Cataract Complication Log</h2>
+                <p className="text-sm text-slate-500">Track and analyze complications from cataract surgery</p>
+              </div>
             </div>
             <button
               onClick={openAddCaseModal}
@@ -778,9 +846,16 @@ const EyeLogbook: React.FC = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{new Date(caseItem.date).toLocaleDateString('en-GB')}</td>
                         <td className="px-4 py-3">
-                          <span className="px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                            {caseItem.complication === 'Other' ? caseItem.otherDetails : caseItem.complication}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {(caseItem.complications || []).map((comp, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                              >
+                                {comp === 'Other' ? (caseItem.otherDetails?.['Other'] || 'Other') : comp}
+                              </span>
+                            ))}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
@@ -1406,29 +1481,52 @@ const EyeLogbook: React.FC = () => {
 
               {/* Complication */}
               <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Complication *
-                </label>
-                <select
-                  value={formComplication}
-                  onChange={(e) => setFormComplication(e.target.value as ComplicationType)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  {COMPLICATION_TYPES.map(comp => (
-                    <option key={comp} value={comp}>{comp}</option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">
+                    Complication * (Select up to 3)
+                  </label>
+                  <span className="text-xs text-slate-500">
+                    {formComplications.length} of 3 selected
+                  </span>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 max-h-60 overflow-y-auto">
+                  {COMPLICATION_TYPES.map(comp => {
+                    const isChecked = formComplications.includes(comp);
+                    const isDisabled = !isChecked && formComplications.length >= 3;
+                    return (
+                      <label
+                        key={comp}
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-indigo-50 border border-indigo-200'
+                            : isDisabled
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleComplication(comp)}
+                          disabled={isDisabled}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-slate-700">{comp}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Other Details (conditional) */}
-              {formComplication === 'Other' && (
+              {/* Other Details (conditional - for each selected "Other") */}
+              {formComplications.includes('Other') && (
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
                     Other Details *
                   </label>
                   <textarea
-                    value={formOtherDetails}
-                    onChange={(e) => setFormOtherDetails(e.target.value)}
+                    value={formOtherDetails['Other'] || ''}
+                    onChange={(e) => updateOtherDetails('Other', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
                     rows={2}
                     placeholder="Describe the complication"
@@ -1527,10 +1625,17 @@ const EyeLogbook: React.FC = () => {
               </div>
 
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Complication</p>
-                <span className="inline-block px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                  {viewingCase.complication === 'Other' ? viewingCase.otherDetails : viewingCase.complication}
-                </span>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Complication{viewingCase.complications.length > 1 ? 's' : ''}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(viewingCase.complications || []).map((comp, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-block px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                    >
+                      {comp === 'Other' ? (viewingCase.otherDetails?.['Other'] || 'Other') : comp}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {viewingCase.cause && (
