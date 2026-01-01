@@ -327,8 +327,17 @@ const EPAForm: React.FC<EPAFormProps> = ({
         if (savedForm.epaFormData.additionalEvidenceNeeded) {
           setAdditionalEvidenceNeeded(savedForm.epaFormData.additionalEvidenceNeeded);
         }
-        if (savedForm.epaFormData.traineeNarrative) {
-          setTraineeNarrative(savedForm.epaFormData.traineeNarrative);
+        // Preserve current traineeNarrative if it has content and saved is empty/undefined
+        // Only update if saved has a value or current is empty
+        if (savedForm.epaFormData.traineeNarrative !== undefined) {
+          setTraineeNarrative(prev => {
+            // If current has content and saved is empty, preserve current
+            if (prev && !savedForm.epaFormData.traineeNarrative) {
+              return prev;
+            }
+            // Otherwise use saved value
+            return savedForm.epaFormData.traineeNarrative || "";
+          });
         }
         if (savedForm.epaFormData.supervisorName) {
           setSupervisorName(savedForm.epaFormData.supervisorName);

@@ -122,7 +122,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     
     // For other evidence types, generate PDF from metadata
     try {
-      const blob = generateEvidencePDF(item, profile);
+      const blob = generateEvidencePDF(item, profile, allEvidence);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -155,7 +155,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
     setIsExporting(true);
     try {
-      const zipBlob = await createEvidenceZip(selectedItems, profile);
+      const zipBlob = await createEvidenceZip(selectedItems, profile, allEvidence);
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = url;

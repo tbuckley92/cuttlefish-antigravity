@@ -11,14 +11,15 @@ const sanitizeFilename = (str: string): string => {
 // Create ZIP file containing individual PDFs for selected evidence items
 export const createEvidenceZip = async (
   items: EvidenceItem[], 
-  profile: UserProfile
+  profile: UserProfile,
+  allEvidence: EvidenceItem[] = []
 ): Promise<Blob> => {
   const zip = new JSZip();
 
   // Generate PDFs for each item and add to ZIP
   for (const item of items) {
     try {
-      const pdfBlob = generateEvidencePDF(item, profile);
+      const pdfBlob = generateEvidencePDF(item, profile, allEvidence);
       
       // Convert blob to array buffer for JSZip
       const arrayBuffer = await pdfBlob.arrayBuffer();
