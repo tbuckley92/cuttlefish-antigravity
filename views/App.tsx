@@ -16,6 +16,7 @@ import ARCPPrep from './views/ARCPPrep';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity } from './components/Icons';
+import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus } from './types';
 
@@ -880,10 +881,10 @@ const App: React.FC = () => {
         <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 px-6">
           <div className="max-w-7xl mx-auto h-20 flex items-center justify-between">
             <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setCurrentView(View.Dashboard)}>
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-                <LayoutDashboard size={20} className="text-white" />
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform border border-slate-200">
+                <Logo size={24} className="text-indigo-600" />
               </div>
-              <span className="font-bold text-lg tracking-tight text-slate-900">OphthaPortfolio</span>
+              <span className="font-bold text-lg tracking-tight text-slate-900">EyePortfolio</span>
             </div>
 
             <div className="hidden md:flex items-center gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner">

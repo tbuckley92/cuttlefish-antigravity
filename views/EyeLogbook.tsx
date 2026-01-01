@@ -110,7 +110,7 @@ const ITEMS_PER_PAGE = 20;
 const EyeLogbook: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [entries, setEntries] = useState<LogbookEntry[]>(() => {
-    const savedEntries = localStorage.getItem('ophthaPortfolio_eyelogbook_entries');
+    const savedEntries = localStorage.getItem('eyePortfolio_eyelogbook_entries');
     if (savedEntries) {
       try {
         return JSON.parse(savedEntries);
@@ -122,23 +122,23 @@ const EyeLogbook: React.FC = () => {
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_timePeriod');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_timePeriod');
     return (saved as TimePeriod) || 'ALL_TIME';
   });
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_customStartDate');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_customStartDate');
     return saved || '';
   });
   const [customEndDate, setCustomEndDate] = useState<string>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_customEndDate');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_customEndDate');
     return saved || '';
   });
   const [fileName, setFileName] = useState<string>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_filename');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_filename');
     return saved || '';
   });
   const [activeTab, setActiveTab] = useState<TabType>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_activeTab');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_activeTab');
     return (saved as TabType) || 'logbook';
   });
   
@@ -155,7 +155,7 @@ const EyeLogbook: React.FC = () => {
   // Complication Log state
   const [showComplicationLog, setShowComplicationLog] = useState(false);
   const [complicationCases, setComplicationCases] = useState<ComplicationCase[]>(() => {
-    const saved = localStorage.getItem('ophthaPortfolio_eyelogbook_complications');
+    const saved = localStorage.getItem('eyePortfolio_eyelogbook_complications');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -198,42 +198,42 @@ const EyeLogbook: React.FC = () => {
   // Persist entries to localStorage whenever they change
   useEffect(() => {
     if (entries.length > 0) {
-      localStorage.setItem('ophthaPortfolio_eyelogbook_entries', JSON.stringify(entries));
+      localStorage.setItem('eyePortfolio_eyelogbook_entries', JSON.stringify(entries));
     } else {
-      localStorage.removeItem('ophthaPortfolio_eyelogbook_entries');
+      localStorage.removeItem('eyePortfolio_eyelogbook_entries');
     }
   }, [entries]);
 
   // Persist time period preference
   useEffect(() => {
-    localStorage.setItem('ophthaPortfolio_eyelogbook_timePeriod', timePeriod);
+    localStorage.setItem('eyePortfolio_eyelogbook_timePeriod', timePeriod);
   }, [timePeriod]);
 
   // Persist custom dates
   useEffect(() => {
     if (customStartDate) {
-      localStorage.setItem('ophthaPortfolio_eyelogbook_customStartDate', customStartDate);
+      localStorage.setItem('eyePortfolio_eyelogbook_customStartDate', customStartDate);
     } else {
-      localStorage.removeItem('ophthaPortfolio_eyelogbook_customStartDate');
+      localStorage.removeItem('eyePortfolio_eyelogbook_customStartDate');
     }
     if (customEndDate) {
-      localStorage.setItem('ophthaPortfolio_eyelogbook_customEndDate', customEndDate);
+      localStorage.setItem('eyePortfolio_eyelogbook_customEndDate', customEndDate);
     } else {
-      localStorage.removeItem('ophthaPortfolio_eyelogbook_customEndDate');
+      localStorage.removeItem('eyePortfolio_eyelogbook_customEndDate');
     }
   }, [customStartDate, customEndDate]);
 
   // Persist active tab
   useEffect(() => {
-    localStorage.setItem('ophthaPortfolio_eyelogbook_activeTab', activeTab);
+    localStorage.setItem('eyePortfolio_eyelogbook_activeTab', activeTab);
   }, [activeTab]);
 
   // Persist complication cases
   useEffect(() => {
     if (complicationCases.length > 0) {
-      localStorage.setItem('ophthaPortfolio_eyelogbook_complications', JSON.stringify(complicationCases));
+      localStorage.setItem('eyePortfolio_eyelogbook_complications', JSON.stringify(complicationCases));
     } else {
-      localStorage.removeItem('ophthaPortfolio_eyelogbook_complications');
+      localStorage.removeItem('eyePortfolio_eyelogbook_complications');
     }
   }, [complicationCases]);
 
@@ -402,7 +402,7 @@ const EyeLogbook: React.FC = () => {
       }
 
       setEntries(extractedEntries);
-      localStorage.setItem('ophthaPortfolio_eyelogbook_filename', file.name);
+      localStorage.setItem('eyePortfolio_eyelogbook_filename', file.name);
       setFileName(file.name);
     } catch (error) {
       console.error('Error parsing PDF:', error);
@@ -428,8 +428,8 @@ const EyeLogbook: React.FC = () => {
     setUploadedFile(null);
     setEntries([]);
     setFileName('');
-    localStorage.removeItem('ophthaPortfolio_eyelogbook_entries');
-    localStorage.removeItem('ophthaPortfolio_eyelogbook_filename');
+    localStorage.removeItem('eyePortfolio_eyelogbook_entries');
+    localStorage.removeItem('eyePortfolio_eyelogbook_filename');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 

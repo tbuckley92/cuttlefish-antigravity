@@ -12,7 +12,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToSupervisorDashboard 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-slate-500">
-            © {new Date().getFullYear()} OphthaPortfolio. All rights reserved.
+            © {new Date().getFullYear()} EyePortfolio. All rights reserved.
           </div>
           <button
             onClick={onNavigateToSupervisorDashboard}

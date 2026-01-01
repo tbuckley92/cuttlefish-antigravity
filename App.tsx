@@ -19,6 +19,7 @@ import EyeLogbook from './views/EyeLogbook';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye } from './components/Icons';
+import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
@@ -86,7 +87,7 @@ const App: React.FC = () => {
   const [addEvidenceKey, setAddEvidenceKey] = useState(0); // Counter for unique AddEvidence keys
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
-    const savedEvidence = localStorage.getItem('ophthaPortfolio_evidence');
+    const savedEvidence = localStorage.getItem('eyePortfolio_evidence');
     if (savedEvidence) {
       try {
         return JSON.parse(savedEvidence);
@@ -99,7 +100,7 @@ const App: React.FC = () => {
   
   // Profile state with localStorage persistence
   const [profile, setProfile] = useState<UserProfile>(() => {
-    const savedProfile = localStorage.getItem('ophthaPortfolio_profile');
+    const savedProfile = localStorage.getItem('eyePortfolio_profile');
     if (savedProfile) {
       try {
         return JSON.parse(savedProfile);
@@ -112,12 +113,12 @@ const App: React.FC = () => {
 
   // Persist evidence to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('ophthaPortfolio_evidence', JSON.stringify(allEvidence));
+    localStorage.setItem('eyePortfolio_evidence', JSON.stringify(allEvidence));
   }, [allEvidence]);
 
   // Persist profile to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('ophthaPortfolio_profile', JSON.stringify(profile));
+    localStorage.setItem('eyePortfolio_profile', JSON.stringify(profile));
   }, [profile]);
 
   // Selection mode for linking evidence
@@ -940,10 +941,10 @@ const App: React.FC = () => {
                 setCurrentView(View.SupervisorDashboard);
               }
             }}>
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-                <LayoutDashboard size={20} className="text-white" />
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform border border-slate-200">
+                <Logo size={24} className="text-indigo-600" />
               </div>
-              <span className="font-bold text-lg tracking-tight text-slate-900">OphthaPortfolio</span>
+              <span className="font-bold text-lg tracking-tight text-slate-900">EyePortfolio</span>
             </div>
 
             <div className="hidden md:flex items-center gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
