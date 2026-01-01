@@ -40,8 +40,8 @@ const ESR_CATEGORIES: Record<string, string[]> = {
   'Intravitreal': ['Intravitreal', 'Anti-VEGF', 'Lucentis', 'Eylea', 'Avastin', 'Ozurdex', 'Triamcinolone'],
 };
 
-// Training grades for ESR Grid columns
-const TRAINING_GRADES = ['ST1', 'ST2', 'ST3', 'ST4', 'ST5', 'ST6', 'ST7'];
+// Training grades for ESR Grid columns (matching RCOphth ESR format)
+const TRAINING_GRADES = ['ST1', 'ST2', 'ST3', 'ST4', 'ST5', 'ST6', 'ST7', 'ASTO', 'TSC', 'OLT'];
 
 // Roles for ESR Grid sub-rows
 const ESR_ROLES = ['P', 'PS', 'A', 'SJ'];
@@ -172,165 +172,126 @@ const EyeLogbook: React.FC = () => {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
         
-        // Extract text items with positions
-        const textItems: Array<{ text: string; x: number; y: number }> = textContent.items.map((item: any) => ({
-          text: item.str,
-          x: item.transform[4] || 0,
-          y: item.transform[5] || 0
-        }));
+        // Extract text items with positions, filtering empty strings
+        const textItems: Array<{ text: string; x: number; y: number }> = textContent.items
+          .filter((item: any) => item.str.trim())
+          .map((item: any) => ({
+            text: item.str.trim(),
+            x: Math.round(item.transform[4]),
+            y: Math.round(item.transform[5])
+          }));
 
-        // Join all text for pattern matching
-        const fullText = textItems.map(item => item.text).join(' ');
+        // Group text items by Y position (rows) - with 3px tolerance for same-row items
+        const rows: Map<number, Array<{ text: string; x: number }>> = new Map();
         
-        // Generic pattern to find procedures with dates
-        // Format: Procedure Name | Side | Date | Patient ID | Role | Grade | Hospital
-        // We need to capture: procedure name, side, date, patient ID, role, grade, hospital
-        
-        // First, find all dates in YYYY-MM-DD format and work backwards/forwards to extract data
-        const datePattern = /(\d{4}-\d{2}-\d{2})/g;
-        let dateMatch;
-        
-        // Split text into segments that might represent rows
-        const segments = fullText.split(/(?=\d{4}-\d{2}-\d{2})/);
-        
-        for (const segment of segments) {
-          const dateMatch = segment.match(/^(\d{4}-\d{2}-\d{2})/);
-          if (!dateMatch) continue;
-          
-          const dateStr = dateMatch[1];
-          const parsedDate = parseDate(dateStr);
-          if (!parsedDate) continue;
-          
-          // Look for procedure name before this segment in the full text
-          const segmentIndex = fullText.indexOf(segment);
-          const beforeSegment = fullText.substring(Math.max(0, segmentIndex - 200), segmentIndex);
-          
-          // Common procedure patterns
-          const procedurePatterns = [
-            /([A-Z][a-z]+(?:\s+[a-z]+)*(?:\s+with\s+[A-Z]+)?)\s*\|?\s*([LR]|B\/L)?\s*$/,
-            /(Phacoemulsification with IOL)\s*\|?\s*([LR]|B\/L)?\s*$/i,
-            /(Intravitreal injection[^|]*)\s*\|?\s*([LR]|B\/L)?\s*$/i,
-            /(Vitrectomy[^|]*)\s*\|?\s*([LR]|B\/L)?\s*$/i,
-            /(Trabeculectomy[^|]*)\s*\|?\s*([LR]|B\/L)?\s*$/i,
-          ];
-          
-          let procedureName = '';
-          let side = '';
-          
-          // Try to find procedure name from before the date
-          for (const pattern of procedurePatterns) {
-            const procMatch = beforeSegment.match(pattern);
-            if (procMatch) {
-              procedureName = procMatch[1].trim();
-              side = procMatch[2] || '';
+        for (const item of textItems) {
+          // Find existing row within tolerance
+          let rowY = item.y;
+          for (const existingY of rows.keys()) {
+            if (Math.abs(existingY - item.y) < 3) {
+              rowY = existingY;
               break;
             }
           }
           
-          // If no procedure found, try a more generic approach
-          if (!procedureName) {
-            // Look for text that ends with | or side indicator before the date
-            const genericMatch = beforeSegment.match(/([A-Za-z][A-Za-z\s\-\/]+(?:with\s+\w+)?)\s*\|?\s*([LR]|B\/L)?\s*\|?\s*$/);
-            if (genericMatch) {
-              procedureName = genericMatch[1].trim();
-              side = genericMatch[2] || '';
+          if (!rows.has(rowY)) {
+            rows.set(rowY, []);
+          }
+          rows.get(rowY)!.push({ text: item.text, x: item.x });
+        }
+
+        // Sort rows by Y (descending - PDF coordinates are bottom-up)
+        const sortedRows = Array.from(rows.entries())
+          .sort((a, b) => b[0] - a[0])
+          .map(([_, items]) => items.sort((a, b) => a.x - b.x).map(i => i.text));
+
+        // Parse each row looking for procedure entries
+        for (const rowItems of sortedRows) {
+          // Skip header rows and very short rows
+          if (rowItems.length < 4) continue;
+          
+          // Look for date pattern YYYY-MM-DD in the row
+          const dateIndex = rowItems.findIndex(item => /^\d{4}-\d{2}-\d{2}$/.test(item));
+          if (dateIndex === -1) continue;
+          
+          const date = rowItems[dateIndex];
+          const parsedDate = parseDate(date);
+          if (!parsedDate) continue;
+          
+          // Extract procedure (items before date, excluding side)
+          let procedure = '';
+          let side = '';
+          
+          for (let i = 0; i < dateIndex; i++) {
+            const item = rowItems[i];
+            if (['L', 'R', 'B/L'].includes(item)) {
+              side = item;
+            } else if (item.length > 1 && !['Procedure', 'Side', 'Date', 'Pt ID', 'Role', 'Hospital', 'Grade'].includes(item)) {
+              procedure = procedure ? procedure + ' ' + item : item;
             }
           }
           
-          if (!procedureName) continue;
+          // Skip if no valid procedure found
+          if (!procedure || procedure.length < 3) continue;
           
-          // Extract data after the date
-          const afterDate = segment.substring(11); // Skip YYYY-MM-DD and space
+          // Extract fields after date
+          const afterDate = rowItems.slice(dateIndex + 1);
           
-          // Extract patient ID (usually digits, spaces, commas)
-          const patientIdMatch = afterDate.match(/^\s*([\d\s,]+)/);
-          const patientId = patientIdMatch ? patientIdMatch[1].trim().replace(/\s+/g, '') : '';
+          // Find role index (P, PS, SJ, A)
+          let roleIndex = -1;
+          let patientIdParts: string[] = [];
           
-          // Extract role (P, PS, SJ, A)
-          const rolePattern = /\s+(PS|SJ|P|A)\s+/;
-          const roleMatch = afterDate.match(rolePattern);
-          const role = roleMatch ? roleMatch[1] : 'P';
+          for (let i = 0; i < afterDate.length; i++) {
+            const item = afterDate[i];
+            // Match role codes - PS and SJ before P and A to avoid partial matches
+            if (item === 'PS' || item === 'SJ' || item === 'P' || item === 'A') {
+              roleIndex = i;
+              break;
+            }
+            // Accumulate patient ID parts (digits, possibly with spaces/commas)
+            if (/^[\d\s,]+$/.test(item) || /^\d+$/.test(item)) {
+              patientIdParts.push(item);
+            }
+          }
           
-          // Extract grade (ST1-ST7, ASTO, TSC, OLT, etc.)
-          const gradePattern = /\s+(ST[1-7]|ASTO|TSC|OLT|FY[12]|CT[12]|GP|SAS|Cons)\s+/i;
-          const gradeMatch = afterDate.match(gradePattern);
-          const grade = gradeMatch ? gradeMatch[1].toUpperCase() : '';
+          const patientId = patientIdParts.join('').replace(/\s+/g, '').replace(/,/g, '');
+          const role = roleIndex >= 0 ? afterDate[roleIndex] : 'P';
           
-          // Extract hospital name
-          const hospitalPattern = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*(?:Hospital|Infirmary|Centre|Center|Eye Unit))/i;
-          const hospitalMatch = afterDate.match(hospitalPattern);
-          const hospital = hospitalMatch ? hospitalMatch[1].trim() : 'Unknown';
+          // Hospital and Grade are after role
+          let hospital = 'Unknown';
+          let grade = '';
+          
+          if (roleIndex >= 0 && roleIndex < afterDate.length - 1) {
+            const remaining = afterDate.slice(roleIndex + 1);
+            
+            // Grade is usually last and matches training grade patterns
+            for (let i = remaining.length - 1; i >= 0; i--) {
+              const gradeMatch = remaining[i].match(/^(ST[1-7]|ASTO|TSC|OLT|FY[12]|CT[12]|FTSTA)$/i);
+              if (gradeMatch) {
+                grade = gradeMatch[1].toUpperCase();
+                // Handle FTSTA -> ST1 mapping
+                if (grade === 'FTSTA') grade = 'ST1';
+                // Hospital is everything between role and grade
+                hospital = remaining.slice(0, i).join(' ') || 'Unknown';
+                break;
+              }
+            }
+            
+            // If no grade found, assume all remaining is hospital
+            if (!grade && remaining.length > 0) {
+              hospital = remaining.join(' ');
+            }
+          }
           
           extractedEntries.push({
-            procedure: procedureName,
-            side: side || '',
+            procedure: procedure.trim(),
+            side,
             date: parsedDate.toISOString().split('T')[0],
             patientId,
             role,
-            hospital,
-            grade: grade || ''
+            hospital: hospital.trim() || 'Unknown',
+            grade
           });
-        }
-      }
-
-      // If the above approach didn't work well, try the original specific pattern approach
-      if (extractedEntries.length === 0) {
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          const textItems: Array<{ text: string; x: number; y: number }> = textContent.items.map((item: any) => ({
-            text: item.str,
-            x: item.transform[4] || 0,
-            y: item.transform[5] || 0
-          }));
-          const fullText = textItems.map(item => item.text).join(' ');
-          
-          // Try original pattern for Phacoemulsification
-          const procedurePattern = /([A-Za-z][A-Za-z\s\-\/]+(?:with\s+\w+)?)\s*\|?\s*([LR]|B\/L)?\s*\|?\s*(\d{4}-\d{2}-\d{2})/g;
-          let match;
-          
-          while ((match = procedurePattern.exec(fullText)) !== null) {
-            const procedureName = match[1].trim();
-            const side = match[2] || '';
-            const dateStr = match[3];
-            const parsedDate = parseDate(dateStr);
-            
-            if (!parsedDate) continue;
-            
-            // Skip if procedure name is too short or just whitespace
-            if (procedureName.length < 3) continue;
-            
-            const afterMatch = fullText.substring(match.index, match.index + 400);
-            
-            // Extract patient ID
-            const patientIdMatch = afterMatch.match(/\d{4}-\d{2}-\d{2}\s+([\d\s,]+)/);
-            const patientId = patientIdMatch ? patientIdMatch[1].trim().replace(/\s+/g, '') : '';
-            
-            // Extract role
-            const rolePattern = /\d{4}-\d{2}-\d{2}\s+[\d\s,]+\s+(PS|SJ|P|A)\s+/;
-            const roleMatch = afterMatch.match(rolePattern);
-            const role = roleMatch ? roleMatch[1] : 'P';
-            
-            // Extract grade
-            const gradePattern = /(ST[1-7]|ASTO|TSC|OLT|FY[12]|CT[12]|GP|SAS|Cons)/i;
-            const gradeMatch = afterMatch.match(gradePattern);
-            const grade = gradeMatch ? gradeMatch[1].toUpperCase() : '';
-            
-            // Extract hospital
-            const hospitalPattern = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*(?:Hospital|Infirmary|Centre|Center|Eye Unit))/i;
-            const hospitalMatch = afterMatch.match(hospitalPattern);
-            const hospital = hospitalMatch ? hospitalMatch[1].trim() : 'Unknown';
-            
-            extractedEntries.push({
-              procedure: procedureName,
-              side,
-              date: parsedDate.toISOString().split('T')[0],
-              patientId,
-              role,
-              hospital,
-              grade
-            });
-          }
         }
       }
 
