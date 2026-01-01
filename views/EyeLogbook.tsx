@@ -905,6 +905,16 @@ const EyeLogbook: React.FC = () => {
             <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">
               Upload Summary PDF
             </label>
+            <div className="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <p className="text-xs text-slate-700 mb-2">
+                <strong>Upload PDF report from EyeLogbook called "All Entries" (suitable for CCT)</strong>
+              </p>
+              <p className="text-xs text-slate-600 mb-1">When generating the PDF, select:</p>
+              <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 ml-2">
+                <li>Grouped by College Type (CCT Required Format)</li>
+                <li>Include Patient IDs (Required for CCT Output)</li>
+              </ul>
+            </div>
             {!uploadedFile && !fileName ? (
               <div 
                 onClick={() => fileInputRef.current?.click()}
