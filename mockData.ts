@@ -34,11 +34,17 @@ export const MOCK_TRAINEES: UserProfile[] = [
     fte: 100,
     arcpMonth: 'June',
     cctDate: '2027-08-01',
+    arcpDate: '2026-06-15',
     supervisorName: 'Dr. James Wright',
     supervisorEmail: 'j.wright@nhs.net',
+    supervisorGmc: '1234567',
     predictedSIAs: ['Oculoplastics', 'Ocular Motility'],
     pdpGoals: [],
-    deanery: 'Thames Valley Deanery'
+    deanery: 'Thames Valley Deanery',
+    frcophthPart1: true,
+    frcophthPart2Written: false,
+    frcophthPart2Viva: false,
+    refractionCertificate: true
   },
   {
     id: 'trainee2',
@@ -48,11 +54,17 @@ export const MOCK_TRAINEES: UserProfile[] = [
     fte: 100,
     arcpMonth: 'June',
     cctDate: '2028-08-01',
+    arcpDate: '2026-06-20',
     supervisorName: 'Dr. Sarah Roberts',
     supervisorEmail: 's.roberts@nhs.net',
+    supervisorGmc: '2345678',
     predictedSIAs: ['Medical Retina', 'Glaucoma'],
     pdpGoals: [],
-    deanery: 'Thames Valley Deanery'
+    deanery: 'Thames Valley Deanery',
+    frcophthPart1: true,
+    frcophthPart2Written: true,
+    frcophthPart2Viva: false,
+    refractionCertificate: false
   },
   {
     id: 'trainee3',
@@ -62,11 +74,17 @@ export const MOCK_TRAINEES: UserProfile[] = [
     fte: 100,
     arcpMonth: 'December',
     cctDate: '2026-12-01',
+    arcpDate: '2026-12-10',
     supervisorName: 'Dr. James Wright',
     supervisorEmail: 'j.wright@nhs.net',
+    supervisorGmc: '1234567',
     predictedSIAs: ['Cataract Surgery', 'Vitreoretinal Surgery'],
     pdpGoals: [],
-    deanery: 'Thames Valley Deanery'
+    deanery: 'Thames Valley Deanery',
+    frcophthPart1: true,
+    frcophthPart2Written: true,
+    frcophthPart2Viva: true,
+    refractionCertificate: true
   },
   {
     id: 'trainee4',
@@ -76,11 +94,17 @@ export const MOCK_TRAINEES: UserProfile[] = [
     fte: 100,
     arcpMonth: 'June',
     cctDate: '2029-08-01',
+    arcpDate: '2026-06-25',
     supervisorName: 'Dr. Sarah Roberts',
     supervisorEmail: 's.roberts@nhs.net',
+    supervisorGmc: '2345678',
     predictedSIAs: ['Cornea & Ocular Surface', 'Uveitis'],
     pdpGoals: [],
-    deanery: 'Thames Valley Deanery'
+    deanery: 'Thames Valley Deanery',
+    frcophthPart1: false,
+    frcophthPart2Written: false,
+    frcophthPart2Viva: false,
+    refractionCertificate: false
   }
 ];
 

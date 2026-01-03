@@ -83,12 +83,19 @@ export interface UserProfile {
   fte: number;
   arcpMonth: string;
   cctDate: string;
+  arcpDate: string; // Next ARCP date
   supervisorName: string;
   supervisorEmail: string;
+  supervisorGmc: string; // Educational Supervisor GMC number
   predictedSIAs: string[];
   pdpGoals: PDPGoal[];
   deanery?: string; // Default: "Thames Valley Deanery"
   arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
+  // Exam results
+  frcophthPart1?: boolean;
+  frcophthPart2Written?: boolean;
+  frcophthPart2Viva?: boolean;
+  refractionCertificate?: boolean;
   curriculumCatchUpPDFs?: Record<string, string>; // Map of box keys to PDF file URLs (key format: "column-level")
   curriculumCatchUpCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
   fourteenFishEvidence?: Record<string, string>; // Map of box keys to image file URLs (key format: "column-level")

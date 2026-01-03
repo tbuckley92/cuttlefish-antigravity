@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import Dashboard from './views/Dashboard';
 import MyEvidence from './views/MyEvidence';
 import EPAForm from './views/EPAForm';
@@ -21,9 +22,12 @@ import { MSFResponseForm } from './views/MSFResponseForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 import { Footer } from './components/Footer';
+import { Auth } from './views/Auth';
+import { ProfileSetup } from './views/ProfileSetup';
+import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
 
 enum View {
   Dashboard = 'dashboard',
@@ -81,12 +85,49 @@ const viewToEvidenceType = (view: View): EvidenceType | undefined => {
 };
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [profileReady, setProfileReady] = useState(!isSupabaseConfigured);
+  const [profileSetupNeeded, setProfileSetupNeeded] = useState(false);
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
+
+  const clearLegacyLocalData = () => {
+    // Important: prevents new accounts from inheriting demo/local data.
+    localStorage.removeItem('eyePortfolio_evidence');
+    localStorage.removeItem('eyePortfolio_profile');
+  };
+
+  const EMPTY_PROFILE: UserProfile = useMemo(
+    () => ({
+      name: '',
+      grade: TrainingGrade.ST1,
+      location: '',
+      fte: 100,
+      arcpMonth: '',
+      cctDate: '',
+      arcpDate: '',
+      supervisorName: '',
+      supervisorEmail: '',
+      supervisorGmc: '',
+      predictedSIAs: [],
+      pdpGoals: [],
+      deanery: '',
+      frcophthPart1: false,
+      frcophthPart2Written: false,
+      frcophthPart2Viva: false,
+      refractionCertificate: false,
+    }),
+    []
+  );
+
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [addEvidenceKey, setAddEvidenceKey] = useState(0); // Counter for unique AddEvidence keys
-  const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
+  const [sias, setSias] = useState<SIA[]>(() => (isSupabaseConfigured ? [] : INITIAL_SIAS));
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
+    if (isSupabaseConfigured) return [];
     const savedEvidence = localStorage.getItem('eyePortfolio_evidence');
     if (savedEvidence) {
       try {
@@ -100,6 +141,7 @@ const App: React.FC = () => {
   
   // Profile state with localStorage persistence
   const [profile, setProfile] = useState<UserProfile>(() => {
+    if (isSupabaseConfigured) return EMPTY_PROFILE;
     const savedProfile = localStorage.getItem('eyePortfolio_profile');
     if (savedProfile) {
       try {
@@ -113,13 +155,129 @@ const App: React.FC = () => {
 
   // Persist evidence to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('eyePortfolio_evidence', JSON.stringify(allEvidence));
+    if (!isSupabaseConfigured) {
+      localStorage.setItem('eyePortfolio_evidence', JSON.stringify(allEvidence));
+    }
   }, [allEvidence]);
 
   // Persist profile to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('eyePortfolio_profile', JSON.stringify(profile));
+    if (!isSupabaseConfigured) {
+      localStorage.setItem('eyePortfolio_profile', JSON.stringify(profile));
+    }
   }, [profile]);
+
+  // Supabase session lifecycle
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    let isMounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      setSession(data.session ?? null);
+      setAuthEmail(data.session?.user?.email ?? '');
+      setAuthReady(true);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthEmail(nextSession?.user?.email ?? '');
+
+      if (nextSession) {
+        // Ensure nothing from demo/localStorage leaks into authenticated accounts.
+        clearLegacyLocalData();
+        setAllEvidence([]);
+        setSias([]);
+        setProfile(EMPTY_PROFILE);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [EMPTY_PROFILE]);
+
+  // Load profile from DB (and decide whether profile setup is needed)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    if (!authReady) return;
+    if (!session) {
+      setProfileReady(true);
+      setProfileSetupNeeded(false);
+      return;
+    }
+
+    let isMounted = true;
+    setProfileReady(false);
+    (async () => {
+      const { data, error } = await supabase
+        .from('user_profile')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error) {
+        // If table/RLS isn't set up yet, keep user on profile setup with error shown there.
+        setProfileSetupNeeded(true);
+        setProfileReady(true);
+        return;
+      }
+
+      const isComplete =
+        !!data &&
+        typeof data.name === 'string' &&
+        data.name.trim().length > 0 &&
+        typeof data.gmc_number === 'string' &&
+        data.gmc_number.trim().length > 0 &&
+        typeof data.rcophth_number === 'string' &&
+        data.rcophth_number.trim().length > 0 &&
+        typeof data.deanery === 'string' &&
+        data.deanery.trim().length > 0 &&
+        typeof data.base_role === 'string' &&
+        data.base_role.length > 0;
+
+      setProfileSetupNeeded(!isComplete);
+
+      if (isComplete) {
+        setProfile({
+          name: data.name ?? '',
+          grade: (data.grade as TrainingGrade) ?? TrainingGrade.ST1,
+          location: data.deanery ?? '',
+          fte: typeof data.fte === 'number' ? data.fte : 100,
+          arcpMonth: data.arcp_month ?? '',
+          cctDate: data.cct_date ?? '',
+          arcpDate: data.arcp_date ?? '',
+          supervisorName: data.supervisor_name ?? '',
+          supervisorEmail: data.supervisor_email ?? '',
+          supervisorGmc: data.supervisor_gmc ?? '',
+          predictedSIAs: data.predicted_sias ?? [],
+          pdpGoals: data.pdp_goals ?? [],
+          deanery: data.deanery ?? '',
+          arcpOutcome: data.arcp_outcome ?? undefined,
+          frcophthPart1: data.frcophth_part1 ?? false,
+          frcophthPart2Written: data.frcophth_part2_written ?? false,
+          frcophthPart2Viva: data.frcophth_part2_viva ?? false,
+          refractionCertificate: data.refraction_certificate ?? false,
+        });
+
+        // Map base role into the existing UI role switch.
+        if (data.base_role === 'SUPERVISOR') {
+          setCurrentRole(UserRole.EducationalSupervisor);
+        } else {
+          setCurrentRole(UserRole.Trainee);
+        }
+      }
+
+      setProfileReady(true);
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authReady, session, profileReloadKey]);
 
   // Selection mode for linking evidence
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -136,6 +294,36 @@ const App: React.FC = () => {
   const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.Trainee);
   const [currentSupervisor, setCurrentSupervisor] = useState<SupervisorProfile | null>(null);
   const [viewingTraineeId, setViewingTraineeId] = useState<string | null>(null);
+
+  const handleUpdateProfile = async (nextProfile: UserProfile) => {
+    setProfile(nextProfile);
+
+    if (!isSupabaseConfigured || !supabase || !session) return;
+
+    // Only update fields the dashboard can edit (avoid touching required fields like GMC etc. here).
+    const deanery = (nextProfile.deanery || nextProfile.location || '').trim();
+    const payload: Record<string, any> = {
+      name: nextProfile.name,
+      grade: nextProfile.grade,
+      supervisor_name: nextProfile.supervisorName,
+      supervisor_email: nextProfile.supervisorEmail,
+      supervisor_gmc: nextProfile.supervisorGmc ?? '',
+      predicted_sias: nextProfile.predictedSIAs ?? [],
+      pdp_goals: nextProfile.pdpGoals ?? [],
+      arcp_outcome: nextProfile.arcpOutcome ?? null,
+      fte: nextProfile.fte ?? 100,
+      arcp_month: nextProfile.arcpMonth ?? null,
+      cct_date: nextProfile.cctDate || null,
+      arcp_date: nextProfile.arcpDate || null,
+      frcophth_part1: nextProfile.frcophthPart1 ?? false,
+      frcophth_part2_written: nextProfile.frcophthPart2Written ?? false,
+      frcophth_part2_viva: nextProfile.frcophthPart2Viva ?? false,
+      refraction_certificate: nextProfile.refractionCertificate ?? false,
+    };
+    if (deanery) payload.deanery = deanery;
+
+    await supabase.from('user_profile').update(payload).eq('user_id', session.user.id);
+  };
 
   // Helper function to find existing evidence by type, level, and optionally sia
   const findExistingEvidence = (type: EvidenceType, level: number, sia?: string): EvidenceItem | undefined => {
@@ -533,7 +721,7 @@ const App: React.FC = () => {
             sias={sias} 
             allEvidence={allEvidence}
             profile={profile}
-            onUpdateProfile={setProfile}
+            onUpdateProfile={handleUpdateProfile}
             onRemoveSIA={handleRemoveSIA} 
             onUpdateSIA={handleUpdateSIA} 
             onAddSIA={handleAddSIA} 
@@ -557,6 +745,7 @@ const App: React.FC = () => {
               setCurrentView(View.GSATForm);
             }}
             onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)}
+            isResident={currentRole === UserRole.Trainee}
           />
         );
       case View.Evidence:
@@ -603,7 +792,7 @@ const App: React.FC = () => {
               setCurrentView(View.SupervisorDashboard);
             } : undefined}
             profile={progressProfile}
-            onUpdateProfile={viewingTraineeId ? undefined : setProfile}
+            onUpdateProfile={viewingTraineeId ? undefined : handleUpdateProfile}
             onUpsertEvidence={viewingTraineeId ? undefined : handleUpsertEvidence}
             onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
           />
@@ -906,7 +1095,7 @@ const App: React.FC = () => {
       case View.EyeLogbook:
         return <EyeLogbook />;
       default:
-        return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={setProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
+        return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={handleUpdateProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
           // Find existing GSAT for level 1 (default)
           const existing = findExistingEvidence(EvidenceType.GSAT, 1);
@@ -916,12 +1105,40 @@ const App: React.FC = () => {
             id: existing?.id 
           });
           setCurrentView(View.GSATForm);
-        }} onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)} />;
+        }} onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)} isResident={currentRole === UserRole.Trainee} />;
     }
   };
 
   const isFormViewActive = [View.EPAForm, View.GSATForm, View.DOPsForm, View.OSATSForm, View.CBDForm, View.CRSForm, View.MARForm, View.MSFForm].includes(currentView);
   const isViewingLinkedEvidence = !!selectedFormParams?.originFormParams;
+
+  const LoadingScreen = ({ label }: { label: string }) => (
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="max-w-md w-full text-center">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center mb-4">
+          <div className="w-5 h-5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-slate-900 font-semibold">{label}</p>
+        <p className="text-slate-500 text-sm mt-1">Please wait…</p>
+      </div>
+    </div>
+  );
+
+  if (isSupabaseConfigured) {
+    if (!authReady) return <LoadingScreen label="Connecting to Supabase" />;
+    if (!session) return <Auth />;
+    if (!profileReady) return <LoadingScreen label="Loading your profile" />;
+    if (profileSetupNeeded) {
+      return (
+        <ProfileSetup
+          email={authEmail || session.user.email || ''}
+          onComplete={() => {
+            setProfileReloadKey(k => k + 1);
+          }}
+        />
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen transition-colors duration-300 bg-[#f8fafc] text-slate-900">
@@ -1061,7 +1278,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main className={`pb-20 ${isViewingLinkedEvidence ? 'pt-24' : 'pt-8'}`}>
+      <main className={`pb-20 ${isViewingLinkedEvidence ? 'pt-24' : 'pt-2'}`}>
         {renderContent()}
       </main>
 
