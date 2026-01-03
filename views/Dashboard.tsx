@@ -8,7 +8,7 @@ import {
   FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
   ExternalLink, Activity, Clock
 } from '../components/Icons';
-import { INITIAL_PROFILE, SPECIALTIES } from '../constants';
+import { INITIAL_PROFILE, SPECIALTIES, DEANERIES } from '../constants';
 import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal, EvidenceItem, EvidenceStatus } from '../types';
 
 interface DashboardProps {
@@ -29,6 +29,7 @@ interface DashboardProps {
   onNavigateToAddEvidence: (sia?: string, level?: number, type?: string) => void;
   onNavigateToGSAT: () => void;
   onNavigateToARCPPrep: () => void;
+  isResident?: boolean; // true if user is a Resident (requires ES fields), false for Supervisors
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -48,10 +49,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToRecordForm,
   onNavigateToAddEvidence,
   onNavigateToGSAT,
-  onNavigateToARCPPrep
+  onNavigateToARCPPrep,
+  isResident = true
 }) => {
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [isEditing, setIsEditing] = useState(false);
+  const [esValidationError, setEsValidationError] = useState<string | null>(null);
+  
+  // Educational Supervisor editing state
+  const [isEditingSupervisor, setIsEditingSupervisor] = useState(false);
+  const [tempSupervisor, setTempSupervisor] = useState({
+    supervisorName: '',
+    supervisorEmail: '',
+    supervisorGmc: ''
+  });
   
   // Update tempProfile when profile prop changes
   useEffect(() => {
@@ -68,7 +79,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   // PDP Modal State
   const [isPDPModalOpen, setIsPDPModalOpen] = useState(false);
   const [tempPDPGoals, setTempPDPGoals] = useState<PDPGoal[]>([]);
-  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+
+  // Exam Results editing state
+  const [isEditingExams, setIsEditingExams] = useState(false);
+  const [tempExamResults, setTempExamResults] = useState({
+    frcophthPart1: false,
+    frcophthPart2Written: false,
+    frcophthPart2Viva: false,
+    refractionCertificate: false
+  });
 
   // Inline editing state for SIA
   const [editingSiaId, setEditingSiaId] = useState<string | null>(null);
@@ -140,6 +159,43 @@ const Dashboard: React.FC<DashboardProps> = ({
     setIsEditing(false);
   };
 
+  // Educational Supervisor editing handlers
+  const openSupervisorEditing = () => {
+    setTempSupervisor({
+      supervisorName: profile.supervisorName || '',
+      supervisorEmail: profile.supervisorEmail || '',
+      supervisorGmc: profile.supervisorGmc || ''
+    });
+    setEsValidationError(null);
+    setIsEditingSupervisor(true);
+  };
+
+  const closeSupervisorEditing = () => {
+    setIsEditingSupervisor(false);
+    setEsValidationError(null);
+  };
+
+  const handleSaveSupervisor = () => {
+    // Validate ES fields for Residents
+    if (isResident) {
+      const esName = (tempSupervisor.supervisorName || '').trim();
+      const esEmail = (tempSupervisor.supervisorEmail || '').trim();
+      const esGmc = (tempSupervisor.supervisorGmc || '').trim();
+      if (!esName || !esEmail || !esGmc) {
+        setEsValidationError('Educational Supervisor Name, Email, and GMC are required for Residents.');
+        return;
+      }
+    }
+    setEsValidationError(null);
+    onUpdateProfile({
+      ...profile,
+      supervisorName: tempSupervisor.supervisorName,
+      supervisorEmail: tempSupervisor.supervisorEmail,
+      supervisorGmc: tempSupervisor.supervisorGmc
+    });
+    setIsEditingSupervisor(false);
+  };
+
   const handleInputChange = (field: keyof UserProfile, value: any) => {
     setTempProfile(prev => ({ ...prev, [field]: value }));
   };
@@ -162,6 +218,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleAddGoal = () => {
+    if (tempPDPGoals.length >= 2) {
+      return; // Limit to max 2 PDPs
+    }
     setTempPDPGoals([
       ...tempPDPGoals,
       {
@@ -184,12 +243,36 @@ const Dashboard: React.FC<DashboardProps> = ({
     setIsPDPModalOpen(false);
   };
 
-  const handleInlineTitleEdit = (id: string, newTitle: string) => {
+  // Exam Results editing handlers
+  const openExamEditing = () => {
+    setTempExamResults({
+      frcophthPart1: profile.frcophthPart1 ?? false,
+      frcophthPart2Written: profile.frcophthPart2Written ?? false,
+      frcophthPart2Viva: profile.frcophthPart2Viva ?? false,
+      refractionCertificate: profile.refractionCertificate ?? false
+    });
+    setIsEditingExams(true);
+  };
+
+  const closeExamEditing = () => {
+    setIsEditingExams(false);
+  };
+
+  const handleSaveExams = () => {
     onUpdateProfile({
       ...profile,
-      pdpGoals: profile.pdpGoals.map(g => g.id === id ? { ...g, title: newTitle } : g)
+      frcophthPart1: tempExamResults.frcophthPart1,
+      frcophthPart2Written: tempExamResults.frcophthPart2Written,
+      frcophthPart2Viva: tempExamResults.frcophthPart2Viva,
+      refractionCertificate: tempExamResults.refractionCertificate
     });
+    setIsEditingExams(false);
   };
+
+  const handleToggleExam = (examKey: keyof typeof tempExamResults) => {
+    setTempExamResults(prev => ({ ...prev, [examKey]: !prev[examKey] }));
+  };
+
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -299,11 +382,12 @@ const Dashboard: React.FC<DashboardProps> = ({
 
               {/* Footer - Unified colors with EPA modal */}
               <div className="flex flex-col gap-4">
-                <button 
+                <button
                   onClick={handleAddGoal}
-                  className="w-full py-3.5 rounded-xl border border-indigo-600/30 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2"
+                  disabled={tempPDPGoals.length >= 2}
+                  className="w-full py-3.5 rounded-xl border border-indigo-600/30 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Plus size={16} /> Add another goal
+                  <Plus size={16} /> Add another goal {tempPDPGoals.length >= 2 && '(Max 2)'}
                 </button>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -414,10 +498,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Profile Sidebar */}
       <div className="lg:col-span-4 flex flex-col gap-6">
-        <GlassCard className="p-8 relative group">
+        <GlassCard className="p-6 relative group">
           <div className="absolute top-6 right-6 flex gap-2">
             {!isEditing ? (
-              <button onClick={startEditing} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors text-slate-400 opacity-0 group-hover:opacity-100"><Edit2 size={16} /></button>
+              <button onClick={startEditing} className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"><Edit2 size={16} /></button>
             ) : (
               <div className="flex gap-1">
                 <button onClick={saveEditing} className="p-2 bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 rounded-full transition-colors" title="Save Changes"><CheckCircle2 size={16} /></button>
@@ -426,122 +510,261 @@ const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
 
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-indigo-500 mb-4 p-1 shadow-lg shadow-indigo-500/20">
-              <div className="w-full h-full rounded-full bg-slate-50 flex items-center justify-center">
-                <User size={40} className="text-slate-400" />
-              </div>
-            </div>
-            
+          <div className="flex flex-col items-start mb-4">
             {isEditing ? (
-              <div className="w-full space-y-3">
-                <input type="text" value={tempProfile.name} onChange={(e) => handleInputChange('name', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-center text-lg font-semibold text-slate-900 outline-none focus:border-indigo-500/50" placeholder="Full Name" />
-                <div className="flex gap-2 justify-center">
-                   <select value={tempProfile.grade} onChange={(e) => handleInputChange('grade', e.target.value as TrainingGrade)} className="bg-slate-100 border border-slate-200 rounded-full px-3 py-1 text-xs font-medium text-indigo-600 outline-none">
+              <div className="w-full space-y-2">
+                <div className="flex items-center gap-2">
+                  <User size={16} className="text-slate-400 flex-shrink-0" />
+                  <input type="text" value={tempProfile.name} onChange={(e) => handleInputChange('name', e.target.value)} className="flex-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500/50" placeholder="Full Name" />
+                </div>
+                <div className="flex gap-2">
+                   <select value={tempProfile.grade} onChange={(e) => handleInputChange('grade', e.target.value as TrainingGrade)} className="bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-medium text-indigo-600 outline-none">
                     {Object.values(TrainingGrade).map(grade => <option key={grade} value={grade}>{grade}</option>)}
                   </select>
-                  <input type="text" value={tempProfile.location} onChange={(e) => handleInputChange('location', e.target.value)} className="w-32 bg-slate-100 border border-slate-200 rounded-full px-3 py-1 text-center text-xs text-slate-500 outline-none" placeholder="Location" />
+                  <select value={tempProfile.deanery || tempProfile.location || ''} onChange={(e) => handleInputChange('deanery', e.target.value)} className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs text-slate-500 outline-none">
+                    <option value="">Select deanery...</option>
+                    {DEANERIES.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
               </div>
             ) : (
               <>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{profile.name}</h1>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <User size={16} className="text-slate-400 flex-shrink-0" />
+                  <h1 className="text-lg font-semibold tracking-tight text-slate-900">{profile.name}</h1>
+                </div>
+                <div className="flex items-center gap-2 ml-6">
                   <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 text-xs font-medium border border-indigo-500/20">{profile.grade}</span>
-                  <span className="text-slate-300 text-sm">•</span>
-                  <span className="text-slate-500 text-sm">{profile.location}</span>
+                  <span className="text-slate-300 text-xs">•</span>
+                  <span className="text-slate-500 text-xs">{profile.deanery || profile.location}</span>
                 </div>
               </>
             )}
           </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
-              <ProfileItem icon={<Briefcase size={18} />} label="FTE" value={isEditing ? <div className="flex items-center gap-1"><input type="number" value={tempProfile.fte} onChange={(e) => handleInputChange('fte', parseInt(e.target.value) || 0)} className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /><span>%</span></div> : `${profile.fte}% Full Time`} />
-              <ProfileItem icon={<Calendar size={18} />} label="ARCP MONTH" value={isEditing ? <input type="text" value={tempProfile.arcpMonth} onChange={(e) => handleInputChange('arcpMonth', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.arcpMonth} />
-              <ProfileItem icon={<Calendar size={18} />} label="CCT DATE" value={isEditing ? <input type="date" value={tempProfile.cctDate} onChange={(e) => handleInputChange('cctDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-sm" /> : profile.cctDate} />
-              
-              {/* PDP Section in Sidebar */}
-              <div className="pt-2 border-t border-slate-100 dark:border-white/5">
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold">PDP</p>
+          <div className="space-y-[11px]">
+            <div className="grid grid-cols-1 gap-[11px]">
+              <ProfileItem icon={<Briefcase size={13} />} label="FTE" value={isEditing ? <div className="flex items-center gap-1"><input type="number" value={tempProfile.fte} onChange={(e) => handleInputChange('fte', parseInt(e.target.value) || 0)} className="w-16 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /><span className="text-[13px]">%</span></div> : `${profile.fte}% Full Time`} />
+              <ProfileItem icon={<Calendar size={13} />} label="ARCP MONTH" value={isEditing ? <input type="text" value={tempProfile.arcpMonth} onChange={(e) => handleInputChange('arcpMonth', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : profile.arcpMonth} />
+              <ProfileItem icon={<Calendar size={13} />} label="CCT DATE" value={isEditing ? <input type="date" value={tempProfile.cctDate} onChange={(e) => handleInputChange('cctDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : profile.cctDate} />
+              <ProfileItem icon={<Calendar size={13} />} label="NEXT ARCP DATE" value={isEditing && isResident ? <input type="date" value={tempProfile.arcpDate || ''} onChange={(e) => handleInputChange('arcpDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : (profile.arcpDate || '—')} />
+
+              {/* Exam Results Section in Sidebar */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold">EXAM RESULTS</p>
                   <button 
-                    onClick={openPDPModal}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded text-indigo-600 transition-colors flex items-center gap-1 text-[10px] font-bold"
+                    onClick={isEditingExams ? closeExamEditing : openExamEditing}
+                    className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
+                    title={isEditingExams ? "Cancel editing" : "Edit exams"}
                   >
-                    <Plus size={12} /> ADD/EDIT PDP
+                    {isEditingExams ? <X size={12} /> : <Edit2 size={12} />}
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {profile.pdpGoals.length > 0 ? (
-                    profile.pdpGoals.map(goal => (
-                      <div key={goal.id} className="relative group/goal p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                        {editingTitleId === goal.id ? (
-                          <div className="flex items-center gap-2">
-                            <input 
-                              autoFocus
-                              type="text" 
-                              value={goal.title}
-                              onBlur={() => setEditingTitleId(null)}
-                              onKeyDown={(e) => e.key === 'Enter' && setEditingTitleId(null)}
-                              onChange={(e) => handleInlineTitleEdit(goal.id, e.target.value)}
-                              className="w-full bg-white dark:bg-white/5 border border-indigo-500 rounded px-2 py-1 text-sm outline-none"
-                            />
-                            <button onClick={() => setEditingTitleId(null)} className="text-teal-600"><CheckCircle2 size={14} /></button>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between group/title">
-                              <span 
-                                onClick={() => setEditingTitleId(goal.id)}
-                                className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate cursor-text hover:text-indigo-600 transition-colors block flex-1"
-                              >
-                                {goal.title || 'Untitled Goal'}
-                              </span>
-                            </div>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              goal.status === 'COMPLETE'
+                {isEditingExams ? (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempExamResults.frcophthPart1}
+                          onChange={() => handleToggleExam('frcophthPart1')}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 1</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempExamResults.frcophthPart2Written}
+                          onChange={() => handleToggleExam('frcophthPart2Written')}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 2 Written</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempExamResults.frcophthPart2Viva}
+                          onChange={() => handleToggleExam('frcophthPart2Viva')}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 2 Viva</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempExamResults.refractionCertificate}
+                          onChange={() => handleToggleExam('refractionCertificate')}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">Refraction Certificate</span>
+                      </label>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={closeExamEditing}
+                        className="flex-1 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-xs font-semibold hover:bg-slate-200 dark:hover:bg-white/20 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveExams}
+                        className="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {profile.frcophthPart1 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 1</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                          PASS
+                        </span>
+                      </div>
+                    )}
+                    {profile.frcophthPart2Written && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 2 Written</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                          PASS
+                        </span>
+                      </div>
+                    )}
+                    {profile.frcophthPart2Viva && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">FRCOphth Part 2 Viva</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                          PASS
+                        </span>
+                      </div>
+                    )}
+                    {profile.refractionCertificate && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400">Refraction Certificate</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                          PASS
+                        </span>
+                      </div>
+                    )}
+                    {!profile.frcophthPart1 && !profile.frcophthPart2Written && !profile.frcophthPart2Viva && !profile.refractionCertificate && (
+                      <span className="text-[10px] text-slate-400 italic">No exams passed yet</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* PDP Section in Sidebar */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-2">
+                  <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold">PDP</p>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    {profile.pdpGoals.length > 0 ? (
+                      profile.pdpGoals.map((goal) => {
+                        const goalStatus = goal.status || 'IN PROGRESS';
+                        return (
+                          <span 
+                            key={goal.id}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              goalStatus === 'COMPLETE'
                                 ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
                                 : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                            }`}>
-                              {goal.status || 'IN PROGRESS'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <button 
-                      onClick={openPDPModal}
-                      className="text-xs text-slate-400 italic hover:text-indigo-600 transition-colors"
-                    >
-                      No goals set. Click to add.
-                    </button>
-                  )}
+                            }`}
+                          >
+                            {goalStatus}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+                        NOT SET
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={openPDPModal}
+                    className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
+                    title="Edit PDP"
+                  >
+                    <Edit2 size={12} />
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 dark:border-white/5">
-              <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold mb-4">EDUCATIONAL SUPERVISOR</p>
-              {isEditing ? (
-                <div className="space-y-2">
-                   <input type="text" value={tempProfile.supervisorName} onChange={(e) => handleInputChange('supervisorName', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" placeholder="Supervisor Name" />
-                  <input type="email" value={tempProfile.supervisorEmail} onChange={(e) => handleInputChange('supervisorEmail', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono" placeholder="Supervisor Email" />
+            <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2 mb-3">
+                <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold">EDUCATIONAL SUPERVISOR</p>
+                <button 
+                  onClick={isEditingSupervisor ? closeSupervisorEditing : openSupervisorEditing}
+                  className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
+                  title={isEditingSupervisor ? "Cancel editing" : "Edit supervisor"}
+                >
+                  {isEditingSupervisor ? <X size={12} /> : <Edit2 size={12} />}
+                </button>
+              </div>
+              {esValidationError && isEditingSupervisor && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 text-xs">
+                  {esValidationError}
+                </div>
+              )}
+              {isEditingSupervisor ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <input 
+                      type="text" 
+                      value={tempSupervisor.supervisorName} 
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorName: e.target.value }))} 
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" 
+                      placeholder="Supervisor Name *" 
+                    />
+                    <input 
+                      type="email" 
+                      value={tempSupervisor.supervisorEmail} 
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorEmail: e.target.value }))} 
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono" 
+                      placeholder="Supervisor Email *" 
+                    />
+                    <input 
+                      type="text" 
+                      value={tempSupervisor.supervisorGmc} 
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorGmc: e.target.value }))} 
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" 
+                      placeholder="Supervisor GMC *" 
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={closeSupervisorEditing}
+                      className="flex-1 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-xs font-semibold hover:bg-slate-200 dark:hover:bg-white/20 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveSupervisor}
+                      className="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black tracking-widest text-slate-500 uppercase">
-                      {profile.supervisorName.split(' ').map(n => n[0]).join('')}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black tracking-widest text-slate-500 uppercase flex-shrink-0">
+                      {profile.supervisorName ? profile.supervisorName.split(' ').map(n => n[0]).join('') : '–'}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{profile.supervisorName}</p>
-                      <p className="text-xs text-slate-500">{profile.supervisorEmail}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 truncate">{profile.supervisorName || '–'}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{profile.supervisorEmail || '–'}</p>
+                      {profile.supervisorGmc && <p className="text-[11px] text-slate-400 font-mono">GMC: {profile.supervisorGmc}</p>}
                     </div>
                   </div>
                   
-                  <div className="mt-6 flex flex-col gap-2">
+                  <div className="mt-4 flex flex-col gap-2">
                     <button 
                       onClick={onNavigateToGSAT}
                       className="w-full py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
@@ -726,11 +949,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 };
 
 const ProfileItem: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
-  <div className="flex items-start gap-4 text-sm">
-    <div className="text-slate-400 mt-0.5">{icon}</div>
-    <div className="flex-1 overflow-hidden">
-      <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold mb-1">{label}</p>
-      <div className="text-slate-900 font-medium text-lg tracking-tight">{value}</div>
+  <div className="flex items-start gap-2 text-[13px]">
+    <div className="text-slate-400 mt-0.5 flex-shrink-0">{icon}</div>
+    <div className="flex-1 overflow-hidden min-w-0">
+      <p className="text-[#94a3b8] text-[9px] uppercase tracking-widest font-bold mb-0">{label}</p>
+      <div className="text-slate-900 font-medium text-[13px] tracking-tight">{value}</div>
     </div>
   </div>
 );

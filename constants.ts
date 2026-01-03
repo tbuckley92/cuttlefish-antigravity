@@ -264,10 +264,16 @@ export const INITIAL_PROFILE: UserProfile = {
   fte: 100,
   arcpMonth: "June",
   cctDate: "2027-08-01",
+  arcpDate: "2026-06-15",
   supervisorName: "Mr. James Wright",
   supervisorEmail: "j.wright@nhs.net",
+  supervisorGmc: "1234567",
   predictedSIAs: ["Oculoplastics", "Ocular Motility"],
-  pdpGoals: []
+  pdpGoals: [],
+  frcophthPart1: false,
+  frcophthPart2Written: false,
+  frcophthPart2Viva: false,
+  refractionCertificate: false
 };
 
 export const INITIAL_SIAS: SIA[] = [
@@ -286,6 +292,25 @@ export const SPECIALTIES = [
   "Oculoplastics", "Cornea & Ocular Surface Disease", "Cataract Surgery", "Glaucoma", "Uveitis",
   "Medical Retina", "Vitreoretinal Surgery", "Ocular Motility", "Neuro-Ophthalmology",
   "Paediatric Ophthalmology", "Urgent Eye Care", "Community Ophthalmology"
+];
+
+export const DEANERIES = [
+  "Defence Postgraduate Medical Deanery",
+  "East Midlands",
+  "East of England",
+  "Kent, Surrey and Sussex",
+  "North Central and East London",
+  "North East",
+  "North West",
+  "South London",
+  "South West",
+  "Thames Valley",
+  "Wessex",
+  "West Midlands",
+  "Yorkshire and the Humber",
+  "Wales",
+  "Scotland",
+  "Northern Ireland"
 ];
 
 // ARCP Outcomes from Gold Guide paragraph 4.94
