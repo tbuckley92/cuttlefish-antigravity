@@ -228,20 +228,20 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
   const getStatusIcon = (status: EvidenceStatus | null, column: string, level: number) => {
     // Check for FourteenFish completion first (takes precedence)
     if (isFourteenFishComplete(column, level)) {
-      return <Fish size={14} className="text-white" />;
+      return <Fish size={12} className="text-white" />;
     }
     // Check for catch-up completion
     if (isCatchUpComplete(column, level)) {
-      return <ScrollText size={14} className="text-white" />;
+      return <ScrollText size={12} className="text-white" />;
     }
 
     switch (status) {
       case EvidenceStatus.SignedOff:
-        return <CheckCircle2 size={14} className="text-white" />;
+        return <CheckCircle2 size={12} className="text-white" />;
       case EvidenceStatus.Submitted:
-        return <Activity size={14} className="text-white" />; // Representing "In Progress"
+        return <Activity size={12} className="text-white" />; // Representing "In Progress"
       case EvidenceStatus.Draft:
-        return <Clock size={14} className="text-white" />;
+        return <Clock size={12} className="text-white" />;
       default:
         return null;
     }
@@ -1576,21 +1576,21 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
 
       <GlassCard className="overflow-hidden border-none shadow-2xl">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse table-fixed min-w-[850px]">
+          <table className="w-full border-collapse table-fixed min-w-[700px]">
             <thead>
-              <tr className="h-64">
-                <th className="sticky left-0 z-30 bg-slate-50 dark:bg-[#1a1f2e] p-4 text-center border-r border-b border-slate-200 dark:border-white/10 w-20 align-bottom">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 block pb-4">Level</span>
+              <tr className="h-32">
+                <th className="sticky left-0 z-30 bg-slate-50 dark:bg-[#1a1f2e] p-2 text-center border-r border-b border-slate-200 dark:border-white/10 w-16 align-bottom">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 block pb-2">Level</span>
                 </th>
                 {COLUMNS.map(col => (
-                  <th key={col} className="p-0 border-b border-slate-200 dark:border-white/10 w-14 bg-white/40 dark:bg-white/5 backdrop-blur-md relative">
-                    <div className="absolute inset-0 flex items-end justify-start pl-3 pb-6">
+                  <th key={col} className="p-0 border-b border-slate-200 dark:border-white/10 w-12 bg-white/40 dark:bg-white/5 backdrop-blur-md relative">
+                    <div className="absolute inset-0 flex items-end justify-start pl-2 pb-0.5">
                       <span 
-                        className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/70 inline-block leading-relaxed overflow-wrap-normal break-words"
+                        className="text-[7px] font-black uppercase tracking-[0.15em] text-slate-500 dark:text-white/70 inline-block leading-tight overflow-wrap-normal break-words"
                         style={{ 
                           writingMode: 'vertical-rl', 
                           transform: 'rotate(180deg)',
-                          maxHeight: '180px',
+                          maxHeight: '100px',
                           textAlign: 'left'
                         }}
                       >
@@ -1605,7 +1605,7 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
               {LEVELS.map(level => (
                 <tr key={level} className="group">
                   <td 
-                    className={`sticky left-0 z-20 bg-slate-50 dark:bg-[#1a1f2e] p-4 text-center border-r border-slate-200 dark:border-white/10 shadow-sm transition-colors group-hover:bg-slate-100 dark:group-hover:bg-[#252b3d] ${
+                    className={`sticky left-0 z-20 bg-slate-50 dark:bg-[#1a1f2e] p-2 text-center border-r border-slate-200 dark:border-white/10 shadow-sm transition-colors group-hover:bg-slate-100 dark:group-hover:bg-[#252b3d] ${
                       (isCatchUpMode || isFourteenFishMode) && level !== 4 && !isSupervisorView
                         ? 'cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/20'
                         : ''
@@ -1640,9 +1640,9 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                     }
                     
                     return (
-                      <td key={col} className="p-1 border-b border-slate-100 dark:border-white/5 group-hover:bg-slate-50/50 dark:group-hover:bg-white/[0.02] transition-colors">
+                      <td key={col} className="p-0.5 border-b border-slate-100 dark:border-white/5 group-hover:bg-slate-50/50 dark:group-hover:bg-white/[0.02] transition-colors">
                         <div 
-                          className={`w-full aspect-square rounded-lg flex items-center justify-center transition-all duration-500 transform hover:scale-105 hover:z-10 relative ${
+                          className={`w-full aspect-square rounded-md flex items-center justify-center transition-all duration-500 transform hover:scale-[1.03] hover:z-10 relative ${
                             isClickable || isCatchUp || isFourteenFish || isLinkingSelectable ? 'cursor-pointer' : 'cursor-default'
                           } ${getCellColor(status, col, level)}`}
                           onClick={() => handleBoxClick(col, level)}
@@ -1660,10 +1660,10 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
                                   handleDeselectFourteenFish(col, level);
                                 }
                               }}
-                              className="absolute top-0 right-0 w-4 h-4 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity z-20"
+                              className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity z-20"
                               title="Remove completion"
                             >
-                              <X size={10} />
+                              <X size={9} />
                             </button>
                           )}
                         </div>
