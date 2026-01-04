@@ -29,7 +29,7 @@ interface EPAFormProps {
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
-  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number) => void;
+  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
 }
@@ -620,7 +620,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   {/* Complete CRS/OSATS button for mandatory form criteria */}
                   {onCompleteMandatoryForm && req.startsWith('CRS ') && getCRSSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)}
+                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold uppercase text-indigo-600 hover:bg-indigo-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete CRS
@@ -628,7 +628,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && req.startsWith('OSATS ') && getOSATSSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)}
+                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[10px] font-bold uppercase text-orange-600 hover:bg-orange-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete OSATS
@@ -636,7 +636,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && getOperatingListFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('EPAOperatingList', sia || '', reqKey, activeSection, idx)}
+                      onClick={() => onCompleteMandatoryForm('EPAOperatingList', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-[10px] font-bold uppercase text-purple-600 hover:bg-purple-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete EPA

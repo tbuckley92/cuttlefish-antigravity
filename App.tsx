@@ -749,12 +749,14 @@ const App: React.FC = () => {
     defaultSubtype: string,
     reqKey: string,
     sectionIndex: number,
-    criterionIndex: number
+    criterionIndex: number,
+    originLevel?: number,
+    originSia?: string
   ) => {
     // Store the current EPA form params so we can return
     const epaParams: FormParams = {
-      sia: selectedFormParams?.sia || '',
-      level: selectedFormParams?.level || 1,
+      sia: originSia ?? (selectedFormParams?.sia || ''),
+      level: originLevel ?? (selectedFormParams?.level || 1),
       supervisorName: selectedFormParams?.supervisorName,
       supervisorEmail: selectedFormParams?.supervisorEmail,
       id: selectedFormParams?.id,
@@ -778,8 +780,8 @@ const App: React.FC = () => {
     // Navigate to the appropriate form
     if (formType === 'CRS') {
       setSelectedFormParams({
-        sia: selectedFormParams?.sia || '',
-        level: selectedFormParams?.level || 1,
+        sia: originSia ?? (selectedFormParams?.sia || ''),
+        level: originLevel ?? (selectedFormParams?.level || 1),
         supervisorName: selectedFormParams?.supervisorName,
         supervisorEmail: selectedFormParams?.supervisorEmail,
         type: defaultSubtype, // This will be used for initialCrsType
@@ -789,8 +791,8 @@ const App: React.FC = () => {
       setCurrentView(View.CRSForm);
     } else if (formType === 'OSATs') {
       setSelectedFormParams({
-        sia: selectedFormParams?.sia || '',
-        level: selectedFormParams?.level || 1,
+        sia: originSia ?? (selectedFormParams?.sia || ''),
+        level: originLevel ?? (selectedFormParams?.level || 1),
         supervisorName: selectedFormParams?.supervisorName,
         supervisorEmail: selectedFormParams?.supervisorEmail,
         type: defaultSubtype, // This will be used for initialOsatsType
@@ -813,15 +815,18 @@ const App: React.FC = () => {
 
   // Handler for CRS form submission - handles auto-linking back to EPA
   const handleCRSSubmitted = () => {
-    if (mandatoryContext && mandatoryContext.expectedType === 'CRS' && mandatoryCreatedIdRef.current) {
-      const evidenceId = mandatoryCreatedIdRef.current;
+    if (mandatoryContext && mandatoryContext.expectedType === 'CRS') {
       const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
 
-      // Auto-link the created evidence to the EPA criterion
-      setLinkedEvidence(prev => ({
-        ...prev,
-        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
-      }));
+      const evidenceId = mandatoryCreatedIdRef.current || (selectedFormParams?.id);
+
+      if (evidenceId) {
+        // Auto-link the created evidence to the EPA criterion
+        setLinkedEvidence(prev => ({
+          ...prev,
+          [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+        }));
+      }
 
       // Set return target for scroll
       setReturnTarget({
@@ -848,15 +853,18 @@ const App: React.FC = () => {
 
   // Handler for OSATS form submission - handles auto-linking back to EPA
   const handleOSATSSubmitted = () => {
-    if (mandatoryContext && mandatoryContext.expectedType === 'OSATs' && mandatoryCreatedIdRef.current) {
-      const evidenceId = mandatoryCreatedIdRef.current;
+    if (mandatoryContext && mandatoryContext.expectedType === 'OSATs') {
       const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
 
-      // Auto-link the created evidence to the EPA criterion
-      setLinkedEvidence(prev => ({
-        ...prev,
-        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
-      }));
+      const evidenceId = mandatoryCreatedIdRef.current || (selectedFormParams?.id);
+
+      if (evidenceId) {
+        // Auto-link the created evidence to the EPA criterion
+        setLinkedEvidence(prev => ({
+          ...prev,
+          [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+        }));
+      }
 
       // Set return target for scroll
       setReturnTarget({
@@ -883,15 +891,18 @@ const App: React.FC = () => {
 
   // Handler for EPA form submission (Operating List) - handles auto-linking back to origin EPA
   const handleEPAFromEPASubmitted = () => {
-    if (mandatoryContext && mandatoryContext.expectedType === 'EPA' && mandatoryCreatedIdRef.current) {
-      const evidenceId = mandatoryCreatedIdRef.current;
+    if (mandatoryContext && mandatoryContext.expectedType === 'EPA') {
       const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
 
-      // Auto-link the created evidence to the EPA criterion
-      setLinkedEvidence(prev => ({
-        ...prev,
-        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
-      }));
+      const evidenceId = mandatoryCreatedIdRef.current || (selectedFormParams?.id);
+
+      if (evidenceId) {
+        // Auto-link the created evidence to the EPA criterion
+        setLinkedEvidence(prev => ({
+          ...prev,
+          [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+        }));
+      }
 
       // Set return target for scroll
       setReturnTarget({
@@ -918,15 +929,19 @@ const App: React.FC = () => {
 
   // Handler for EPA Operating List form submission - handles auto-linking back to origin EPA
   const handleEPAOperatingListSubmitted = () => {
-    if (mandatoryContext && mandatoryContext.expectedType === 'EPAOperatingList' && mandatoryCreatedIdRef.current) {
-      const evidenceId = mandatoryCreatedIdRef.current;
+    if (mandatoryContext && mandatoryContext.expectedType === 'EPAOperatingList') {
       const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
 
-      // Auto-link the created evidence to the EPA criterion
-      setLinkedEvidence(prev => ({
-        ...prev,
-        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
-      }));
+      // Use the ref if set (newly created), otherwise check for existing evidence (if editing)
+      const evidenceId = mandatoryCreatedIdRef.current || (selectedFormParams?.id);
+
+      if (evidenceId) {
+        // Auto-link the created evidence to the EPA criterion
+        setLinkedEvidence(prev => ({
+          ...prev,
+          [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+        }));
+      }
 
       // Set return target for scroll
       setReturnTarget({
@@ -1323,9 +1338,13 @@ const App: React.FC = () => {
             onBack={handleBackToOrigin}
             onSubmitted={handleEPAOperatingListSubmitted}
             onSave={(item) => {
-              handleUpsertEvidence(item);
-              if (!item.id) {
-                mandatoryCreatedIdRef.current = item.id || Math.random().toString(36).substr(2, 9);
+              // Ensure we capture the ID created by handleUpsertEvidence
+              const itemId = item.id || Math.random().toString(36).substr(2, 9);
+              handleUpsertEvidence({ ...item, id: itemId });
+
+              const ctx = mandatoryContext;
+              if (ctx && ctx.expectedType === 'EPAOperatingList') {
+                mandatoryCreatedIdRef.current = itemId;
               }
             }}
             allEvidence={allEvidence}

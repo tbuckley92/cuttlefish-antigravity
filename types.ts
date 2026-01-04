@@ -168,6 +168,7 @@ export interface EvidenceItem {
     comments: Record<string, string>; // Comments for each criterion
     ratings: Record<string, string>; // Ratings for each criterion
     entrustment: string;
+    aspectsEspeciallyGood?: string;
     supervisorName: string;
     supervisorEmail: string;
   };

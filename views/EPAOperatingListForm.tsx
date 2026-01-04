@@ -33,18 +33,17 @@ const OPERATING_LIST_CRITERIA = [
 ];
 
 const ENTRUSTMENT_LEVELS = [
-    'Unable to do',
-    'Can do with direct supervision',
-    'Can do with indirect supervision',
-    'Can do unsupervised',
-    'Can supervise others'
+    'Observing',
+    'Needs Direct Supervision',
+    'Needs Indirect Supervision',
+    'Competent to this level'
 ];
 
 const RATING_OPTIONS = [
-    'Concern',
-    'Borderline',
-    'Competent',
-    'Excellent'
+    'MAJOR CONCERNS',
+    'MINOR CONCERNS',
+    'MEETS EXPECTATIONS',
+    'N/A'
 ];
 
 const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
@@ -70,6 +69,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
     const [ratings, setRatings] = useState<Record<string, string>>({});
     const [comments, setComments] = useState<Record<string, string>>({});
     const [entrustment, setEntrustment] = useState('');
+    const [aspectsEspeciallyGood, setAspectsEspeciallyGood] = useState('');
 
     const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
@@ -89,6 +89,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                 setRatings(existing.epaOperatingListFormData.ratings || {});
                 setComments(existing.epaOperatingListFormData.comments || {});
                 setEntrustment(existing.epaOperatingListFormData.entrustment || '');
+                setAspectsEspeciallyGood(existing.epaOperatingListFormData.aspectsEspeciallyGood || '');
                 setSupervisorName(existing.epaOperatingListFormData.supervisorName || '');
                 setSupervisorEmail(existing.epaOperatingListFormData.supervisorEmail || '');
                 setDate(existing.date);
@@ -105,7 +106,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
             }, 2000);
             return () => clearTimeout(autoSaveTimer);
         }
-    }, [subspecialty, supervisorName, supervisorEmail, ratings, comments, entrustment]);
+    }, [subspecialty, supervisorName, supervisorEmail, ratings, comments, entrustment, aspectsEspeciallyGood]);
 
     const saveToParent = (overrideStatus?: EvidenceStatus) => {
         const formData: Partial<EvidenceItem> = {
@@ -119,6 +120,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                 ratings,
                 comments,
                 entrustment,
+                aspectsEspeciallyGood,
                 supervisorName,
                 supervisorEmail
             }
@@ -147,6 +149,17 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         onSubmitted();
     };
 
+    const handleMarkAllMeets = () => {
+        if (isReadOnly) return;
+        const newRatings: Record<string, string> = {};
+        OPERATING_LIST_CRITERIA.forEach((_, idx) => {
+            newRatings[idx] = 'MEETS EXPECTATIONS';
+        });
+        setRatings(newRatings);
+        // Clear all comments
+        setComments({});
+    };
+
     const handleRatingChange = (criterionIndex: number, rating: string) => {
         setRatings(prev => ({ ...prev, [criterionIndex]: rating }));
     };
@@ -166,6 +179,10 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         }
         if (!entrustment) {
             alert('Please select an entrustment level');
+            return;
+        }
+        if (!aspectsEspeciallyGood) {
+            alert('Please enter aspects which were especially good');
             return;
         }
 
@@ -191,6 +208,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                 ratings,
                 comments,
                 entrustment,
+                aspectsEspeciallyGood,
                 supervisorName,
                 supervisorEmail
             }
@@ -325,9 +343,19 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                     <div className="space-y-6">
                         {/* Section A: Operating List Management */}
                         <GlassCard className="p-6">
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-                                Section A: Operating List Management
-                            </h2>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                                    Section A: Operating List Management
+                                </h2>
+                                {!isReadOnly && (
+                                    <button
+                                        onClick={handleMarkAllMeets}
+                                        className="px-4 py-2 rounded-xl border border-indigo-200 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-100 dark:hover:bg-indigo-500/10 transition-all"
+                                    >
+                                        MARK ALL AS MEETS EXPECTATIONS
+                                    </button>
+                                )}
+                            </div>
 
                             <div className="space-y-6">
                                 {OPERATING_LIST_CRITERIA.map((criterion, idx) => (
@@ -338,18 +366,15 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
 
                                         {/* Rating */}
                                         <div className="mb-3">
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-white/30 mb-2">
-                                                Rating *
-                                            </label>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            <div className="flex flex-wrap gap-2">
                                                 {RATING_OPTIONS.map(option => (
                                                     <button
                                                         key={option}
                                                         onClick={() => !isReadOnly && handleRatingChange(idx, option)}
                                                         disabled={isReadOnly}
-                                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${ratings[idx] === option
-                                                            ? 'bg-cyan-500 text-white border-2 border-cyan-600'
-                                                            : 'bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 hover:border-cyan-400'
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${ratings[idx] === option
+                                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
                                                             } disabled:opacity-50`}
                                                     >
                                                         {option}
@@ -359,7 +384,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                                         </div>
 
                                         {/* Comments */}
-                                        {(ratings[idx] === 'Concern' || ratings[idx] === 'Borderline' || comments[idx]) && (
+                                        {(ratings[idx] === 'MAJOR CONCERNS' || ratings[idx] === 'MINOR CONCERNS' || comments[idx]) && (
                                             <div>
                                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-white/30 mb-2">
                                                     Comments
@@ -380,33 +405,49 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                         </GlassCard>
 
                         {/* Section B: Entrustment */}
-                        <GlassCard className="p-6">
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                        <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2 uppercase tracking-widest">
                                 Section B: Entrustment
                             </h2>
+                            <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
 
-                            <div className="mb-4">
-                                <div className="flex items-start gap-2 mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/20">
-                                    <Info size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                                        Based on today's performance, what level of supervision would you recommend for this trainee managing an operating list?
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {ENTRUSTMENT_LEVELS.map(level => (
-                                        <button
-                                            key={level}
-                                            onClick={() => !isReadOnly && setEntrustment(level)}
+                            <div className="space-y-3 mb-6">
+                                {ENTRUSTMENT_LEVELS.map(level => (
+                                    <label
+                                        key={level}
+                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === level
+                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10'
+                                            : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'
+                                            }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="entrustment"
+                                            className="hidden"
                                             disabled={isReadOnly}
-                                            className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-all ${entrustment === level
-                                                ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-lg shadow-cyan-600/30'
-                                                : 'bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10'
-                                                } disabled:opacity-50`}
-                                        >
-                                            {level}
-                                        </button>
-                                    ))}
+                                            checked={entrustment === level}
+                                            onChange={() => setEntrustment(level)}
+                                        />
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === level ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                                            {entrustment === level && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
+                                        </div>
+                                        <span className="text-sm font-semibold">{level}</span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                        Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        disabled={isReadOnly}
+                                        value={aspectsEspeciallyGood}
+                                        onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                                        className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                        placeholder="Enter aspects which were especially good..."
+                                    />
                                 </div>
                             </div>
                         </GlassCard>

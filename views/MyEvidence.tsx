@@ -488,39 +488,48 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
-              <div className="flex justify-between items-center mb-6">
+            <div className="p-10 bg-white dark:bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-white/10 rounded-[2.5rem] relative overflow-hidden">
+              <div className="flex justify-between items-start mb-8">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Delete Evidence</h2>
-                  <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-widest font-black">Confirm Deletion</p>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Delete Evidence</h2>
+                  <p className="text-[10px] text-slate-400 dark:text-white/30 mt-1.5 uppercase tracking-[0.2em] font-black">Confirm Deletion</p>
                 </div>
-                <button onClick={handleDeleteCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
-                  <X size={20} />
+                <button
+                  onClick={handleDeleteCancel}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors"
+                >
+                  <X size={24} />
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Are you sure you want to delete this evidence item? This action cannot be undone.
+              <div className="space-y-8">
+                <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Are you sure you want to delete this evidence item? This action <span className="text-slate-900 dark:text-white font-bold underline decoration-rose-500/30">cannot be undone</span>.
                 </p>
-                <div className="pt-4 flex flex-col gap-3">
+
+                <div className="flex flex-col gap-4">
                   <button
                     onClick={handleDeleteConfirm}
-                    className="w-full py-4 rounded-2xl bg-rose-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-rose-600/30 hover:bg-rose-500 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-rose-600 text-white font-bold text-xs uppercase tracking-[0.2em] shadow-xl shadow-rose-600/30 hover:bg-rose-500 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
                   >
-                    <Trash2 size={18} /> Delete Evidence
+                    <Trash2 size={18} className="group-hover:rotate-12 transition-transform" />
+                    <span>Delete Evidence</span>
                   </button>
+
                   <button
                     onClick={handleDeleteCancel}
-                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all text-center"
                   >
                     Cancel
                   </button>
                 </div>
               </div>
-            </GlassCard>
+
+              {/* Decorative background element */}
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-rose-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
           </div>
         </div>
       )}
