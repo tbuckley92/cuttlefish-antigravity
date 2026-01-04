@@ -19,7 +19,10 @@ import SupervisorDashboard from './views/SupervisorDashboard';
 import EyeLogbook from './views/EyeLogbook';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye } from './components/Icons';
+import { RefractiveAudit } from './views/RefractiveAudit';
+import { MyRefractiveAudit } from './views/MyRefractiveAudit';
+import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
@@ -47,7 +50,9 @@ enum View {
   MSFResponse = 'msf-response',
   ARCPPrep = 'arcp-prep',
   SupervisorDashboard = 'supervisor-dashboard',
-  EyeLogbook = 'eye-logbook'
+  EyeLogbook = 'eye-logbook',
+  RefractiveAudit = 'refractive-audit',
+  MyRefractiveAudit = 'my-refractive-audit'
 }
 
 interface FormParams {
@@ -1264,6 +1269,21 @@ const App: React.FC = () => {
         ) : null;
       case View.EyeLogbook:
         return <EyeLogbook />;
+      case View.RefractiveAudit:
+        return (
+          <RefractiveAudit
+            onBack={() => setCurrentView(View.Dashboard)}
+            onNavigateToMyAudit={() => setCurrentView(View.MyRefractiveAudit)}
+            userId={session?.user?.id}
+          />
+        );
+      case View.MyRefractiveAudit:
+        return (
+          <MyRefractiveAudit
+            onBack={() => setCurrentView(View.RefractiveAudit)}
+            userId={session?.user?.id}
+          />
+        );
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={handleUpdateProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -1293,6 +1313,16 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+
+  // Check for public optician form access via ?ra= query parameter
+  // This must be checked BEFORE auth gating to allow unauthenticated access
+  const urlParams = new URLSearchParams(window.location.search);
+  const refractiveAuditResidentId = urlParams.get('ra');
+  
+  if (refractiveAuditResidentId) {
+    // Render the public optician form without requiring authentication
+    return <RefractiveAuditOpticianForm residentUserId={refractiveAuditResidentId} />;
+  }
 
   if (isSupabaseConfigured) {
     if (!authReady) return <LoadingScreen label="Connecting to Supabase" />;
@@ -1384,6 +1414,15 @@ const App: React.FC = () => {
                     }} 
                     icon={<Eye size={16} />} 
                     label="EYE LOGBOOK" 
+                  />
+                  <NavTab 
+                    active={currentView === View.RefractiveAudit || currentView === View.MyRefractiveAudit} 
+                    onClick={() => {
+                      setViewingTraineeId(null);
+                      setCurrentView(View.RefractiveAudit);
+                    }} 
+                    icon={<ClipboardCheck size={16} />} 
+                    label="REFRACTIVE AUDIT" 
                   />
                 </>
               ) : (
