@@ -59,7 +59,6 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
   const [visionChangeLeft, setVisionChangeLeft] = useState<'better' | 'same' | 'worse' | ''>('');
 
   const isFormValid = 
-    patientId.trim() !== '' &&
     patientDob !== '' &&
     vaRight !== '' &&
     vaLeft !== '' &&
@@ -202,15 +201,14 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Patient ID <span className="text-red-500">*</span>
+                Patient ID
               </label>
               <input
                 type="text"
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
-                placeholder="Enter patient ID / hospital number"
+                placeholder="Enter patient ID / hospital number (optional)"
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
               />
             </div>
             
@@ -218,13 +216,13 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Date of Birth <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <div className="relative w-full min-w-0 overflow-hidden">
+                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
                 <input
                   type="date"
                   value={patientDob}
                   onChange={(e) => setPatientDob(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent box-border"
+                  className="w-full max-w-full min-w-0 pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent box-border"
                   required
                 />
               </div>
