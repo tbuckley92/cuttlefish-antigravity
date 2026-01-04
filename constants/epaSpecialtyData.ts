@@ -586,7 +586,7 @@ export const LEVEL_4_CATARACT_SURGERY: EPASpecialtyData = {
     ],
     sectionD: [
       "OSATS Complex cataract surgery",
-      "EPA L4 Managing a cataract operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Performance of anterior vitrectomy",
@@ -682,7 +682,7 @@ export const LEVEL_4_CORNEA_AND_OCULAR_SURFACE_DISEASE: EPASpecialtyData = {
     sectionD: [
       "OSATS Surgical skills - cornea and ocular surface",
       "OSATS Cataract surgery",
-      "EPA L4 Managing a corneal and ocular surface operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Complex cataract surgery",
@@ -736,7 +736,7 @@ export const LEVEL_4_GLAUCOMA: EPASpecialtyData = {
     sectionD: [
       "OSATS Microsurgical skills - glaucoma surgery",
       "OSATS Cataract surgery",
-      "EPA L4 Managing a glaucoma operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Complex cataract surgery: shallow anterior chamber/previous glaucoma/PXF",
@@ -884,7 +884,7 @@ export const LEVEL_4_OCULAR_MOTILITY: EPASpecialtyData = {
     sectionD: [
       "OSATS Extraocular Muscle Surgery",
       "OSATS Microsurgical skills - vitreoretinal surgery",
-      "EPA L4 Managing an ocular motility operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Management of complications of strabismus surgery and re-do surgery - either in Outpatients or Theatre",
@@ -935,9 +935,9 @@ export const LEVEL_4_OCULOPLASTICS: EPASpecialtyData = {
     ],
     sectionD: [
       "OSATS Surgical skills - eyelid and adnexal surgery",
-      "OSATS Temporal artery biopsy",
+      "OSATS Temporal Artery Biopsy",
       "OSATS Removal of eye (enucleation and evisceration)",
-      "EPA L4 Managing an oculoplastics operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Surgical management of oculoplastic adnexal and lacrimal conditions including complex entropion",
@@ -989,7 +989,7 @@ export const LEVEL_4_PAEDIATRIC_OPHTHALMOLOGY: EPASpecialtyData = {
     ],
     sectionD: [
       "OSATS - surgery in paediatric patients",
-      "EPA L4 Managing a paediatric operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Complex strabismus and nystagmus assessment - either Theatre or Outpatients",
@@ -1136,7 +1136,7 @@ export const LEVEL_4_VITREORETINAL_SURGERY: EPASpecialtyData = {
     sectionD: [
       "OSATS Cataract surgery",
       "OSATS Microsurgical skills - vitreoretinal surgery",
-      "EPA L4 Managing a vitreoretinal operating list",
+      "EPA L4 Operating List",
     ],
     sectionE: [
       "Complex cataract surgery (post-vitrectomy, posterior polar)",
@@ -1265,42 +1265,6 @@ export const LEVEL_5_URGENT_EYE_CARE: EPASpecialtyData = {
   },
 };
 
-export const LEVEL_4_OPERATING_LIST: EPASpecialtyData = {
-  learningOutcomes: [],
-  criteria: {
-    sectionB: [
-      "Creating an appropriate operating list",
-      "Review of case notes",
-      "Consent and marking surgical site",
-      "Review of patients",
-      "Successful surgical management",
-      "Medical record completion",
-      "Post-operative review",
-      "Debrief at completion list",
-      "Communication with patient",
-      "Communication with nursing and other medical staff"
-    ],
-    sectionC: [],
-    sectionD: [],
-    sectionE: [],
-    sectionF: []
-  },
-  sectionBlurbs: {
-    sectionB: false,
-    sectionC: false,
-    sectionD: false,
-    sectionE: false,
-    sectionF: false
-  },
-  showCommentsAlways: {
-    sectionB: true,
-    sectionC: false,
-    sectionD: false,
-    sectionE: false,
-    sectionF: false
-  }
-};
-
 
 // Lookup map: Level -> Specialty -> Data
 export const EPA_SPECIALTY_DATA: Record<number, Record<string, EPASpecialtyData>> = {
@@ -1327,7 +1291,6 @@ export const EPA_SPECIALTY_DATA: Record<number, Record<string, EPASpecialtyData>
     "Neuro-ophthalmology": LEVEL_4_NEURO_OPHTHALMOLOGY,
     "Ocular Motility": LEVEL_4_OCULAR_MOTILITY,
     "Oculoplastics": LEVEL_4_OCULOPLASTICS,
-    "Operating List": LEVEL_4_OPERATING_LIST,
     "Paediatric Ophthalmology": LEVEL_4_PAEDIATRIC_OPHTHALMOLOGY,
     "Urgent Eye Care": LEVEL_4_URGENT_EYE_CARE,
     "Uveitis": LEVEL_4_UVEITIS,

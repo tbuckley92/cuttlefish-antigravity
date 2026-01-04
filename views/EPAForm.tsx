@@ -29,7 +29,7 @@ interface EPAFormProps {
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
-  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number) => void;
+  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
 }
@@ -69,6 +69,11 @@ const getOSATSSubtypeFromCriterion = (criterion: string): string | null => {
   if (name === 'Interpret biometry') return 'OSATS Interpret biometry';
   // Fallback
   return `OSATS ${name}`;
+};
+
+const getOperatingListFromCriterion = (criterion: string): boolean => {
+  // Check if criterion is the standardized EPA L4 Operating List
+  return criterion.includes('EPA L4 Operating List');
 };
 
 const ALL_SPECIALTIES = ["No attached SIA", ...SPECIALTIES];
@@ -270,8 +275,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
   // Lock based on status only (Submitted or SignedOff/Complete)
   const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
 
-  // When viewing linked evidence (has originFormParams), force read-only mode
-  const isReadOnly = isLocked || !!originFormParams;
+  // When viewing linked evidence (has originFormParams AND existing id), force read-only mode
+  // But when creating a new form from mandatory context (originFormParams but no id), NOT read-only
+  const isReadOnly = isLocked || (!!originFormParams && !!id);
 
   // Determine back button text based on origin
   const backButtonText = originFormParams ? 'Back to Form' : originView ? 'Back to Evidence' : 'Back';
@@ -626,6 +632,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[10px] font-bold uppercase text-orange-600 hover:bg-orange-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete OSATS
+                    </button>
+                  )}
+                  {onCompleteMandatoryForm && getOperatingListFromCriterion(req) && (
+                    <button
+                      onClick={() => onCompleteMandatoryForm('EPAOperatingList', sia || '', reqKey, activeSection, idx)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-[10px] font-bold uppercase text-purple-600 hover:bg-purple-100 transition-all"
+                    >
+                      <ClipboardCheck size={14} /> Complete EPA
                     </button>
                   )}
                   <button

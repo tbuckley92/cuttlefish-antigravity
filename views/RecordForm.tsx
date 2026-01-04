@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ClipboardCheck, Activity, Scissors, 
+import {
+  ArrowLeft, ClipboardCheck, Activity, Scissors,
   BarChart2, FileText, Users, ChevronRight, BookOpen, Clipboard
 } from '../components/Icons';
 
@@ -12,65 +12,73 @@ interface RecordFormProps {
 }
 
 const formTypes = [
-  { 
-    id: 'EPA', 
-    label: 'EPA', 
+  {
+    id: 'EPA',
+    label: 'EPA',
     subtitle: 'Entrustable Professional Activity',
     icon: <ClipboardCheck size={24} />,
     color: 'text-teal-500',
     bgColor: 'bg-teal-500/5'
   },
-  { 
-    id: 'GSAT', 
-    label: 'GSAT', 
+  {
+    id: 'EPAOperatingList',
+    label: 'EPA Operating List',
+    subtitle: 'Document subspecialty operating lists',
+    icon: <Clipboard size={24} />,
+    color: 'text-cyan-500',
+    bgColor: 'bg-cyan-500/5'
+  },
+  {
+    id: 'GSAT',
+    label: 'GSAT',
     subtitle: 'Generic Skills Assessment Tool',
     icon: <BookOpen size={24} />,
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-600/5'
   },
-  { 
-    id: 'CBD', 
-    label: 'CBD', 
+  {
+    id: 'CBD',
+    label: 'CBD',
     subtitle: 'Case-Based Discussion',
     icon: <Clipboard size={24} />,
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/5'
   },
-  { 
-    id: 'DOPs', 
-    label: 'DOPs', 
+  {
+    id: 'DOPs',
+    label: 'DOPs',
     subtitle: 'Direct Observation of Procedural Skills',
     icon: <Activity size={24} />,
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/5'
   },
-  { 
-    id: 'OSATs', 
-    label: 'OSATS', 
+  {
+    id: 'OSATs',
+    label: 'OSATS',
     subtitle: 'Objective Structured Assessment of Technical Skills',
     icon: <Scissors size={24} />,
     color: 'text-orange-500',
     bgColor: 'bg-orange-500/5'
   },
-  { 
-    id: 'CRS', 
-    label: 'CRS', 
+  {
+    id: 'CRS',
+    label: 'CRS',
     subtitle: 'Clinical Rating Scale',
     icon: <BarChart2 size={24} />,
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/5'
   },
-  { 
-    id: 'MAR', 
-    label: 'MAR', 
+  {
+    id: 'MAR',
+    label: 'MAR',
     subtitle: 'Management of Acute Referral',
     icon: <FileText size={24} />,
     color: 'text-emerald-500',
     bgColor: 'bg-emerald-500/5'
   },
-  { 
-    id: 'MSF', 
-    label: 'MSF', 
+  {
+    id: 'MSF',
+    label: 'MSF',
     subtitle: 'Multi-Source Feedback',
     icon: <Users size={24} />,
     color: 'text-indigo-500',
@@ -93,19 +101,19 @@ const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
         {formTypes.map((form) => (
-          <GlassCard 
-            key={form.id} 
+          <GlassCard
+            key={form.id}
             onClick={() => onSelectForm(form.id)}
             className="flex items-center p-5 group relative overflow-hidden transition-all border-slate-200 dark:border-white/10 hover:shadow-xl"
           >
             {/* Background Glow */}
             <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-current opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none ${form.color}`}></div>
-            
+
             {/* Icon Container */}
             <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${form.bgColor} ${form.color} border border-transparent group-hover:border-current/10`}>
               {form.icon}
             </div>
-            
+
             {/* Content Container */}
             <div className="ml-5 flex-1 min-w-0">
               <h3 className="text-sm font-black tracking-[0.15em] text-slate-800 dark:text-white uppercase">
@@ -118,7 +126,7 @@ const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {
 
             {/* Action Indicator */}
             <div className="ml-4 flex-shrink-0 transition-all duration-300 transform group-hover:translate-x-1 opacity-0 group-hover:opacity-100">
-               <ChevronRight size={18} className={form.color} />
+              <ChevronRight size={18} className={form.color} />
             </div>
           </GlassCard>
         ))}

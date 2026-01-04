@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  Filter, Search, FileText, CheckCircle2, Clock, 
+import {
+  Filter, Search, FileText, CheckCircle2, Clock,
   ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X
 } from '../components/Icons';
 import { SPECIALTIES } from '../constants';
@@ -22,20 +22,22 @@ interface MyEvidenceProps {
   isSupervisorView?: boolean;
   onBack?: () => void;
   excludeType?: EvidenceType;
+  epaLinkingMode?: boolean; // When true, only show EPA Operating List items
 }
 
-const MyEvidence: React.FC<MyEvidenceProps> = ({ 
+const MyEvidence: React.FC<MyEvidenceProps> = ({
   allEvidence,
   profile,
-  selectionMode = false, 
-  onConfirmSelection, 
+  selectionMode = false,
+  onConfirmSelection,
   onCancel,
   onEditEvidence,
   onDeleteEvidence,
   maxSelection = Infinity,
   isSupervisorView = false,
   onBack,
-  excludeType
+  excludeType,
+  epaLinkingMode = false
 }) => {
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
@@ -62,25 +64,31 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     return allEvidence.filter(item => {
       // Exclude ARCP Prep items from the main Evidence table
       if (item.type === EvidenceType.ARCPPrep) return false;
-      
+
+      // In EPA linking mode, only show EPA Operating List items
+      if (selectionMode && epaLinkingMode) {
+        // Only allow EPA Operating List type to be linked from EPA forms
+        return item.type === EvidenceType.EPAOperatingList;
+      }
+
       // In selection mode, exclude same-type evidence (e.g., EPAs can't link to EPAs)
       if (selectionMode && excludeType && item.type === excludeType) return false;
-      
+
       const typeMatch = filterType === 'All' || item.type === filterType;
       const siaMatch = filterSIA === 'All' || item.sia === filterSIA;
-      
+
       // Year filter
       const yearMatch = filterYear === 'All' || (item.date && new Date(item.date).getFullYear().toString() === filterYear);
-      
+
       // Status filter
-      const statusMatch = filterStatus === 'All' || 
+      const statusMatch = filterStatus === 'All' ||
         (filterStatus === 'Draft' && item.status === EvidenceStatus.Draft) ||
         (filterStatus === 'Submitted' && item.status === EvidenceStatus.Submitted) ||
         (filterStatus === 'Complete' && item.status === EvidenceStatus.SignedOff);
-      
+
       return typeMatch && siaMatch && yearMatch && statusMatch;
     });
-  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType]);
+  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType, epaLinkingMode]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -108,7 +116,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
   const handlePDFClick = async (e: React.MouseEvent, item: EvidenceItem) => {
     e.stopPropagation();
-    
+
     // For Curriculum Catch Up and FourteenFish, open the uploaded file directly
     if ((item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) && item.fileUrl) {
       try {
@@ -120,7 +128,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         return;
       }
     }
-    
+
     // For other evidence types, generate PDF from metadata
     try {
       const blob = generateEvidencePDF(item, profile, allEvidence);
@@ -145,7 +153,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       return;
     }
 
-    const selectedItems = filteredEvidence.filter(item => 
+    const selectedItems = filteredEvidence.filter(item =>
       selectedForExport.includes(item.id) && item.status === EvidenceStatus.SignedOff
     );
 
@@ -174,8 +182,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   };
 
   const handleToggleSelect = (id: string) => {
-    setSelectedForExport(prev => 
-      prev.includes(id) 
+    setSelectedForExport(prev =>
+      prev.includes(id)
         ? prev.filter(i => i !== id)
         : [...prev, id]
     );
@@ -184,10 +192,10 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const handleSelectAllComplete = () => {
     const completeItems = filteredEvidence.filter(item => item.status === EvidenceStatus.SignedOff);
     const completeIds = completeItems.map(item => item.id);
-    
+
     // If all complete items are selected, deselect all. Otherwise, select all.
     const allSelected = completeIds.every(id => selectedForExport.includes(id));
-    
+
     if (allSelected) {
       setSelectedForExport(prev => prev.filter(id => !completeIds.includes(id)));
     } else {
@@ -208,14 +216,14 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   }, [filteredEvidence]);
 
   const selectedCompleteCount = useMemo(() => {
-    return filteredEvidence.filter(item => 
+    return filteredEvidence.filter(item =>
       item.status === EvidenceStatus.SignedOff && selectedForExport.includes(item.id)
     ).length;
   }, [filteredEvidence, selectedForExport]);
 
   return (
     <div className={`max-w-7xl mx-auto p-6 flex flex-col gap-6 animate-in fade-in duration-300 ${selectionMode ? 'mt-12' : ''}`}>
-      
+
       {selectionMode && (
         <div className="fixed top-0 left-0 right-0 z-50 px-6 py-4 backdrop-blur-xl bg-teal-600/10 dark:bg-teal-900/40 border-b border-teal-500/20 flex justify-between items-center shadow-lg">
           <div className="flex items-center gap-4">
@@ -230,7 +238,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               {selectedIds.length} selected
             </span>
           </div>
-          <button 
+          <button
             disabled={selectedIds.length === 0}
             onClick={() => onConfirmSelection?.(selectedIds)}
             className="px-6 py-2 rounded-lg bg-teal-500 text-white font-semibold text-sm hover:bg-teal-400 disabled:opacity-50 transition-all shadow-lg shadow-teal-500/20"
@@ -295,14 +303,14 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       <GlassCard className="hidden md:flex p-1 flex-col md:flex-row gap-2">
         <div className="flex-1 flex items-center gap-3 px-4 py-2">
           <Search size={18} className="text-slate-400 dark:text-white/30" />
-          <input 
-            type="text" 
-            placeholder="Search evidence..." 
+          <input
+            type="text"
+            placeholder="Search evidence..."
             className="bg-transparent border-none outline-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/20 w-full"
           />
         </div>
         <div className="flex items-center gap-2 p-1">
-          <select 
+          <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
@@ -310,7 +318,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             <option value="All">All Types</option>
             {Object.values(EvidenceType).filter(t => t !== EvidenceType.ARCPPrep).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select 
+          <select
             value={filterSIA}
             onChange={(e) => setFilterSIA(e.target.value)}
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
@@ -318,7 +326,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             <option value="All">All SIAs</option>
             {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select 
+          <select
             value={filterYear}
             onChange={(e) => setFilterYear(e.target.value)}
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
@@ -326,7 +334,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             <option value="All">All Years</option>
             {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
           </select>
-          <select 
+          <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
@@ -344,129 +352,129 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
         <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[800px]">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
-              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[100px]">Type</th>
-              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
-              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[120px]">SIA</th>
-              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[50px] text-center">Level</th>
-              <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[90px]">Date</th>
-              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[80px] text-center">Status</th>
-              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[60px] text-center">Actions</th>
-              <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[55px] text-center">Select</th>
-              {selectionMode && <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[45px] text-center">Link</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEvidence.map((item) => {
-              const isSelected = selectedIds.includes(item.id);
-              return (
-                <tr 
-                  key={item.id} 
-                  onClick={() => selectionMode ? toggleSelection(item.id) : onEditEvidence?.(item)}
-                  className={`
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[100px]">Type</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[120px]">SIA</th>
+                <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[50px] text-center">Level</th>
+                <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[90px]">Date</th>
+                <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[80px] text-center">Status</th>
+                <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[60px] text-center">Actions</th>
+                <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[55px] text-center">Select</th>
+                {selectionMode && <th className="px-2 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[45px] text-center">Link</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEvidence.map((item) => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <tr
+                    key={item.id}
+                    onClick={() => selectionMode ? toggleSelection(item.id) : onEditEvidence?.(item)}
+                    className={`
                     group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer
                     ${selectionMode && isSelected ? 'bg-teal-500/5 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'}
                   `}
-                >
-                  <td className="px-3 py-3">
-                    <span className={`
+                  >
+                    <td className="px-3 py-3">
+                      <span className={`
                       inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight truncate max-w-full
                       ${getTypeColors(item.type)}
                     `} title={item.type}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white truncate">
-                        {item.title}
+                        {item.type}
                       </span>
-                      {item.fileName && (
-                        <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${item.fileName}`}>
-                          <FileText size={8} />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-xs text-slate-500 dark:text-white/50 truncate" title={item.sia || ''}>
-                    {item.sia || '–'}
-                  </td>
-                  <td className="px-2 py-3 text-xs text-slate-500 dark:text-white/50 text-center">
-                    {item.level || '–'}
-                  </td>
-                  <td className="px-3 py-3 text-slate-500 dark:text-white/50 font-mono text-[11px]">
-                    {formatDate(item.date)}
-                  </td>
-                  <td className="px-2 py-3 text-center">
-                    <span className={`
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white truncate">
+                          {item.title}
+                        </span>
+                        {item.fileName && (
+                          <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${item.fileName}`}>
+                            <FileText size={8} />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-slate-500 dark:text-white/50 truncate" title={item.sia || ''}>
+                      {item.sia || '–'}
+                    </td>
+                    <td className="px-2 py-3 text-xs text-slate-500 dark:text-white/50 text-center">
+                      {item.level || '–'}
+                    </td>
+                    <td className="px-3 py-3 text-slate-500 dark:text-white/50 font-mono text-[11px]">
+                      {formatDate(item.date)}
+                    </td>
+                    <td className="px-2 py-3 text-center">
+                      <span className={`
                       inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium
                       ${getStatusColors(item.status)}
                     `}>
-                      {getStatusIcon(item.status)}
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-2 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      {item.status === EvidenceStatus.SignedOff && (
-                        <button
-                          onClick={(e) => handlePDFClick(e, item)}
-                          className="p-1 rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
-                          title="Download PDF"
-                        >
-                          <FileDown size={14} />
-                        </button>
-                      )}
-                      {item.status === EvidenceStatus.Draft && onDeleteEvidence && (
-                        <button
-                          onClick={(e) => handleDeleteClick(e, item.id)}
-                          className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-2 py-3 text-center">
-                    <div className="flex items-center justify-center">
-                      {item.status === EvidenceStatus.SignedOff ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedForExport.includes(item.id)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleSelect(item.id);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                      ) : (
-                        <span className="text-slate-300 dark:text-white/20">–</span>
-                      )}
-                    </div>
-                  </td>
-                  {selectionMode && (
+                        {getStatusIcon(item.status)}
+                        {item.status}
+                      </span>
+                    </td>
                     <td className="px-2 py-3 text-center">
-                      <div className="flex justify-center">
-                        <div className={`
+                      <div className="flex items-center justify-center gap-1">
+                        {item.status === EvidenceStatus.SignedOff && (
+                          <button
+                            onClick={(e) => handlePDFClick(e, item)}
+                            className="p-1 rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                            title="Download PDF"
+                          >
+                            <FileDown size={14} />
+                          </button>
+                        )}
+                        {item.status === EvidenceStatus.Draft && onDeleteEvidence && (
+                          <button
+                            onClick={(e) => handleDeleteClick(e, item.id)}
+                            className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 text-center">
+                      <div className="flex items-center justify-center">
+                        {item.status === EvidenceStatus.SignedOff ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedForExport.includes(item.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelect(item.id);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        ) : (
+                          <span className="text-slate-300 dark:text-white/20">–</span>
+                        )}
+                      </div>
+                    </td>
+                    {selectionMode && (
+                      <td className="px-2 py-3 text-center">
+                        <div className="flex justify-center">
+                          <div className={`
                           w-4 h-4 rounded border flex items-center justify-center transition-all
                           ${isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-300 dark:border-white/20 text-transparent'}
                         `}>
-                          <CheckCircle2 size={10} strokeWidth={3} />
+                            <CheckCircle2 size={10} strokeWidth={3} />
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        
+
         {filteredEvidence.length === 0 && (
           <div className="p-20 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-300 dark:text-white/20 mb-4">
@@ -498,13 +506,13 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                   Are you sure you want to delete this evidence item? This action cannot be undone.
                 </p>
                 <div className="pt-4 flex flex-col gap-3">
-                  <button 
+                  <button
                     onClick={handleDeleteConfirm}
                     className="w-full py-4 rounded-2xl bg-rose-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-rose-600/30 hover:bg-rose-500 transition-all flex items-center justify-center gap-2"
                   >
                     <Trash2 size={18} /> Delete Evidence
                   </button>
-                  <button 
+                  <button
                     onClick={handleDeleteCancel}
                     className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
                   >
@@ -543,7 +551,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             <div className="flex-1 p-4 space-y-4 overflow-y-auto">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Type</label>
-                <select 
+                <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
@@ -555,7 +563,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">SIA</label>
-                <select 
+                <select
                   value={filterSIA}
                   onChange={(e) => setFilterSIA(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
@@ -567,7 +575,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Year</label>
-                <select 
+                <select
                   value={filterYear}
                   onChange={(e) => setFilterYear(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
@@ -579,7 +587,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Status</label>
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
@@ -625,6 +633,7 @@ const getTypeColors = (type: EvidenceType) => {
     case EvidenceType.Reflection: return 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 dark:border-emerald-500/30';
     case EvidenceType.CRS: return 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30';
     case EvidenceType.EPA: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
+    case EvidenceType.EPAOperatingList: return 'bg-cyan-500/10 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/20 dark:border-cyan-500/30';
     case EvidenceType.MSF: return 'bg-indigo-600/10 text-indigo-600 border border-indigo-500/20';
     case EvidenceType.CurriculumCatchUp: return 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/20 dark:border-amber-500/30';
     case EvidenceType.FourteenFish: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';

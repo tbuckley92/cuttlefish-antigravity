@@ -18,6 +18,7 @@ export enum EvidenceType {
   MAR = 'MAR',
   Other = 'Other',
   EPA = 'EPA',
+  EPAOperatingList = 'EPA Operating List',
   GSAT = 'GSAT',
   QIP = 'Quality Improvement and Audit',
   Award = 'Prizes/Awards',
@@ -111,12 +112,12 @@ export interface SIA {
   supervisorEmail?: string;
 }
 
-export type MSFRole = 
-  | 'Consultant' 
-  | 'Trainee/Fellow' 
-  | 'Senior nurse, theatre' 
-  | 'Senior nurse, OPD' 
-  | 'Outpatient staff' 
+export type MSFRole =
+  | 'Consultant'
+  | 'Trainee/Fellow'
+  | 'Senior nurse, theatre'
+  | 'Senior nurse, OPD'
+  | 'Outpatient staff'
   | 'Medical secretary';
 
 export interface MSFRespondent {
@@ -161,6 +162,14 @@ export interface EvidenceItem {
     aspectsEspeciallyGood?: string; // Level 2 only
     additionalEvidenceNeeded?: string; // Level 2 only
     traineeNarrative?: string;
+  };
+  epaOperatingListFormData?: {
+    subspecialty: string; // The specialty this operating list is for (Glaucoma, Cataract, etc.)
+    comments: Record<string, string>; // Comments for each criterion
+    ratings: Record<string, string>; // Ratings for each criterion
+    entrustment: string;
+    supervisorName: string;
+    supervisorEmail: string;
   };
   gsatFormData?: {
     comments: Record<string, string>;

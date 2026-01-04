@@ -74,12 +74,12 @@ const App: React.FC = () => {
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [sias, setSias] = useState<SIA[]>(INITIAL_SIAS);
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(INITIAL_EVIDENCE);
-  
+
   // Selection mode for linking evidence
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [linkingReqIdx, setLinkingReqIdx] = useState<string | null>(null); 
+  const [linkingReqIdx, setLinkingReqIdx] = useState<string | null>(null);
   const [linkedEvidence, setLinkedEvidence] = useState<Record<string, string[]>>({});
-  
+
   // Persistence state for returning to the correct outcome in a form
   const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
 
@@ -93,14 +93,14 @@ const App: React.FC = () => {
   const [mandatoryContext, setMandatoryContext] = useState<MandatoryFormContext | null>(null);
   // Ref to hold the ID of evidence created during a mandatory form flow (needed for sync access)
   const mandatoryCreatedIdRef = useRef<string | null>(null);
-  
+
   const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
     console.log('App.tsx: handleUpsertEvidence called with:', item); // Debug log
-    
+
     // Increment counter BEFORE the state update to ensure uniqueness
     evidenceIdCounter.current += 1;
     const counterValue = evidenceIdCounter.current;
-    
+
     // Capture ID for mandatory form context (CRS/OSATS launched from EPA)
     // Check if this is a new creation matching the expected type
     const ctx = mandatoryContext;
@@ -108,7 +108,7 @@ const App: React.FC = () => {
       (ctx.expectedType === 'CRS' && item.type === EvidenceType.CRS) ||
       (ctx.expectedType === 'OSATs' && item.type === EvidenceType.OSATs)
     );
-    
+
     setAllEvidence(prev => {
       // Only check for existing if we have an ID
       if (item.id) {
@@ -122,7 +122,7 @@ const App: React.FC = () => {
           return prev.map(e => e.id === item.id ? { ...e, ...item } as EvidenceItem : e);
         }
       }
-      
+
       // Generate a truly unique ID using timestamp + counter + random
       // Counter is incremented outside state update to ensure uniqueness
       const generateUniqueId = () => {
@@ -131,7 +131,7 @@ const App: React.FC = () => {
         const random = Math.random().toString(36).substring(2, 11);
         return `ev-${timestamp}-${counter}-${random}`;
       };
-      
+
       // Generate ID and ensure it doesn't exist (shouldn't happen with counter, but safety check)
       let newId = item.id || generateUniqueId();
       let attempts = 0;
@@ -141,11 +141,11 @@ const App: React.FC = () => {
         newId = generateUniqueId();
         attempts++;
       }
-      
+
       if (attempts >= 10) {
         console.error('App.tsx: Failed to generate unique ID after 10 attempts!');
       }
-      
+
       const newItem: EvidenceItem = {
         id: newId,
         date: item.date || new Date().toISOString().split('T')[0],
@@ -154,12 +154,12 @@ const App: React.FC = () => {
         type: item.type || EvidenceType.Other,
         ...item
       } as EvidenceItem;
-      
+
       // Track the created ID for mandatory form context (auto-linking)
       if (isMatchingMandatoryType) {
         mandatoryCreatedIdRef.current = newItem.id;
       }
-      
+
       console.log('App.tsx: Creating new evidence item with ID:', newItem.id, 'Title:', newItem.title, 'Full item:', newItem); // Debug log
       const updated = [newItem, ...prev];
       console.log('App.tsx: Total evidence count after creation:', updated.length, 'IDs:', updated.map(e => `${e.id}:${e.title}`)); // Debug log
@@ -235,16 +235,16 @@ const App: React.FC = () => {
   // Define the function directly (not using useCallback) to debug
   const handleViewLinkedEvidence = ((evidenceId: string, section?: number) => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:161',message:'handleViewLinkedEvidence called',data:{evidenceId,allEvidenceCount:allEvidence.length,allEvidenceIds:allEvidence.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:161', message: 'handleViewLinkedEvidence called', data: { evidenceId, allEvidenceCount: allEvidence.length, allEvidenceIds: allEvidence.map(e => e.id) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
     // #endregion
     console.log('handleViewLinkedEvidence called with evidenceId:', evidenceId);
     const evidence = allEvidence.find(e => e.id === evidenceId);
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:163',message:'Evidence lookup result',data:{evidenceId,evidenceFound:!!evidence,evidenceType:evidence?.type,evidenceTitle:evidence?.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:163', message: 'Evidence lookup result', data: { evidenceId, evidenceFound: !!evidence, evidenceType: evidence?.type, evidenceTitle: evidence?.title }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
     // #endregion
     if (!evidence) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:164',message:'ERROR: Evidence not found',data:{evidenceId,allEvidenceIds:allEvidence.map(e=>e.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:164', message: 'ERROR: Evidence not found', data: { evidenceId, allEvidenceIds: allEvidence.map(e => e.id) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
       // #endregion
       console.error('Evidence not found:', evidenceId, 'Available evidence:', allEvidence.map(e => e.id));
       return;
@@ -255,7 +255,7 @@ const App: React.FC = () => {
     const originView = currentView;
     const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:172',message:'Preparing navigation',data:{originView,hasOriginParams:!!originFormParams,evidenceType:evidence.type,evidenceId:evidence.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:172', message: 'Preparing navigation', data: { originView, hasOriginParams: !!originFormParams, evidenceType: evidence.type, evidenceId: evidence.id }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
     // #endregion
     console.log('Origin view:', originView, 'Origin params:', originFormParams);
 
@@ -264,20 +264,20 @@ const App: React.FC = () => {
 
     // Navigate to the appropriate form view based on evidence type
     if (evidence.type === EvidenceType.EPA) {
-      setSelectedFormParams({ 
-        sia: evidence.sia || '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: evidence.sia || '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
       });
       setCurrentView(View.EPAForm);
     } else if (evidence.type === EvidenceType.DOPs) {
-      setSelectedFormParams({ 
-        sia: evidence.sia || '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: evidence.sia || '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
@@ -285,12 +285,12 @@ const App: React.FC = () => {
       setCurrentView(View.DOPsForm);
     } else if (evidence.type === EvidenceType.OSATs) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:199',message:'Navigating to OSATS form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:199', message: 'Navigating to OSATS form', data: { evidenceId: evidence.id, evidenceType: evidence.type, originView }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
       // #endregion
-      setSelectedFormParams({ 
-        sia: evidence.sia || '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: evidence.sia || '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
@@ -298,12 +298,12 @@ const App: React.FC = () => {
       setCurrentView(View.OSATSForm);
     } else if (evidence.type === EvidenceType.CbD) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:209',message:'Navigating to CBD form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:209', message: 'Navigating to CBD form', data: { evidenceId: evidence.id, evidenceType: evidence.type, originView }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
       // #endregion
-      setSelectedFormParams({ 
-        sia: evidence.sia || '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: evidence.sia || '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
@@ -311,12 +311,12 @@ const App: React.FC = () => {
       setCurrentView(View.CBDForm);
     } else if (evidence.type === EvidenceType.CRS) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:219',message:'Navigating to CRS form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:219', message: 'Navigating to CRS form', data: { evidenceId: evidence.id, evidenceType: evidence.type, originView }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
       // #endregion
-      setSelectedFormParams({ 
-        sia: evidence.sia || '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: evidence.sia || '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
@@ -324,12 +324,12 @@ const App: React.FC = () => {
       setCurrentView(View.CRSForm);
     } else if (evidence.type === EvidenceType.GSAT) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:229',message:'Navigating to GSAT form',data:{evidenceId:evidence.id,evidenceType:evidence.type,originView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:229', message: 'Navigating to GSAT form', data: { evidenceId: evidence.id, evidenceType: evidence.type, originView }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
       // #endregion
-      setSelectedFormParams({ 
-        sia: '', 
-        level: evidence.level || 1, 
-        id: evidence.id, 
+      setSelectedFormParams({
+        sia: '',
+        level: evidence.level || 1,
+        id: evidence.id,
         status: readOnlyStatus,
         originView,
         originFormParams
@@ -337,7 +337,7 @@ const App: React.FC = () => {
       setCurrentView(View.GSATForm);
     } else {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:263',message:'ERROR: Unknown evidence type, no navigation',data:{evidenceType:evidence.type,evidenceId:evidence.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.tsx:263', message: 'ERROR: Unknown evidence type, no navigation', data: { evidenceType: evidence.type, evidenceId: evidence.id }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
       // #endregion
     }
   }) as (evidenceId: string) => void;
@@ -349,8 +349,8 @@ const App: React.FC = () => {
   }
 
   const handleNavigateToMSF = () => {
-    const existingActiveMSF = allEvidence.find(e => 
-      e.type === EvidenceType.MSF && 
+    const existingActiveMSF = allEvidence.find(e =>
+      e.type === EvidenceType.MSF &&
       (e.status === EvidenceStatus.Draft || e.status === EvidenceStatus.Submitted)
     );
 
@@ -400,10 +400,10 @@ const App: React.FC = () => {
   };
 
   const handleAddSIA = (specialty: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
-    const initials = supervisorName 
+    const initials = supervisorName
       ? supervisorName.split(' ').map(n => n[0]).join('').toUpperCase()
       : '–';
-      
+
     const newSia: SIA = {
       id: Math.random().toString(36).substr(2, 9),
       specialty,
@@ -420,13 +420,13 @@ const App: React.FC = () => {
     if (domain) {
       linkKey = `GSAT-${domain}-${reqIndex}`;
     } else {
-      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA-') 
-        ? reqIndex 
+      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA-')
+        ? reqIndex
         : `EPA-${reqIndex}`;
     }
-    
+
     setLinkingReqIdx(linkKey);
-    
+
     // Extract index from EPA key if it's a string (format: EPA-L{level}-{section}-{idx})
     let extractedIndex: number | undefined = undefined;
     if (typeof reqIndex === 'string' && reqIndex.startsWith('EPA-')) {
@@ -441,10 +441,10 @@ const App: React.FC = () => {
     } else if (typeof reqIndex === 'number') {
       extractedIndex = reqIndex;
     }
-    
-    setReturnTarget({ 
+
+    setReturnTarget({
       originView: origin,
-      section: sectionIndex ?? 0, 
+      section: sectionIndex ?? 0,
       index: extractedIndex
     });
     setIsSelectionMode(true);
@@ -484,9 +484,9 @@ const App: React.FC = () => {
     }));
   };
 
-  // Handler for launching mandatory CRS/OSATS from EPA
+  // Handler for launching mandatory CRS/OSATS/EPA from EPA
   const handleCompleteMandatoryForm = (
-    formType: 'CRS' | 'OSATs',
+    formType: 'CRS' | 'OSATs' | 'EPA',
     defaultSubtype: string,
     reqKey: string,
     sectionIndex: number,
@@ -528,7 +528,7 @@ const App: React.FC = () => {
         originFormParams: epaParams
       });
       setCurrentView(View.CRSForm);
-    } else {
+    } else if (formType === 'OSATs') {
       setSelectedFormParams({
         sia: selectedFormParams?.sia || '',
         level: selectedFormParams?.level || 1,
@@ -539,6 +539,17 @@ const App: React.FC = () => {
         originFormParams: epaParams
       });
       setCurrentView(View.OSATSForm);
+    } else if (formType === 'EPA') {
+      // Navigate to EPA L4 Operating List
+      setSelectedFormParams({
+        sia: defaultSubtype, // This should be 'Operating List'
+        level: 4, // Operating List is always Level 4
+        supervisorName: selectedFormParams?.supervisorName,
+        supervisorEmail: selectedFormParams?.supervisorEmail,
+        originView: View.EPAForm,
+        originFormParams: epaParams
+      });
+      setCurrentView(View.EPAForm);
     }
   };
 
@@ -616,24 +627,59 @@ const App: React.FC = () => {
     }
   };
 
+  // Handler for EPA form submission (Operating List) - handles auto-linking back to origin EPA
+  const handleEPAFromEPASubmitted = () => {
+    if (mandatoryContext && mandatoryContext.expectedType === 'EPA' && mandatoryCreatedIdRef.current) {
+      const evidenceId = mandatoryCreatedIdRef.current;
+      const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
+
+      // Auto-link the created evidence to the EPA criterion
+      setLinkedEvidence(prev => ({
+        ...prev,
+        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+      }));
+
+      // Set return target for scroll
+      setReturnTarget({
+        originView: View.EPAForm,
+        section: returnSection,
+        index: returnIndex
+      });
+
+      // Navigate back to origin EPA form
+      setSelectedFormParams({
+        ...epaFormParams,
+        initialSection: returnSection
+      });
+      setCurrentView(View.EPAForm);
+
+      // Clear mandatory context
+      setMandatoryContext(null);
+      mandatoryCreatedIdRef.current = null;
+    } else {
+      // Fallback to normal behavior
+      handleFormSubmitted();
+    }
+  };
+
   const renderContent = () => {
     // Debug: Verify handleViewLinkedEvidence is accessible in renderContent
     console.log('App.tsx: renderContent called, handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
     switch (currentView) {
       case View.Dashboard:
         return (
-          <Dashboard 
-            sias={sias} 
+          <Dashboard
+            sias={sias}
             allEvidence={allEvidence}
-            onRemoveSIA={handleRemoveSIA} 
-            onUpdateSIA={handleUpdateSIA} 
-            onAddSIA={handleAddSIA} 
-            onNavigateToEPA={handleNavigateToEPA} 
-            onNavigateToDOPs={handleNavigateToDOPs} 
-            onNavigateToOSATS={handleNavigateToOSATS} 
+            onRemoveSIA={handleRemoveSIA}
+            onUpdateSIA={handleUpdateSIA}
+            onAddSIA={handleAddSIA}
+            onNavigateToEPA={handleNavigateToEPA}
+            onNavigateToDOPs={handleNavigateToDOPs}
+            onNavigateToOSATS={handleNavigateToOSATS}
             onNavigateToCBD={handleNavigateToCBD}
             onNavigateToCRS={handleNavigateToCRS}
-            onNavigateToEvidence={() => setCurrentView(View.Evidence)} 
+            onNavigateToEvidence={() => setCurrentView(View.Evidence)}
             onNavigateToRecordForm={() => setCurrentView(View.RecordForm)}
             onNavigateToAddEvidence={handleNavigateToAddEvidence}
             onNavigateToGSAT={() => {
@@ -646,10 +692,10 @@ const App: React.FC = () => {
         );
       case View.Evidence:
         return (
-          <MyEvidence 
+          <MyEvidence
             allEvidence={allEvidence}
-            selectionMode={isSelectionMode} 
-            onConfirmSelection={handleConfirmSelection} 
+            selectionMode={isSelectionMode}
+            onConfirmSelection={handleConfirmSelection}
             onCancel={handleCancelSelection}
             onEditEvidence={handleEditEvidence}
           />
@@ -660,40 +706,40 @@ const App: React.FC = () => {
         );
       case View.AddEvidence:
         return (
-          <AddEvidence 
+          <AddEvidence
             key={editingEvidence?.id || 'new-record'}
-            sia={selectedFormParams?.sia} 
-            level={selectedFormParams?.level} 
+            sia={selectedFormParams?.sia}
+            level={selectedFormParams?.level}
             initialType={selectedFormParams?.type}
             editingEvidence={editingEvidence || undefined}
             onBack={() => {
               setEditingEvidence(null);
               setCurrentView(View.Evidence);
-            }} 
+            }}
             onCreated={(item) => {
               console.log('App.tsx: onCreated callback triggered with:', item); // Debug log
               handleUpsertEvidence(item);
               console.log('App.tsx: After handleUpsertEvidence call'); // Debug log
-              
+
               // Delay navigation to ensure state update completes
               // Use setTimeout to let React process the state update first
               setTimeout(() => {
                 setEditingEvidence(null);
                 setCurrentView(View.Evidence);
               }, 10);
-            }} 
+            }}
           />
         );
       case View.MSFSubmission:
         return (
-          <MSFSubmissionForm 
+          <MSFSubmissionForm
             evidence={editingEvidence || undefined}
             onBack={() => {
               setEditingEvidence(null);
               setCurrentView(View.Evidence);
             }}
             onSave={(data) => {
-               if (editingEvidence) handleUpsertEvidence({ ...data, id: editingEvidence.id });
+              if (editingEvidence) handleUpsertEvidence({ ...data, id: editingEvidence.id });
             }}
             onViewResponse={(id) => {
               setActiveRespondentId(id);
@@ -703,12 +749,12 @@ const App: React.FC = () => {
         );
       case View.MSFResponse:
         return (
-          <MSFResponseForm 
+          <MSFResponseForm
             traineeName={INITIAL_PROFILE.name}
             onBack={() => setCurrentView(View.MSFSubmission)}
             onSubmitted={() => {
               if (editingEvidence && activeRespondentId) {
-                const updatedRespondents = editingEvidence.msfRespondents?.map(r => 
+                const updatedRespondents = editingEvidence.msfRespondents?.map(r =>
                   r.id === activeRespondentId ? { ...r, status: 'Completed' } as any : r
                 );
                 handleUpsertEvidence({ id: editingEvidence.id, msfRespondents: updatedRespondents });
@@ -735,15 +781,15 @@ const App: React.FC = () => {
         }} />;
       case View.EPAForm:
         // Load linked evidence from saved form if editing, filtered by level
-        const existingEPA = selectedFormParams?.id 
+        const existingEPA = selectedFormParams?.id
           ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
           : null;
-        
+
         // Filter linked evidence to only include keys for the current level
         const levelLinkedEvidence: Record<string, string[]> = {};
         const currentLevel = selectedFormParams?.level || 1;
         const levelPrefix = currentLevel === 1 ? 'EPA-L1-' : currentLevel === 2 ? 'EPA-L2-' : currentLevel === 3 ? 'EPA-L3-' : currentLevel === 4 ? 'EPA-L4-' : '';
-        
+
         if (existingEPA?.epaFormData?.linkedEvidence && levelPrefix) {
           Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
             if (key.startsWith(levelPrefix)) {
@@ -751,7 +797,7 @@ const App: React.FC = () => {
             }
           });
         }
-        
+
         // Merge with any current linkedEvidence that matches this level
         if (levelPrefix) {
           Object.keys(linkedEvidence).forEach(key => {
@@ -760,7 +806,7 @@ const App: React.FC = () => {
             }
           });
         }
-        
+
         // Create a wrapper function that ensures handleViewLinkedEvidence is always called
         const viewLinkedEvidenceHandler = (evidenceId: string, section?: number) => {
           console.log('viewLinkedEvidenceHandler called with:', evidenceId, 'handleViewLinkedEvidence type:', typeof handleViewLinkedEvidence);
@@ -774,62 +820,62 @@ const App: React.FC = () => {
               const originView = currentView;
               const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
               const readOnlyStatus = EvidenceStatus.Submitted;
-              
+
               if (evidence.type === EvidenceType.EPA) {
-                setSelectedFormParams({ 
-                  sia: evidence.sia || '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: evidence.sia || '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
                 });
                 setCurrentView(View.EPAForm);
               } else if (evidence.type === EvidenceType.DOPs) {
-                setSelectedFormParams({ 
-                  sia: evidence.sia || '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: evidence.sia || '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
                 });
                 setCurrentView(View.DOPsForm);
               } else if (evidence.type === EvidenceType.OSATs) {
-                setSelectedFormParams({ 
-                  sia: evidence.sia || '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: evidence.sia || '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
                 });
                 setCurrentView(View.OSATSForm);
               } else if (evidence.type === EvidenceType.CbD) {
-                setSelectedFormParams({ 
-                  sia: evidence.sia || '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: evidence.sia || '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
                 });
                 setCurrentView(View.CBDForm);
               } else if (evidence.type === EvidenceType.CRS) {
-                setSelectedFormParams({ 
-                  sia: evidence.sia || '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: evidence.sia || '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
                 });
                 setCurrentView(View.CRSForm);
               } else if (evidence.type === EvidenceType.GSAT) {
-                setSelectedFormParams({ 
-                  sia: '', 
-                  level: evidence.level || 1, 
-                  id: evidence.id, 
+                setSelectedFormParams({
+                  sia: '',
+                  level: evidence.level || 1,
+                  id: evidence.id,
                   status: readOnlyStatus,
                   originView,
                   originFormParams
@@ -839,9 +885,9 @@ const App: React.FC = () => {
             }
           }
         };
-        
+
         console.log('App.tsx: Passing viewLinkedEvidenceHandler to EPAForm, type:', typeof viewLinkedEvidenceHandler);
-        
+
         return (
           <EPAForm
             id={selectedFormParams?.id}
@@ -865,7 +911,7 @@ const App: React.FC = () => {
                 setCurrentView(View.RecordForm);
               }
             }}
-            onSubmitted={handleFormSubmitted}
+            onSubmitted={mandatoryContext?.expectedType === 'EPA' ? handleEPAFromEPASubmitted : handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)}
             linkedEvidenceData={levelLinkedEvidence}
@@ -878,13 +924,13 @@ const App: React.FC = () => {
           />
         );
       case View.GSATForm:
-        const existingGSAT = selectedFormParams?.id 
+        const existingGSAT = selectedFormParams?.id
           ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.GSAT)
           : null;
         return (
-          <GSATForm 
+          <GSATForm
             id={selectedFormParams?.id}
-            initialLevel={selectedFormParams?.level || 1} 
+            initialLevel={selectedFormParams?.level || 1}
             initialStatus={selectedFormParams?.status || existingGSAT?.status || EvidenceStatus.Draft}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
@@ -898,7 +944,7 @@ const App: React.FC = () => {
             }}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
-            onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)} 
+            onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)}
             linkedEvidenceData={linkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
             onViewLinkedEvidence={handleViewLinkedEvidence}
@@ -908,15 +954,15 @@ const App: React.FC = () => {
           />
         );
       case View.DOPsForm:
-        const existingDOPs = selectedFormParams?.id 
+        const existingDOPs = selectedFormParams?.id
           ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.DOPs)
           : null;
-        return <DOPsForm 
-          id={selectedFormParams?.id} 
-          sia={selectedFormParams?.sia} 
-          level={selectedFormParams?.level} 
-          initialAssessorName={selectedFormParams?.supervisorName} 
-          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+        return <DOPsForm
+          id={selectedFormParams?.id}
+          sia={selectedFormParams?.sia}
+          level={selectedFormParams?.level}
+          initialAssessorName={selectedFormParams?.supervisorName}
+          initialAssessorEmail={selectedFormParams?.supervisorEmail}
           initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
           originView={selectedFormParams?.originView}
           originFormParams={selectedFormParams?.originFormParams}
@@ -928,7 +974,7 @@ const App: React.FC = () => {
               setCurrentView(View.RecordForm);
             }
           }}
-          onSubmitted={handleFormSubmitted} 
+          onSubmitted={handleFormSubmitted}
           onSave={handleUpsertEvidence}
           onViewLinkedEvidence={handleViewLinkedEvidence}
           allEvidence={allEvidence}
@@ -961,15 +1007,15 @@ const App: React.FC = () => {
           allEvidence={allEvidence}
         />;
       case View.CBDForm:
-        const existingCBD = selectedFormParams?.id 
+        const existingCBD = selectedFormParams?.id
           ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CbD)
           : null;
-        return <CBDForm 
-          id={selectedFormParams?.id} 
-          sia={selectedFormParams?.sia} 
-          level={selectedFormParams?.level} 
-          initialAssessorName={selectedFormParams?.supervisorName} 
-          initialAssessorEmail={selectedFormParams?.supervisorEmail} 
+        return <CBDForm
+          id={selectedFormParams?.id}
+          sia={selectedFormParams?.sia}
+          level={selectedFormParams?.level}
+          initialAssessorName={selectedFormParams?.supervisorName}
+          initialAssessorEmail={selectedFormParams?.supervisorEmail}
           initialStatus={selectedFormParams?.status || existingCBD?.status || EvidenceStatus.Draft}
           originView={selectedFormParams?.originView}
           originFormParams={selectedFormParams?.originFormParams}
@@ -981,7 +1027,7 @@ const App: React.FC = () => {
               setCurrentView(View.RecordForm);
             }
           }}
-          onSubmitted={handleFormSubmitted} 
+          onSubmitted={handleFormSubmitted}
           onSave={handleUpsertEvidence}
           onViewLinkedEvidence={handleViewLinkedEvidence}
           allEvidence={allEvidence}
@@ -1017,9 +1063,9 @@ const App: React.FC = () => {
         return <PlaceholderForm title="MAR Form" subtitle="Management of Acute Referral - Content TBC" onBack={() => setCurrentView(View.RecordForm)} />;
       case View.ARCPPrep:
         return (
-          <ARCPPrep 
-            sias={sias} 
-            allEvidence={allEvidence} 
+          <ARCPPrep
+            sias={sias}
+            allEvidence={allEvidence}
             onBack={() => setCurrentView(View.Dashboard)}
             onNavigateGSAT={() => setCurrentView(View.GSATForm)}
             onNavigateMSF={handleNavigateToMSF}
@@ -1051,35 +1097,35 @@ const App: React.FC = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
-              <NavTab 
-                active={currentView === View.Dashboard} 
-                onClick={() => setCurrentView(View.Dashboard)} 
-                icon={<LayoutDashboard size={16} />} 
-                label="DASHBOARD" 
+              <NavTab
+                active={currentView === View.Dashboard}
+                onClick={() => setCurrentView(View.Dashboard)}
+                icon={<LayoutDashboard size={16} />}
+                label="DASHBOARD"
               />
-              <NavTab 
-                active={currentView === View.Evidence} 
-                onClick={() => setCurrentView(View.Evidence)} 
-                icon={<Database size={16} />} 
-                label="MY EVIDENCE" 
+              <NavTab
+                active={currentView === View.Evidence}
+                onClick={() => setCurrentView(View.Evidence)}
+                icon={<Database size={16} />}
+                label="MY EVIDENCE"
               />
-              <NavTab 
-                active={currentView === View.Progress} 
-                onClick={() => setCurrentView(View.Progress)} 
-                icon={<Activity size={16} />} 
-                label="PROGRESS" 
+              <NavTab
+                active={currentView === View.Progress}
+                onClick={() => setCurrentView(View.Progress)}
+                icon={<Activity size={16} />}
+                label="PROGRESS"
               />
-              <NavTab 
-                active={currentView === View.RecordForm || isFormViewActive} 
-                onClick={() => setCurrentView(View.RecordForm)} 
-                icon={<FileText size={16} />} 
-                label="RECORD FORM" 
+              <NavTab
+                active={currentView === View.RecordForm || isFormViewActive}
+                onClick={() => setCurrentView(View.RecordForm)}
+                icon={<FileText size={16} />}
+                label="RECORD FORM"
               />
-              <NavTab 
-                active={currentView === View.AddEvidence} 
-                onClick={() => handleNavigateToAddEvidence()} 
-                icon={<Plus size={16} />} 
-                label="ADD EVIDENCE" 
+              <NavTab
+                active={currentView === View.AddEvidence}
+                onClick={() => handleNavigateToAddEvidence()}
+                icon={<Plus size={16} />}
+                label="ADD EVIDENCE"
               />
             </div>
 
@@ -1099,12 +1145,12 @@ const App: React.FC = () => {
 };
 
 const NavTab: React.FC<{ active: boolean; label: string; icon: React.ReactNode; onClick: () => void }> = ({ active, label, icon, onClick }) => (
-  <button 
-    onClick={onClick} 
+  <button
+    onClick={onClick}
     className={`
       flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[11px] font-black tracking-widest transition-all
-      ${active 
-        ? 'bg-slate-900 text-white shadow-md scale-[1.02]' 
+      ${active
+        ? 'bg-slate-900 text-white shadow-md scale-[1.02]'
         : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
       }
     `}

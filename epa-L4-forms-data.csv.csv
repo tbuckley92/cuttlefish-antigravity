@@ -11,7 +11,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Oculoplastics,D,Criterion,OSATS Surgical skills - eyelid and adnexal surgery,FALSE,TRUE,1
 4,Oculoplastics,D,Criterion,OSATS Temporal Artery Biopsy,FALSE,TRUE,2
 4,Oculoplastics,D,Criterion,OSATS Removal of eye (enucleation and evisceration),FALSE,TRUE,3
-4,Oculoplastics,D,Criterion,EPA L4 Managing an oculoplastics operating list,FALSE,TRUE,4
+4,Oculoplastics,D,Criterion,EPA L4 Operating List,FALSE,TRUE,4
 4,Oculoplastics,E,Criterion,Surgical management of oculoplastic adnexal and lacrimal conditions including complex entropion,TRUE,TRUE,1
 4,Oculoplastics,E,Criterion,Anterior orbital biopsy,TRUE,TRUE,2
 4,Oculoplastics,E,Criterion,External dacryocystorhinostomy,TRUE,TRUE,3
@@ -34,7 +34,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Cornea & Ocular Surface Disease,C,Criterion,Ability to supervise and train trainees in corneal and ocular surface disease to Level 3 and other health professional in a clinic setting,TRUE,TRUE,4
 4,Cornea & Ocular Surface Disease,D,Criterion,OSATS Surgical skills - cornea and ocular surface,FALSE,TRUE,1
 4,Cornea & Ocular Surface Disease,D,Criterion,OSATS Cataract surgery,FALSE,TRUE,2
-4,Cornea & Ocular Surface Disease,D,Criterion,EPA L4 Managing a corneal and ocular surface operating list,FALSE,TRUE,3
+4,Cornea & Ocular Surface Disease,D,Criterion,EPA L4 Operating List,FALSE,TRUE,3
 4,Cornea & Ocular Surface Disease,E,Criterion,Complex cataract surgery,TRUE,TRUE,1
 4,Cornea & Ocular Surface Disease,E,Criterion,Corneal grafting,TRUE,TRUE,2
 4,Cornea & Ocular Surface Disease,E,Criterion,Ocular surface biopsy,TRUE,TRUE,3
@@ -56,7 +56,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Cataract Surgery,C,Criterion,Independent management of the cataract clinic,TRUE,TRUE,1
 4,Cataract Surgery,C,Criterion,Perform and interpret biometry in complex cases,TRUE,TRUE,2
 4,Cataract Surgery,D,Criterion,OSATS Complex cataract surgery ,FALSE,TRUE,1
-4,Cataract Surgery,D,Criterion,EPA L4 Managing a cataract operating list,FALSE,TRUE,2
+4,Cataract Surgery,D,Criterion,EPA L4 Operating List,FALSE,TRUE,2
 4,Cataract Surgery,E,Criterion,Performance of anterior vitrectomy,TRUE,TRUE,1
 4,Cataract Surgery,E,Criterion,Placement of secondary IOL,TRUE,TRUE,2
 4,Cataract Surgery,E,Criterion,Management of complication including capsule tears and iris complications,TRUE,TRUE,3
@@ -78,7 +78,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Glaucoma,C,Criterion,Ability to supervise and train trainees in glaucoma surgery to Level 3 and other health professional in a clinic setting,TRUE,TRUE,2
 4,Glaucoma,D,Criterion,OSATS Microsurgical skills - glaucoma surgery,FALSE,TRUE,1
 4,Glaucoma,D,Criterion,OSATS Cataract surgery,FALSE,TRUE,2
-4,Glaucoma,D,Criterion,EPA L4 Managing a glaucoma operating list,FALSE,TRUE,3
+4,Glaucoma,D,Criterion,EPA L4 Operating List,FALSE,TRUE,3
 4,Glaucoma,E,Criterion,Complex cataract surgery: shallow anterior chamber/previous glaucoma/PXF,FALSE,TRUE,1
 4,Glaucoma,E,Criterion,"Medical and surgical management of glaucoma patients including trabeculectomy, non-penetrating glaucoma surgery & cyclodestructive procedures",FALSE,TRUE,2
 4,Glaucoma,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
@@ -131,7 +131,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Vitreoretinal Surgery,C,Criterion,Ability to supervise and train trainees in vitreoretinal surgery to Level 3 and other health professional in a clinic setting,TRUE,TRUE,4
 4,Vitreoretinal Surgery,D,Criterion,OSATS Cataract surgery,FALSE,TRUE,1
 4,Vitreoretinal Surgery,D,Criterion,OSATS Microsurgical skills - vitreoretinal surgery,FALSE,TRUE,2
-4,Vitreoretinal Surgery,D,Criterion,EPA L4 Managing a vitreoretinal operating list,FALSE,TRUE,3
+4,Vitreoretinal Surgery,D,Criterion,EPA L4 Operating List,FALSE,TRUE,3
 4,Vitreoretinal Surgery,E,Criterion,"Complex cataract surgery (post-vitrectomy, posterior polar)",TRUE,TRUE,1
 4,Vitreoretinal Surgery,E,Criterion,Management of complications of cataract surgery,TRUE,TRUE,2
 4,Vitreoretinal Surgery,E,Criterion,Supervise and provide objective assessment of other surgical competency at Level 3 (e.g. WpBAs),TRUE,TRUE,3
@@ -152,7 +152,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Ocular Motility,C,Criterion,Ability to supervise and train trainees and other health professionals in ocular motility disease surgery to Level 3 in a clinic setting,TRUE,TRUE,3
 4,Ocular Motility,D,Criterion,OSATS Extraocular Muscle Surgery,FALSE,TRUE,1
 4,Ocular Motility,D,Criterion,OSATS Microsurgical skills - vitreoretinal surgery,FALSE,TRUE,2
-4,Ocular Motility,D,Criterion,EPA L4 Managing an ocular motility operating list,FALSE,TRUE,3
+4,Ocular Motility,D,Criterion,EPA L4 Operating List,FALSE,TRUE,3
 4,Ocular Motility,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either in Outpatients or Theatre,TRUE,TRUE,1
 4,Ocular Motility,E,Criterion,DOPS Botulinum toxin injection to extraocular muscles - either in Outpatients or Theatre,TRUE,TRUE,2
 4,Ocular Motility,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
@@ -189,7 +189,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Paediatric Ophthalmology,C,Criterion,Collaborative working with tertiary and special interest teams,TRUE,TRUE,2
 4,Paediatric Ophthalmology,C,Criterion,Ability to supervise and train trainees and other health professionals in paediatric ophthalmology to Level 3 in a clinic setting,TRUE,TRUE,3
 4,Paediatric Ophthalmology,D,Criterion,OSATS - surgery in paediatric patients,FALSE,TRUE,1
-4,Paediatric Ophthalmology,D,Criterion,EPA L4 Managing a paediatric operating list,FALSE,TRUE,2
+4,Paediatric Ophthalmology,D,Criterion,EPA L4 Operating List,FALSE,TRUE,2
 4,Paediatric Ophthalmology,E,Criterion,Complex strabismus and nystagmus assessment - either Theatre or Outpatients,TRUE,TRUE,1
 4,Paediatric Ophthalmology,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either Theatre or Outpatients,TRUE,TRUE,2
 4,Paediatric Ophthalmology,E,Criterion,DOPS Retinal Laser - PRP/sector,TRUE,TRUE,3
