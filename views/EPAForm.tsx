@@ -455,7 +455,6 @@ const EPAForm: React.FC<EPAFormProps> = ({
     setStatus(EvidenceStatus.SignedOff);
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
-    alert(`EPA Marked Complete by ${supervisorName} (GMC: ${gmc})`);
   };
 
   const handleCommentChange = (key: string, text: string) => {
@@ -542,12 +541,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
     const gradingOptions = isLevel1Or2Or3Or4 ? LEVEL_2_GRADING_OPTIONS : ["Major concerns", "Minor concerns", "Meets expectations"];
     const currentGrading = grading[reqKey] || "";
     const showCommentBox = isLevel1Or2Or3Or4 && (showCommentForAll || currentGrading === "I have reservations about whether evidence meets standards (RESERVATION)" || currentGrading === "No it does not (NO)" || currentGrading === "There is no evidence (NO EVIDENCE)");
+    const isFilled = currentGrading || (comments[reqKey] && comments[reqKey].trim());
 
     return (
       <GlassCard 
         id={`epa-criterion-${reqKey}`}
         key={reqKey} 
-        className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}
+        className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}
       >
         <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{req}</p>
         

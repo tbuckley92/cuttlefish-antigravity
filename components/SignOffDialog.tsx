@@ -3,6 +3,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GlassCard } from './GlassCard';
 import { X, CheckCircle2, User } from './Icons';
 
+interface Particle {
+  id: number;
+  emoji: string;
+  dx: number;
+  dy: number;
+  rot: number;
+  delay: number;
+  size: number;
+}
+
 interface SignOffDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -20,6 +30,8 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isCanvasDirty, setIsCanvasDirty] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const particleTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen && canvasRef.current) {
@@ -76,9 +88,53 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
     }
   };
 
+  const triggerBurst = () => {
+    // Check for reduced motion preference
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    // Clear any existing timer
+    if (particleTimerRef.current) {
+      clearTimeout(particleTimerRef.current);
+    }
+
+    const newParticles: Particle[] = [
+      {
+        id: Date.now(),
+        emoji: '🎉',
+        dx: -50,
+        dy: -40,
+        rot: -15,
+        delay: 0,
+        size: 24,
+      },
+      {
+        id: Date.now() + 1,
+        emoji: '👁️',
+        dx: 50,
+        dy: -40,
+        rot: 15,
+        delay: 50,
+        size: 24,
+      },
+    ];
+
+    setParticles(newParticles);
+
+    // Clear particles after animation completes
+    particleTimerRef.current = window.setTimeout(() => {
+      setParticles([]);
+    }, 900);
+  };
+
   const handleConfirm = () => {
     if (gmc.trim() || isCanvasDirty) {
-      onConfirm(gmc, isCanvasDirty ? 'drawn-signature' : 'gmc-only');
+      triggerBurst();
+      // Delay closing the dialog so the emoji burst animation can play
+      setTimeout(() => {
+        onConfirm(gmc, isCanvasDirty ? 'drawn-signature' : 'gmc-only');
+      }, 800);
     }
   };
 
@@ -165,13 +221,56 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
             </div>
 
             <div className="pt-4">
-              <button 
-                onClick={handleConfirm}
-                disabled={!canSubmit}
-                className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={18} /> Confirm sign off
-              </button>
+              <style>{`
+                @keyframes emojiBurst {
+                  0% {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(0.5);
+                  }
+                  100% {
+                    opacity: 0;
+                    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1);
+                  }
+                }
+                .emoji-burst-particle {
+                  animation: emojiBurst 0.8s ease-out forwards;
+                  animation-delay: var(--delay);
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .emoji-burst-particle {
+                    animation: none;
+                    opacity: 0;
+                  }
+                }
+              `}</style>
+              <div className="relative">
+                <button 
+                  onClick={handleConfirm}
+                  disabled={!canSubmit}
+                  className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={18} /> Confirm sign off
+                </button>
+                {particles.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none overflow-visible">
+                    {particles.map((p) => (
+                      <span
+                        key={p.id}
+                        className="emoji-burst-particle absolute left-1/2 top-1/2"
+                        style={{
+                          '--dx': `${p.dx}px`,
+                          '--dy': `${p.dy}px`,
+                          '--rot': `${p.rot}deg`,
+                          '--delay': `${p.delay}ms`,
+                          fontSize: `${p.size}px`,
+                        } as React.CSSProperties}
+                      >
+                        {p.emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button 
                 onClick={onClose}
                 className="w-full mt-2 py-3 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors text-center"

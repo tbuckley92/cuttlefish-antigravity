@@ -1152,7 +1152,6 @@ const CRSForm: React.FC<CRSFormProps> = ({
     setStatus(EvidenceStatus.SignedOff);
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
-    alert(`CRS Signed Off (GMC: ${gmc})`);
     onSubmitted?.();
   };
 
@@ -1554,9 +1553,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1624,9 +1624,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1694,9 +1695,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionCRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1779,9 +1781,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {RETINOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = retinoscopySectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1817,9 +1820,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {RETINOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = retinoscopySectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1901,9 +1905,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {INDIRECT_OPHTHALMOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = indirectOphthalmoscopySectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -1939,9 +1944,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {INDIRECT_OPHTHALMOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = indirectOphthalmoscopySectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2024,9 +2030,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {PUPIL_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = pupilSectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2062,9 +2069,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {PUPIL_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = pupilSectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2147,9 +2155,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {CONTACT_LENSES_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = contactLensesSectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2185,9 +2194,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {CONTACT_LENSES_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = contactLensesSectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2270,9 +2280,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {LENS_78D_90D_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = lens78D90DSectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2308,9 +2319,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {LENS_78D_90D_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = lens78D90DSectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2393,9 +2405,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {GONIOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = gonioscopySectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2448,9 +2461,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
               {subsection.criteria.map((criterion, idx) => {
                 const key = criteriaKeys[idx];
                 const rating = gonioscopySectionBRatings[key] || "";
+                const isFilled = !!rating;
                 
                 return (
-                  <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+                  <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
                     <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
                     
                     <div className="flex flex-wrap gap-2">
@@ -2536,9 +2550,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {DIRECT_OPHTHALMOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = directOphthalmoscopySectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2574,9 +2589,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {DIRECT_OPHTHALMOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = directOphthalmoscopySectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2659,9 +2675,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SLIT_LAMP_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2697,9 +2714,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SLIT_LAMP_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2735,9 +2753,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {SLIT_LAMP_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionCRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2820,9 +2839,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {IOP_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = iopSectionARatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2890,9 +2910,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {IOP_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = iopSectionBRatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -2928,9 +2949,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {IOP_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = iopSectionCRatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -3013,9 +3035,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {OCULAR_MOTILITY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = ocularMotilitySectionARatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -3051,9 +3074,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {OCULAR_MOTILITY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = ocularMotilitySectionBRatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -3089,9 +3113,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {OCULAR_MOTILITY_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = ocularMotilitySectionCRatings[key] || "";
-          
+          const isFilled = !!rating;
+
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -3458,9 +3483,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {CONSULTATION_SKILLS_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionARatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">
@@ -3496,9 +3522,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
         {CONSULTATION_SKILLS_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionBRatings[key] || "";
+          const isFilled = !!rating;
           
           return (
-            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
               
               <div className="flex flex-wrap gap-2">

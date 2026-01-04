@@ -148,7 +148,6 @@ const GSATForm: React.FC<GSATFormProps> = ({
     setStatus(EvidenceStatus.SignedOff);
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
-    alert(`GSAT Signed Off by ${supervisorName} (GMC: ${gmc})`);
   };
 
   const handleCommentChange = (idx: number, text: string) => {
@@ -358,9 +357,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
               {domainRequirements.map((req, idx) => {
                 const reqKey = `GSAT-${currentDomain}-${idx}`;
                 const linkedIds = linkedEvidenceData[reqKey] || [];
+                const commentValue = comments[`${currentDomain}-${idx}`] || '';
+                const isFilled = commentValue.trim() || linkedIds.length > 0;
                 
                 return (
-                  <GlassCard key={idx} id={`gsat-outcome-${idx}`} className={`p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+                  <GlassCard key={idx} id={`gsat-outcome-${idx}`} className={`p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
                     <div className="flex gap-4 items-start mb-6">
                       <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-indigo-600 border border-indigo-100">
                         {idx + 1}

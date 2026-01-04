@@ -466,9 +466,10 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
           const rating = sectionBRatings[competency.key] || "";
           const comment = sectionBComments[competency.key] || "";
           const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
+          const isFilled = rating || comment.trim();
           
           return (
-            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
               
               <div className="flex flex-wrap gap-2 mb-4">
@@ -517,9 +518,10 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
           const rating = sectionCRatings[competency.key] || "";
           const comment = sectionCComments[competency.key] || "";
           const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
+          const isFilled = rating || comment.trim();
           
           return (
-            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
+            <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
               
               <div className="flex flex-wrap gap-2 mb-4">
