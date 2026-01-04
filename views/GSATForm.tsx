@@ -246,18 +246,18 @@ const GSATForm: React.FC<GSATFormProps> = ({
       </div>
 
       {/* Left Column: Metadata (Desktop Only) */}
-      <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
+      <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
         {originView ? (
-          <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors mb-2">
+          <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
             <ArrowLeft size={16} /> BACK TO FORM
           </button>
         ) : (
-          <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-2">
+          <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors">
             <ArrowLeft size={16} /> Back to Dashboard
           </button>
         )}
 
-        <GlassCard className="p-8">
+        <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900">GSAT Assessment</h2>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>

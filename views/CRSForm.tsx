@@ -17,9 +17,13 @@ interface CRSFormProps {
   initialAssessorName?: string;
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
+  initialCrsType?: string; // Pre-select CRS type when launching from EPA
+  originView?: any; // View enum type
+  originFormParams?: any; // FormParams type
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   allEvidence?: EvidenceItem[];
 }
 
@@ -445,6 +449,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
+  initialCrsType,
   onBack,
   onSubmitted,
   onSave,
@@ -452,7 +457,13 @@ const CRSForm: React.FC<CRSFormProps> = ({
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
-  const [selectedCrsType, setSelectedCrsType] = useState(CRS_TYPES[1]); // Default to "Vision"
+  // Use initialCrsType when creating new (no id), otherwise default to "Vision"
+  const [selectedCrsType, setSelectedCrsType] = useState(() => {
+    if (!id && initialCrsType && CRS_TYPES.includes(initialCrsType)) {
+      return initialCrsType;
+    }
+    return CRS_TYPES[1]; // Default to "Vision"
+  });
   const [trainingLevel, setTrainingLevel] = useState(level.toString());
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
@@ -1142,6 +1153,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
     saveToParent(EvidenceStatus.SignedOff);
     setIsSignOffOpen(false);
     alert(`CRS Signed Off (GMC: ${gmc})`);
+    onSubmitted?.();
   };
 
   const handleRatingChange = (section: 'A' | 'B' | 'C' | 'D' | 'E', key: string, value: string, formType: 'vision' | 'retinoscopy' | 'indirectOphthalmoscopy' | 'pupil' | 'contactLenses' | 'lens78D90D' | 'gonioscopy' | 'directOphthalmoscopy' | 'slitLamp' | 'iop' | 'ocularMotility' | 'externalEye' | 'fields' | 'consultationSkills' = 'vision') => {
@@ -4021,15 +4033,15 @@ const CRSForm: React.FC<CRSFormProps> = ({
       />
 
       {/* Left Column: Metadata (Desktop) */}
-      <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        <button 
+      <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
+        <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors mb-2"
+          className="flex items-center gap-2 text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70 transition-colors"
         >
           <ArrowLeft size={16} /> Back to Dashboard
         </button>
 
-        <GlassCard className="p-8">
+        <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">CRS Assessment</h2>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
@@ -4254,19 +4266,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {isVisionForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {VISION_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderSectionA()}
@@ -4277,19 +4286,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isRetinoscopyForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {RETINOSCOPY_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderRetinoscopySectionA()}
@@ -4299,19 +4305,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isIndirectOphthalmoscopyForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {INDIRECT_OPHTHALMOSCOPY_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderIndirectOphthalmoscopySectionA()}
@@ -4321,19 +4324,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isPupilForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {PUPIL_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderPupilSectionA()}
@@ -4343,19 +4343,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isContactLensesForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {CONTACT_LENSES_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderContactLensesSectionA()}
@@ -4365,19 +4362,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isLens78D90DForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {LENS_78D_90D_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderLens78D90DSectionA()}
@@ -4387,19 +4381,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isGonioscopyForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {GONIOSCOPY_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderGonioscopySectionA()}
@@ -4409,19 +4400,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isDirectOphthalmoscopyForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {DIRECT_OPHTHALMOSCOPY_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderDirectOphthalmoscopySectionA()}
@@ -4431,19 +4419,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isSlitLampForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {SLIT_LAMP_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderSlitLampSectionA()}
@@ -4454,19 +4439,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isIOPForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {IOP_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderIopSectionA()}
@@ -4477,19 +4459,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isOcularMotilityForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {OCULAR_MOTILITY_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderOcularMotilitySectionA()}
@@ -4500,19 +4479,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isExternalEyeForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {EXTERNAL_EYE_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderExternalEyeSectionA()}
@@ -4523,19 +4499,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isFieldsForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {FIELDS_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderFieldsSectionA()}
@@ -4545,19 +4518,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             ) : isConsultationSkillsForm ? (
               <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                    {CONSULTATION_SKILLS_SECTIONS[activeSection]}
-                  </h3>
-                  {!isLocked && (
+                {!isLocked && (
+                  <div className="flex justify-end mb-4">
                     <button 
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
                       MARK ALL 'MEETS EXPECTATIONS'
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {activeSection === 0 && renderConsultationSkillsSectionA()}

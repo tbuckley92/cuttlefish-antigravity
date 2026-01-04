@@ -69,6 +69,16 @@ interface ReturnTarget {
   index?: number;
 }
 
+// Context for launching mandatory CRS/OSATS from EPA
+interface MandatoryFormContext {
+  expectedType: 'CRS' | 'OSATs';
+  defaultSubtype: string;
+  reqKey: string;
+  returnSection: number;
+  returnIndex: number;
+  epaFormParams: FormParams;
+}
+
 // Helper to map View to EvidenceType for filtering same-type evidence when linking
 const viewToEvidenceType = (view: View): EvidenceType | undefined => {
   switch (view) {
@@ -295,6 +305,11 @@ const App: React.FC = () => {
   const [currentSupervisor, setCurrentSupervisor] = useState<SupervisorProfile | null>(null);
   const [viewingTraineeId, setViewingTraineeId] = useState<string | null>(null);
 
+  // Mandatory CRS/OSATS launch context (for auto-linking back to EPA)
+  const [mandatoryContext, setMandatoryContext] = useState<MandatoryFormContext | null>(null);
+  // Ref to hold the ID of evidence created during a mandatory form flow (needed for sync access)
+  const mandatoryCreatedIdRef = React.useRef<string | null>(null);
+
   const handleUpdateProfile = async (nextProfile: UserProfile) => {
     setProfile(nextProfile);
 
@@ -340,11 +355,22 @@ const App: React.FC = () => {
   };
 
   const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
+    // Capture ID for mandatory form context (CRS/OSATS launched from EPA)
+    const ctx = mandatoryContext;
+    const isMatchingMandatoryType = ctx && (
+      (ctx.expectedType === 'CRS' && item.type === EvidenceType.CRS) ||
+      (ctx.expectedType === 'OSATs' && item.type === EvidenceType.OSATs)
+    );
+
     setAllEvidence(prev => {
       const { id: itemId, ...itemData } = item;
       const exists = itemId ? prev.find(e => e.id === itemId) : null;
       
       if (exists) {
+        // Track the ID if it's a mandatory form context match
+        if (isMatchingMandatoryType) {
+          mandatoryCreatedIdRef.current = itemId!;
+        }
         return prev.map(e => e.id === itemId ? { ...e, ...itemData } as EvidenceItem : e);
       } else {
         const newItem: EvidenceItem = {
@@ -355,6 +381,12 @@ const App: React.FC = () => {
           type: EvidenceType.Other,
           ...itemData
         } as EvidenceItem;
+        
+        // Track the created ID for mandatory form context (auto-linking)
+        if (isMatchingMandatoryType) {
+          mandatoryCreatedIdRef.current = newItem.id;
+        }
+        
         return [newItem, ...prev];
       }
     });
@@ -704,6 +736,134 @@ const App: React.FC = () => {
     setCurrentView(View.Evidence);
   };
 
+  // Handler for launching mandatory CRS/OSATS from EPA
+  const handleCompleteMandatoryForm = (
+    formType: 'CRS' | 'OSATs',
+    defaultSubtype: string,
+    reqKey: string,
+    sectionIndex: number,
+    criterionIndex: number
+  ) => {
+    // Store the current EPA form params so we can return
+    const epaParams: FormParams = {
+      sia: selectedFormParams?.sia || '',
+      level: selectedFormParams?.level || 1,
+      supervisorName: selectedFormParams?.supervisorName,
+      supervisorEmail: selectedFormParams?.supervisorEmail,
+      id: selectedFormParams?.id,
+      status: selectedFormParams?.status,
+      initialSection: sectionIndex
+    };
+
+    // Set up mandatory context for auto-linking on submit
+    setMandatoryContext({
+      expectedType: formType,
+      defaultSubtype,
+      reqKey,
+      returnSection: sectionIndex,
+      returnIndex: criterionIndex,
+      epaFormParams: epaParams
+    });
+
+    // Clear the ref
+    mandatoryCreatedIdRef.current = null;
+
+    // Navigate to the appropriate form
+    if (formType === 'CRS') {
+      setSelectedFormParams({
+        sia: selectedFormParams?.sia || '',
+        level: selectedFormParams?.level || 1,
+        supervisorName: selectedFormParams?.supervisorName,
+        supervisorEmail: selectedFormParams?.supervisorEmail,
+        type: defaultSubtype, // This will be used for initialCrsType
+        originView: View.EPAForm,
+        originFormParams: epaParams
+      });
+      setCurrentView(View.CRSForm);
+    } else {
+      setSelectedFormParams({
+        sia: selectedFormParams?.sia || '',
+        level: selectedFormParams?.level || 1,
+        supervisorName: selectedFormParams?.supervisorName,
+        supervisorEmail: selectedFormParams?.supervisorEmail,
+        type: defaultSubtype, // This will be used for initialOsatsType
+        originView: View.EPAForm,
+        originFormParams: epaParams
+      });
+      setCurrentView(View.OSATSForm);
+    }
+  };
+
+  // Handler for CRS form submission - handles auto-linking back to EPA
+  const handleCRSSubmitted = () => {
+    if (mandatoryContext && mandatoryContext.expectedType === 'CRS' && mandatoryCreatedIdRef.current) {
+      const evidenceId = mandatoryCreatedIdRef.current;
+      const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
+
+      // Auto-link the created evidence to the EPA criterion
+      setLinkedEvidence(prev => ({
+        ...prev,
+        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+      }));
+
+      // Set return target for scroll
+      setReturnTarget({
+        originView: View.EPAForm,
+        section: returnSection,
+        index: returnIndex
+      });
+
+      // Navigate back to EPA form
+      setSelectedFormParams({
+        ...epaFormParams,
+        initialSection: returnSection
+      });
+      setCurrentView(View.EPAForm);
+
+      // Clear mandatory context
+      setMandatoryContext(null);
+      mandatoryCreatedIdRef.current = null;
+    } else {
+      // Fallback to normal behavior
+      handleFormSubmitted();
+    }
+  };
+
+  // Handler for OSATS form submission - handles auto-linking back to EPA
+  const handleOSATSSubmitted = () => {
+    if (mandatoryContext && mandatoryContext.expectedType === 'OSATs' && mandatoryCreatedIdRef.current) {
+      const evidenceId = mandatoryCreatedIdRef.current;
+      const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
+
+      // Auto-link the created evidence to the EPA criterion
+      setLinkedEvidence(prev => ({
+        ...prev,
+        [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+      }));
+
+      // Set return target for scroll
+      setReturnTarget({
+        originView: View.EPAForm,
+        section: returnSection,
+        index: returnIndex
+      });
+
+      // Navigate back to EPA form
+      setSelectedFormParams({
+        ...epaFormParams,
+        initialSection: returnSection
+      });
+      setCurrentView(View.EPAForm);
+
+      // Clear mandatory context
+      setMandatoryContext(null);
+      mandatoryCreatedIdRef.current = null;
+    } else {
+      // Fallback to normal behavior
+      handleFormSubmitted();
+    }
+  };
+
   const handleNavigateToSupervisorDashboard = () => {
     // Set supervisor role and navigate to supervisor dashboard
     const defaultSupervisor = MOCK_SUPERVISORS[0];
@@ -895,23 +1055,26 @@ const App: React.FC = () => {
           ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
           : null;
         
-        // Filter linked evidence to only include keys for the current level
+        // Filter linked evidence to only include keys for the current level AND SIA
         const levelLinkedEvidence: Record<string, string[]> = {};
         const currentLevel = selectedFormParams?.level || 1;
+        const currentSia = selectedFormParams?.sia || 'No attached SIA';
         const levelPrefix = currentLevel === 1 ? 'EPA-L1-' : currentLevel === 2 ? 'EPA-L2-' : currentLevel === 3 ? 'EPA-L3-' : currentLevel === 4 ? 'EPA-L4-' : '';
+        // Full prefix includes both level and SIA to scope linked evidence per specialty
+        const fullPrefix = `${levelPrefix}${currentSia}-`;
         
-        if (existingEPA?.epaFormData?.linkedEvidence && levelPrefix) {
+        if (existingEPA?.epaFormData?.linkedEvidence && fullPrefix) {
           Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
-            if (key.startsWith(levelPrefix)) {
+            if (key.startsWith(fullPrefix)) {
               levelLinkedEvidence[key] = existingEPA.epaFormData.linkedEvidence[key];
             }
           });
         }
         
-        // Merge with any current linkedEvidence that matches this level
-        if (levelPrefix) {
+        // Merge with any current linkedEvidence that matches this level AND SIA
+        if (fullPrefix) {
           Object.keys(linkedEvidence).forEach(key => {
-            if (key.startsWith(levelPrefix)) {
+            if (key.startsWith(fullPrefix)) {
               levelLinkedEvidence[key] = linkedEvidence[key];
             }
           });
@@ -935,6 +1098,7 @@ const App: React.FC = () => {
             linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
             onViewLinkedEvidence={handleViewLinkedEvidence}
+            onCompleteMandatoryForm={handleCompleteMandatoryForm}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={allEvidence}
           />
@@ -985,8 +1149,11 @@ const App: React.FC = () => {
             initialAssessorName={selectedFormParams?.supervisorName} 
             initialAssessorEmail={selectedFormParams?.supervisorEmail} 
             initialStatus={selectedFormParams?.status || existingOSATs?.status || EvidenceStatus.Draft}
+            initialOsatsType={selectedFormParams?.type}
+            originView={selectedFormParams?.originView}
+            originFormParams={selectedFormParams?.originFormParams}
             onBack={handleBackToOrigin} 
-            onSubmitted={handleFormSubmitted} 
+            onSubmitted={handleOSATSSubmitted} 
             onSave={handleUpsertEvidence}
             allEvidence={allEvidence}
           />
@@ -1021,8 +1188,11 @@ const App: React.FC = () => {
             initialAssessorName={selectedFormParams?.supervisorName} 
             initialAssessorEmail={selectedFormParams?.supervisorEmail} 
             initialStatus={selectedFormParams?.status || existingCRS?.status || EvidenceStatus.Draft}
+            initialCrsType={selectedFormParams?.type}
+            originView={selectedFormParams?.originView}
+            originFormParams={selectedFormParams?.originFormParams}
             onBack={handleBackToOrigin} 
-            onSubmitted={handleFormSubmitted} 
+            onSubmitted={handleCRSSubmitted} 
             onSave={handleUpsertEvidence}
             allEvidence={allEvidence}
           />

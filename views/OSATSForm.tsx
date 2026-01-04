@@ -17,9 +17,13 @@ interface OSATSFormProps {
   initialAssessorName?: string;
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
+  initialOsatsType?: string; // Pre-select OSATS type when launching from EPA
+  originView?: any; // View enum type
+  originFormParams?: any; // FormParams type
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
+  onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   allEvidence?: EvidenceItem[];
 }
 
@@ -190,6 +194,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
+  initialOsatsType,
   onBack,
   onSubmitted,
   onSave,
@@ -197,7 +202,13 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
-  const [selectedOsatsType, setSelectedOsatsType] = useState(OSATS_TYPES[0]); // Default to "OSATS - Custom"
+  // Use initialOsatsType when creating new (no id), otherwise default to "OSATS - Custom"
+  const [selectedOsatsType, setSelectedOsatsType] = useState(() => {
+    if (!id && initialOsatsType && OSATS_TYPES.includes(initialOsatsType)) {
+      return initialOsatsType;
+    }
+    return OSATS_TYPES[0]; // Default to "OSATS - Custom"
+  });
   const [trainingLevel, setTrainingLevel] = useState(level.toString());
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
@@ -684,15 +695,15 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
       />
 
       {/* Left Column: Metadata (Desktop) */}
-      <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 overflow-y-auto pr-2">
-        <button 
-          onClick={onBack} 
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors mb-2"
+      <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft size={16} /> Back
         </button>
         
-        <GlassCard className="p-8">
+        <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">OSATS Assessment</h2>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -907,19 +918,16 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
 
         <div className="flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-0">
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h3 className="text-lg lg:text-xl font-medium text-slate-900 dark:text-white/90">
-                {OSATS_SECTIONS[activeSection]}
-              </h3>
-              {!isLocked && (activeSection === 1 || activeSection === 2) && (
+            {!isLocked && (activeSection === 1 || activeSection === 2) && (
+              <div className="flex justify-end mb-4">
                 <button 
                   onClick={() => handleMarkAllMeets(activeSection === 1 ? 'B' : 'C')}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                 >
                   MARK ALL AS MEETS EXPECTATIONS
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {activeSection === 0 && renderSectionA()}
