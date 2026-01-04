@@ -45,6 +45,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const availableYears = useMemo(() => {
     const years = new Set<string>();
@@ -250,16 +251,23 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               <ArrowLeft size={24} />
             </button>
           )}
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
+          <div className="flex-1">
+            <h1 className="text-lg md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
               {isSupervisorView ? `${profile.name}'s Evidence` : 'My Evidence'}
             </h1>
-            <p className="text-sm text-slate-500 dark:text-white/40">
+            <p className="hidden md:block text-sm text-slate-500 dark:text-white/40">
               {isSupervisorView ? 'Viewing trainee evidence portfolio' : 'Overview of all your workplace-based assessments and reflections'}
             </p>
           </div>
+          {/* Mobile filter button */}
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-white/60"
+          >
+            <Filter size={20} />
+          </button>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4">
           {completeCount > 0 && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -284,7 +292,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         </div>
       </div>
 
-      <GlassCard className="p-1 flex flex-col md:flex-row gap-2">
+      <GlassCard className="hidden md:flex p-1 flex-col md:flex-row gap-2">
         <div className="flex-1 flex items-center gap-3 px-4 py-2">
           <Search size={18} className="text-slate-400 dark:text-white/30" />
           <input 
@@ -335,7 +343,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       </GlassCard>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
-        <table className="w-full text-left border-collapse table-fixed">
+        <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
               <th className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-[100px]">Type</th>
@@ -450,12 +459,13 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                         </div>
                       </div>
                     </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+        </div>
         
         {filteredEvidence.length === 0 && (
           <div className="p-20 flex flex-col items-center justify-center text-center">
@@ -503,6 +513,94 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                 </div>
               </div>
             </GlassCard>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Filter Slide-Out Panel */}
+      {filterOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end md:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setFilterOpen(false)}
+          ></div>
+
+          {/* Slide-out panel */}
+          <div className="relative w-72 max-w-full bg-white dark:bg-slate-900 shadow-xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/10">
+              <h2 className="font-bold text-lg text-slate-900 dark:text-white">Filters</h2>
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 dark:text-white/40"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filter Options */}
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Type</label>
+                <select 
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
+                >
+                  <option value="All">All Types</option>
+                  {Object.values(EvidenceType).filter(t => t !== EvidenceType.ARCPPrep).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">SIA</label>
+                <select 
+                  value={filterSIA}
+                  onChange={(e) => setFilterSIA(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
+                >
+                  <option value="All">All SIAs</option>
+                  {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Year</label>
+                <select 
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
+                >
+                  <option value="All">All Years</option>
+                  {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Status</label>
+                <select 
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
+                >
+                  <option value="All">All Status</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Complete">Complete</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Apply Button */}
+            <div className="p-4 border-t border-slate-200 dark:border-white/10">
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+              >
+                Apply Filters
+              </button>
+            </div>
           </div>
         </div>
       )}

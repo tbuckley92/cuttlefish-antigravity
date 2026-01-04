@@ -1201,15 +1201,15 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
             </button>
           )}
           <div className="flex-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
+            <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-white/90">
               {isSupervisorView && traineeName ? `${traineeName}'s Portfolio Progress` : 'Portfolio Progress'}
             </h1>
-            <p className="text-sm text-slate-500 dark:text-white/40 mt-1">
+            <p className="hidden md:block text-sm text-slate-500 dark:text-white/40 mt-1">
               {isSupervisorView ? 'Viewing trainee progress matrix' : 'Completion matrix for EPAs and GSAT outcomes across all training levels.'}
             </p>
           </div>
           {!isSupervisorView && onUpdateProfile && (
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               {isCatchUpMode && (
                 <button
                   onClick={handleSaveCatchUp}

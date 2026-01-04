@@ -124,7 +124,7 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white/90">
+            <h1 className="text-lg md:text-2xl font-semibold text-slate-900 dark:text-white/90">
               {isLocked ? 'View Record' : (editingEvidence ? 'Edit Evidence' : 'Add Evidence')}
             </h1>
             {selectedType && (
@@ -173,37 +173,37 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
             </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col gap-6">
-              <GlassCard className={`p-6 md:p-8 space-y-8 ${isLocked ? 'bg-slate-50/50 dark:bg-white/[0.02]' : ''}`}>
+              <GlassCard className={`p-4 md:p-8 space-y-6 md:space-y-8 ${isLocked ? 'bg-slate-50/50 dark:bg-white/[0.02]' : ''}`}>
                 <div className="flex justify-between items-start">
                   <h3 className="text-xl font-medium text-slate-900 dark:text-white/90">{evidenceTypes.find(t => t.id === selectedType)?.label}</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="md:col-span-2">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Title</label>
-                    <input type="text" disabled={isLocked} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Title</label>
+                    <input type="text" disabled={isLocked} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 text-sm outline-none" />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Date</label>
-                    <input type="date" disabled={isLocked} value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Date</label>
+                    <input type="date" disabled={isLocked} value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 text-sm outline-none" />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Training Level</label>
-                    <select disabled={isLocked} value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Training Level</label>
+                    <select disabled={isLocked} value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 text-sm outline-none">
                       {["1","2","3","4","N/A"].map(l => <option key={l} value={l}>Level {l}</option>)}
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Linked SIA</label>
-                    <select disabled={isLocked} value={selectedSia} onChange={(e) => setSelectedSia(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Linked SIA</label>
+                    <select disabled={isLocked} value={selectedSia} onChange={(e) => setSelectedSia(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 text-sm outline-none">
                       <option value="All">Not specific to an SIA</option>
                       {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-100 dark:border-white/10">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">File Attachment (PDF Only)</label>
+                <div className="pt-4 md:pt-6 border-t border-slate-100 dark:border-white/10">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">File Attachment (PDF Only)</label>
                   {!fileName ? (
                     <div 
                       onClick={() => !isLocked && fileInputRef.current?.click()}
@@ -239,13 +239,13 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
                   )}
                 </div>
 
-                <div className="pt-6 border-t border-slate-100 dark:border-white/10">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Notes / Reflection Content</label>
-                  <textarea disabled={isLocked} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full min-h-[160px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-sm resize-none outline-none" />
+                <div className="pt-4 md:pt-6 border-t border-slate-100 dark:border-white/10">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Notes / Reflection Content</label>
+                  <textarea disabled={isLocked} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full min-h-[120px] md:min-h-[160px] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm resize-none outline-none" />
                 </div>
 
                 {!isLocked && (
-                  <div className="pt-6 flex justify-end gap-3">
+                  <div className="pt-4 md:pt-6 flex justify-end gap-2 md:gap-3">
                     <button 
                       onClick={() => handleSave(false)} 
                       className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
@@ -262,7 +262,7 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
                 )}
                 
                 {isLocked && (
-                  <div className="pt-6 flex justify-center">
+                  <div className="pt-4 md:pt-6 flex justify-center">
                     <button onClick={onBack} className="px-8 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 text-sm font-semibold">Close View</button>
                   </div>
                 )}
