@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CheckCircle2, AlertCircle, Eye } from '../components/Icons';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, AlertCircle, Eye, Calendar } from '../components/Icons';
 import { 
   SNELLEN_VA_OPTIONS, 
   SPHERE_OPTIONS, 
@@ -23,6 +23,27 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
   const [formState, setFormState] = useState<FormState>('form');
   const [errorMessage, setErrorMessage] = useState('');
   
+  // Resident info (fetched from database)
+  const [residentName, setResidentName] = useState<string>('');
+  const [residentGmc, setResidentGmc] = useState<string>('');
+
+  // Fetch resident info on mount
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !residentUserId) return;
+    
+    supabase
+      .from('user_profile')
+      .select('name, gmc_number')
+      .eq('user_id', residentUserId)
+      .single()
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setResidentName(data.name || '');
+          setResidentGmc(data.gmc_number || '');
+        }
+      });
+  }, [residentUserId]);
+  
   // Form fields
   const [patientId, setPatientId] = useState('');
   const [patientDob, setPatientDob] = useState('');
@@ -32,8 +53,8 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
   const [sphLeft, setSphLeft] = useState<number>(0);
   const [cylRight, setCylRight] = useState<number>(0);
   const [cylLeft, setCylLeft] = useState<number>(0);
-  const [axisRight, setAxisRight] = useState<number>(0);
-  const [axisLeft, setAxisLeft] = useState<number>(0);
+  const [axisRight, setAxisRight] = useState<string>('');
+  const [axisLeft, setAxisLeft] = useState<string>('');
   const [visionChangeRight, setVisionChangeRight] = useState<'better' | 'same' | 'worse' | ''>('');
   const [visionChangeLeft, setVisionChangeLeft] = useState<'better' | 'same' | 'worse' | ''>('');
 
@@ -70,8 +91,8 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
           sph_left: sphLeft,
           cyl_right: cylRight,
           cyl_left: cylLeft,
-          axis_right: axisRight,
-          axis_left: axisLeft,
+          axis_right: axisRight === '' ? 0 : parseInt(axisRight),
+          axis_left: axisLeft === '' ? 0 : parseInt(axisLeft),
           vision_change_right: visionChangeRight,
           vision_change_left: visionChangeLeft,
         });
@@ -95,8 +116,8 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
     setSphLeft(0);
     setCylRight(0);
     setCylLeft(0);
-    setAxisRight(0);
-    setAxisLeft(0);
+    setAxisRight('');
+    setAxisLeft('');
     setVisionChangeRight('');
     setVisionChangeLeft('');
     setFormState('form');
@@ -156,9 +177,20 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
             <Eye size={28} />
             <h1 className="text-xl font-bold">Refractive Audit</h1>
           </div>
-          <p className="text-indigo-100 text-sm">
+          <p className="text-indigo-100 text-sm mb-3">
             Post-cataract refraction data collection
           </p>
+          {(residentName || residentGmc) && (
+            <div className="bg-indigo-500/30 rounded-xl px-4 py-3 mt-2">
+              <p className="text-xs text-indigo-200 uppercase tracking-wider mb-1">Submitting for</p>
+              {residentName && (
+                <p className="font-semibold">{residentName}</p>
+              )}
+              {residentGmc && (
+                <p className="text-sm text-indigo-200">GMC: {residentGmc}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -186,13 +218,16 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Date of Birth <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                value={patientDob}
-                onChange={(e) => setPatientDob(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
-              />
+              <div className="relative">
+                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="date"
+                  value={patientDob}
+                  onChange={(e) => setPatientDob(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent box-border"
+                  required
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -280,7 +315,17 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
                   min={AXIS_MIN}
                   max={AXIS_MAX}
                   value={axisRight}
-                  onChange={(e) => setAxisRight(Math.max(AXIS_MIN, Math.min(AXIS_MAX, parseInt(e.target.value) || 0)))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setAxisRight('');
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num)) {
+                        setAxisRight(String(Math.max(AXIS_MIN, Math.min(AXIS_MAX, num))));
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
@@ -325,7 +370,17 @@ export const RefractiveAuditOpticianForm: React.FC<RefractiveAuditOpticianFormPr
                   min={AXIS_MIN}
                   max={AXIS_MAX}
                   value={axisLeft}
-                  onChange={(e) => setAxisLeft(Math.max(AXIS_MIN, Math.min(AXIS_MAX, parseInt(e.target.value) || 0)))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setAxisLeft('');
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num)) {
+                        setAxisLeft(String(Math.max(AXIS_MIN, Math.min(AXIS_MAX, num))));
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
