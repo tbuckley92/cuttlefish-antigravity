@@ -414,13 +414,13 @@ const Dashboard: React.FC<DashboardProps> = ({
       {isAddingSIA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
+            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl rounded-[2rem]">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Current EPA</h2>
                   <p className="text-xs text-slate-500 dark:text-white/40 mt-1 uppercase tracking-widest font-black">Record training requirements</p>
                 </div>
-                <button onClick={() => setIsAddingSIA(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
+                <button onClick={() => setIsAddingSIA(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -491,7 +491,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
         </div>
       )}
