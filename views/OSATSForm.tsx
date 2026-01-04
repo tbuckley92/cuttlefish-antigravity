@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
@@ -34,7 +34,10 @@ const OSATS_TYPES = [
   "OSATS Lid Surgery",
   "OSATS Operating microscope",
   "OSATS Lateral canthotomy / cantholysis",
-  "OSATS Interpret biometry"
+  "OSATS Interpret biometry",
+  "OSATS Intravitreal injection",
+  "OSATS Extraocular Muscle Surgery",
+  "OSATS Complex cataract surgery"
 ];
 
 const OSATS_SECTIONS = [
@@ -187,10 +190,10 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
   </div>
 );
 
-const OSATSForm: React.FC<OSATSFormProps> = ({ 
+const OSATSForm: React.FC<OSATSFormProps> = ({
   id,
-  sia = "Cataract Surgery", 
-  level = 1, 
+  sia = "Cataract Surgery",
+  level = 1,
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
@@ -266,13 +269,13 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.OSATs);
       if (savedForm?.osatsFormData) {
         const data = savedForm.osatsFormData;
-        
+
         // Load OSATS type and specialty
         if (data.osatsType) setSelectedOsatsType(data.osatsType);
         if (data.specialty) setSpecialty(data.specialty);
         if (data.supervisorName) setSupervisorName(data.supervisorName);
         if (data.supervisorEmail) setSupervisorEmail(data.supervisorEmail);
-        
+
         // Load Section A
         if (data.sectionA) {
           if (data.sectionA.caseDescription) setCaseDescription(data.sectionA.caseDescription);
@@ -280,26 +283,26 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
           if (data.sectionA.numberOfProcedures) setNumberOfProcedures(data.sectionA.numberOfProcedures);
           if (data.sectionA.procedurePerformedOn) setProcedurePerformedOn(data.sectionA.procedurePerformedOn);
         }
-        
+
         // Load Section B
         if (data.sectionB) {
           if (data.sectionB.ratings) setSectionBRatings(data.sectionB.ratings);
           if (data.sectionB.comments) setSectionBComments(data.sectionB.comments);
         }
-        
+
         // Load Section C
         if (data.sectionC) {
           if (data.sectionC.ratings) setSectionCRatings(data.sectionC.ratings);
           if (data.sectionC.comments) setSectionCComments(data.sectionC.comments);
         }
-        
+
         // Load Section D
         if (data.sectionD) {
           if (data.sectionD.aspectsEspeciallyGood) setAspectsEspeciallyGood(data.sectionD.aspectsEspeciallyGood);
           if (data.sectionD.suggestionsForImprovement) setSuggestionsForImprovement(data.sectionD.suggestionsForImprovement);
           if (data.sectionD.agreedActionPlan) setAgreedActionPlan(data.sectionD.agreedActionPlan);
         }
-        
+
         // Load status and level
         if (savedForm.status) setStatus(savedForm.status);
         if (savedForm.level) setTrainingLevel(savedForm.level.toString());
@@ -349,7 +352,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   const handleSaveDraft = () => {
     setStatus(EvidenceStatus.Draft);
     saveToParent(EvidenceStatus.Draft);
-      setShowSaveMessage(true);
+    setShowSaveMessage(true);
     setTimeout(() => setShowSaveMessage(false), 2000);
   };
 
@@ -419,7 +422,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   const handleMarkAllMeets = (section: 'B' | 'C') => {
     if (isLocked) return;
     const allMeets = "Meets expectations";
-    
+
     if (section === 'B') {
       // Mark all Section B competencies
       const newSectionB = { ...sectionBRatings };
@@ -453,9 +456,9 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
       return SECTION_C_COMPETENCIES.every(competency => sectionCRatings[competency.key]);
     } else {
       // Section D - all 3 fields are mandatory
-      return aspectsEspeciallyGood.trim().length > 0 && 
-             suggestionsForImprovement.trim().length > 0 && 
-             agreedActionPlan.trim().length > 0;
+      return aspectsEspeciallyGood.trim().length > 0 &&
+        suggestionsForImprovement.trim().length > 0 &&
+        agreedActionPlan.trim().length > 0;
     }
   };
 
@@ -541,22 +544,21 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
           const comment = sectionBComments[competency.key] || "";
           const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
           const isFilled = rating || comment.trim();
-          
+
           return (
             <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
-              
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {OSATS_RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', competency.key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                         : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
+                      }`}
                   >
                     {opt}
                   </button>
@@ -593,22 +595,21 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
           const comment = sectionCComments[competency.key] || "";
           const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
           const isFilled = rating || comment.trim();
-          
+
           return (
             <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
-              
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {OSATS_RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', competency.key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                         : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
+                      }`}
                   >
                     {opt}
                   </button>
@@ -684,16 +685,16 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      <SignOffDialog 
-        isOpen={isSignOffOpen} 
-        onClose={() => setIsSignOffOpen(false)} 
-        onConfirm={handleSignOffConfirm} 
-        formInfo={{ 
-          type: "OSATS", 
-          traineeName: INITIAL_PROFILE.name, 
-          date: new Date().toLocaleDateString(), 
-          supervisorName: supervisorName || "Supervisor" 
-        }} 
+      <SignOffDialog
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "OSATS",
+          traineeName: INITIAL_PROFILE.name,
+          date: new Date().toLocaleDateString(),
+          supervisorName: supervisorName || "Supervisor"
+        }}
       />
 
       {/* Left Column: Metadata (Desktop) */}
@@ -704,15 +705,14 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
         >
           <ArrowLeft size={16} /> Back
         </button>
-        
+
         <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">OSATS Assessment</h2>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
-              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 
-              'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+              }`}>
               {status}
             </span>
           </div>
@@ -790,15 +790,14 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {OSATS_SECTIONS.map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`h-1 rounded-full transition-colors ${
-                      isSectionComplete(i) 
-                        ? 'bg-green-500' 
-                        : activeSection === i 
-                          ? 'bg-indigo-500' 
+                  <div
+                    key={i}
+                    className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
+                        ? 'bg-green-500'
+                        : activeSection === i
+                          ? 'bg-indigo-500'
                           : 'bg-slate-200 dark:bg-white/10'
-                    }`}
+                      }`}
                   ></div>
                 ))}
               </div>
@@ -809,7 +808,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
 
       {/* Mobile Metadata Summary */}
       <div className="lg:hidden mb-4">
-        <button 
+        <button
           onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
           className="w-full flex items-center justify-between p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
         >
@@ -818,17 +817,16 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
               <p className="text-sm font-semibold text-slate-900 dark:text-white">OSATS Assessment</p>
               <p className="text-xs text-slate-500 dark:text-white/40 mt-1">{specialty} - Level {trainingLevel}</p>
             </div>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : 
-              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 
-              'bg-indigo-100 text-indigo-700'
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' :
+                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
+                  'bg-indigo-100 text-indigo-700'
+              }`}>
               {status}
             </span>
           </div>
           <ChevronDown size={20} className={`text-slate-400 transition-transform ${isMetadataExpanded ? 'rotate-180' : ''}`} />
         </button>
-        
+
         {isMetadataExpanded && (
           <div className="mt-2 p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
             <div>
@@ -922,7 +920,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {!isLocked && (activeSection === 1 || activeSection === 2) && (
               <div className="flex justify-end mb-4">
-                <button 
+                <button
                   onClick={() => handleMarkAllMeets(activeSection === 1 ? 'B' : 'C')}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                 >
@@ -942,33 +940,32 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Navigation */}
           <div className="flex justify-between items-center w-full">
-            <button 
+            <button
               disabled={activeSection === 0}
               onClick={() => setActiveSection(s => s - 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
             >
               <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
             </button>
-            
+
             <div className="flex gap-1">
               {OSATS_SECTIONS.map((_, idx) => (
                 <div
                   key={idx}
                   onClick={() => setActiveSection(idx)}
-                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${
-                    activeSection === idx
+                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${activeSection === idx
                       ? 'bg-indigo-600 w-6'
                       : isSectionComplete(idx)
                         ? 'bg-indigo-300 dark:bg-indigo-600'
                         : 'bg-slate-300 dark:bg-white/10'
-                  }`}
+                    }`}
                 ></div>
               ))}
             </div>
-            <button 
+            <button
               disabled={activeSection === OSATS_SECTIONS.length - 1}
               onClick={() => setActiveSection(s => s + 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -987,15 +984,15 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
@@ -1019,7 +1016,7 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                   <span>Draft saved {lastSaved}</span>
                 </>
               )}
-        </div>
+            </div>
           )}
         </div>
       </div>

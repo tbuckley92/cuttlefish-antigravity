@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
-  Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, Calendar, User,
+  Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2,
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, X, Eye
 } from '../components/Icons';
@@ -98,6 +98,11 @@ const LEVEL_3_SECTIONS = [
   "D. Mandatory OSATS",
   "E. Mandatory requirements in Theatre",
   "F. Ancillary evidence & Entrustment"
+];
+
+const OPERATING_LIST_SECTIONS = [
+  "A. Operating List Management",
+  "B. Entrustment"
 ];
 
 const LEVEL_1_LEARNING_OUTCOMES = [
@@ -205,10 +210,10 @@ const LEVEL_2_GRADING_OPTIONS = [
   "There is no evidence (NO EVIDENCE)"
 ];
 
-const EPAForm: React.FC<EPAFormProps> = ({ 
+const EPAForm: React.FC<EPAFormProps> = ({
   id,
-  sia = "No attached SIA", 
-  level = 1, 
+  sia = "No attached SIA",
+  level = 1,
   initialSupervisorName = "",
   initialSupervisorEmail = "",
   initialSection = 0,
@@ -216,7 +221,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   originView,
   originFormParams,
-  onBack, 
+  onBack,
   onSubmitted,
   onSave,
   onLinkRequested,
@@ -228,7 +233,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 }) => {
   // #region agent log
   // Log the actual props object to see what React is passing
-  const propsObj = {id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, linkedEvidenceData, allEvidence};
+  const propsObj = { id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, linkedEvidenceData, allEvidence };
   const receivedProps = {
     hasOnViewLinkedEvidence: !!onViewLinkedEvidence,
     onViewLinkedEvidenceType: typeof onViewLinkedEvidence,
@@ -238,7 +243,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
     onViewLinkedEvidenceValueInProps: propsObj.onViewLinkedEvidence ? 'defined' : 'undefined'
   };
   console.log('EPAForm.tsx: Props received, onViewLinkedEvidence:', onViewLinkedEvidence, 'in props:', 'onViewLinkedEvidence' in propsObj, 'propsObj.onViewLinkedEvidence:', propsObj.onViewLinkedEvidence);
-  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EPAForm.tsx:189',message:'EPAForm props received',data:receivedProps,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((e)=>{console.error('Log fetch failed:',e);});
+  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'EPAForm.tsx:189', message: 'EPAForm props received', data: receivedProps, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch((e) => { console.error('Log fetch failed:', e); });
   // #endregion
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -260,10 +265,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
   const [viewingEvidence, setViewingEvidence] = useState<EvidenceItem | null>(null);
   const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
+  const [operatingListSubspecialty, setOperatingListSubspecialty] = useState("");
 
   // Lock based on status only (Submitted or SignedOff/Complete)
   const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
-  
+
   // When viewing linked evidence (has originFormParams), force read-only mode
   const isReadOnly = isLocked || !!originFormParams;
 
@@ -281,7 +287,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
         // Use case-insensitive matching to prevent accidental reset due to minor casing differences (e.g. "Neuro-Ophthalmology" vs "Neuro-ophthalmology")
         const currentSiaLower = selectedSia.toLowerCase();
         const matchingSpecialty = availableSpecialties.find(s => s.toLowerCase() === currentSiaLower);
-        
+
         if (matchingSpecialty) {
           // If match exists but casing is different, update to the correct casing from data
           if (matchingSpecialty !== selectedSia) {
@@ -332,8 +338,17 @@ const EPAForm: React.FC<EPAFormProps> = ({
     if (id && allEvidence.length > 0) {
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.EPA);
       if (savedForm?.epaFormData) {
+        // CRITICAL: Restore level and SIA from saved form first
+        // This prevents the form from resetting to default values when returning from OSATS/CRS
+        if (savedForm.level && savedForm.level !== selectedLevel) {
+          setSelectedLevel(savedForm.level);
+        }
+        if (savedForm.sia && savedForm.sia !== selectedSia) {
+          setSelectedSia(savedForm.sia);
+        }
+
         const levelPrefix = selectedLevel === 1 ? 'EPA-L1-' : selectedLevel === 2 ? 'EPA-L2-' : selectedLevel === 3 ? 'EPA-L3-' : selectedLevel === 4 ? 'EPA-L4-' : '';
-        
+
         // Load grading filtered by level
         const levelGrading: Record<string, string> = {};
         if (savedForm.epaFormData.grading && levelPrefix) {
@@ -344,7 +359,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           });
         }
         setGrading(levelGrading);
-        
+
         // Load comments filtered by level
         const levelComments: Record<string, string> = {};
         if (savedForm.epaFormData.comments && levelPrefix) {
@@ -355,7 +370,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           });
         }
         setComments(levelComments);
-        
+
         // Load other fields
         if (savedForm.epaFormData.entrustment) {
           setEntrustment(savedForm.epaFormData.entrustment);
@@ -384,6 +399,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
         if (savedForm.epaFormData.supervisorEmail) {
           setSupervisorEmail(savedForm.epaFormData.supervisorEmail);
         }
+        if (savedForm.epaFormData.operatingListSubspecialty) {
+          setOperatingListSubspecialty(savedForm.epaFormData.operatingListSubspecialty);
+        }
         if (savedForm.status) {
           setStatus(savedForm.status);
         }
@@ -395,7 +413,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const saveToParent = (newStatus: EvidenceStatus = status) => {
     onSave({
       id: formId,
-      title: `EPA Level ${selectedLevel}: ${selectedSia === 'No attached SIA' ? 'General' : selectedSia}`,
+      title: selectedSia === 'Operating List' && operatingListSubspecialty
+        ? `EPA Level ${selectedLevel}: ${selectedSia} - ${operatingListSubspecialty}`
+        : `EPA Level ${selectedLevel}: ${selectedSia === 'No attached SIA' ? 'General' : selectedSia}`,
       type: EvidenceType.EPA,
       sia: selectedSia,
       level: selectedLevel,
@@ -411,7 +431,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
         linkedEvidence: linkedEvidenceData || {},
         aspectsEspeciallyGood: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? aspectsEspeciallyGood : undefined,
         additionalEvidenceNeeded: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? additionalEvidenceNeeded : undefined,
-        traineeNarrative
+        traineeNarrative,
+        operatingListSubspecialty: selectedSia === 'Operating List' ? operatingListSubspecialty : undefined
       }
     });
   };
@@ -427,7 +448,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       }, 800);
     }, 15000);
     return () => clearInterval(timer);
-  }, [isReadOnly, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData, traineeNarrative]);
+  }, [isReadOnly, selectedLevel, selectedSia, supervisorName, entrustment, comments, grading, aspectsEspeciallyGood, additionalEvidenceNeeded, linkedEvidenceData, traineeNarrative, operatingListSubspecialty]);
 
   const handleSaveDraft = () => {
     setIsSaving(true);
@@ -470,7 +491,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const handleMarkAllMeets = () => {
     if (isReadOnly) return;
     const newGrading = { ...grading };
-    
+
     if (selectedLevel === 1) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
       let criteria: string[] = [];
@@ -514,7 +535,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
         newGrading[`EPA-GEN-${selectedSia}-${idx}`] = "Meets expectations";
       });
     }
-    
+
     setGrading(newGrading);
   };
 
@@ -544,17 +565,17 @@ const EPAForm: React.FC<EPAFormProps> = ({
     const isFilled = currentGrading || (comments[reqKey] && comments[reqKey].trim());
 
     return (
-      <GlassCard 
+      <GlassCard
         id={`epa-criterion-${reqKey}`}
-        key={reqKey} 
+        key={reqKey}
         className={`p-5 lg:p-6 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}
       >
         <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{req}</p>
-        
+
         {isLevel1Or2Or3Or4 && (
           <p className="text-xs text-slate-500 dark:text-white/40 mb-4">Does this evidence meet standards?</p>
         )}
-        
+
         {/* Grading Radios */}
         <div className="flex flex-wrap gap-2 mb-6">
           {gradingOptions.map(opt => (
@@ -575,7 +596,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">
                 {isLevel1Or2Or3Or4 ? "Comments" : "Comments (Optional)"}
               </label>
-              <textarea 
+              <textarea
                 disabled={isReadOnly}
                 value={comments[reqKey] || ''}
                 onChange={(e) => handleCommentChange(reqKey, e.target.value.slice(0, 1000))}
@@ -584,7 +605,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               />
             </div>
           )}
-          
+
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
@@ -592,23 +613,23 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 <div className="flex items-center gap-2">
                   {/* Complete CRS/OSATS button for mandatory form criteria */}
                   {onCompleteMandatoryForm && req.startsWith('CRS ') && getCRSSubtypeFromCriterion(req) && (
-                    <button 
-                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)} 
+                    <button
+                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold uppercase text-indigo-600 hover:bg-indigo-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete CRS
                     </button>
                   )}
                   {onCompleteMandatoryForm && req.startsWith('OSATS ') && getOSATSSubtypeFromCriterion(req) && (
-                    <button 
-                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)} 
+                    <button
+                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[10px] font-bold uppercase text-orange-600 hover:bg-orange-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete OSATS
                     </button>
                   )}
-                  <button 
-                    onClick={() => onLinkRequested(reqKey, activeSection)} 
+                  <button
+                    onClick={() => onLinkRequested(reqKey, activeSection)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
                   >
                     <Plus size={14} /> Link Evidence
@@ -616,7 +637,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 </div>
               )}
             </div>
-            
+
             {linkedIds.length > 0 ? (
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
                 <table className="w-full text-left border-collapse">
@@ -637,9 +658,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                     {linkedIds.map(evId => {
                       const ev = allEvidence.find(e => e.id === evId);
                       if (!ev) return null;
-                      
+
                       return (
-                        <tr 
+                        <tr
                           key={evId}
                           onClick={() => {
                             if (onViewLinkedEvidence) {
@@ -736,7 +757,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
   const renderLearningOutcomes = () => {
     let outcomes: string[] = [];
-    
+
     if (selectedLevel === 1) {
       outcomes = LEVEL_1_LEARNING_OUTCOMES;
     } else if (selectedLevel === 2) {
@@ -747,12 +768,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
         outcomes = specialtyData.learningOutcomes;
       }
     }
-    
+
     const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : 'L4';
     // Include SIA in key to scope linked evidence per specialty
     const narrativeKey = `EPA-${levelPrefix}-${selectedSia}-A-NARRATIVE`;
     const linkedNarrativeIds = linkedEvidenceData[narrativeKey] || [];
-    
+
     return (
       <div className="space-y-3">
         {/* Trainee Narrative Section - Now First */}
@@ -765,12 +786,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
               Comment on how the learning outcomes below have been achieved, and link supportive relevant evidence not linked in the subsequent sections.
             </p>
           </div>
-          
+
           <div className="mb-3">
             <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1.5 block">
               Trainee Narrative <span className="text-red-500">*</span>
             </label>
-            <textarea 
+            <textarea
               disabled={isReadOnly}
               required
               value={traineeNarrative}
@@ -779,20 +800,20 @@ const EPAForm: React.FC<EPAFormProps> = ({
               className={`w-full min-h-[100px] bg-slate-50 dark:bg-white/[0.03] border ${!traineeNarrative ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-white/10'} rounded-xl p-2.5 text-[13px] text-slate-900 dark:text-white outline-none focus:border-indigo-500/40 transition-all resize-none ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
-          
+
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
               {!isReadOnly && (
-                <button 
-                  onClick={() => onLinkRequested(narrativeKey, 0)} 
+                <button
+                  onClick={() => onLinkRequested(narrativeKey, 0)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
                 >
                   <Plus size={14} /> Link Evidence
                 </button>
               )}
             </div>
-            
+
             {linkedNarrativeIds.length > 0 ? (
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm">
                 <table className="w-full text-left border-collapse">
@@ -813,9 +834,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                     {linkedNarrativeIds.map(evId => {
                       const ev = allEvidence.find(e => e.id === evId);
                       if (!ev) return null;
-                      
+
                       return (
-                        <tr 
+                        <tr
                           key={evId}
                           onClick={() => {
                             if (onViewLinkedEvidence) {
@@ -921,8 +942,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
               Learning Outcomes
             </h4>
             {outcomes.map((outcome, idx) => (
-              <GlassCard 
-                key={idx} 
+              <GlassCard
+                key={idx}
                 className={`p-4 lg:p-5 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}
               >
                 <p className="text-[13px] leading-snug font-semibold text-slate-900 dark:text-white/90">
@@ -944,8 +965,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      
-      <SignOffDialog 
+
+      <SignOffDialog
         isOpen={isSignOffOpen}
         onClose={() => setIsSignOffOpen(false)}
         onConfirm={handleSignOffConfirm}
@@ -959,14 +980,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Mobile Metadata Summary & Editor */}
       <div className="lg:hidden mb-2">
-        <button 
-          onClick={onBack} 
+        <button
+          onClick={onBack}
           className={`flex items-center gap-2 text-xs mb-4 ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-white/40'}`}
         >
           <ArrowLeft size={14} /> {backButtonText}
         </button>
         <GlassCard className="p-4">
-          <div 
+          <div
             className="flex justify-between items-center cursor-pointer"
             onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
           >
@@ -983,22 +1004,22 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <ChevronDown size={16} className="text-slate-400" />
             </div>
           </div>
-          
+
           {isMetadataExpanded && (
             <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Level">
-                <select 
-                  disabled={isReadOnly} 
+                <select
+                  disabled={isReadOnly}
                   value={selectedLevel}
                   onChange={(e) => setSelectedLevel(Number(e.target.value))}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                 >
-                  {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                  {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
                 </select>
               </MetadataField>
               <MetadataField label="Specialty / SIA">
-                <select 
-                  disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2} 
+                <select
+                  disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2}
                   value={selectedSia}
                   onChange={(e) => setSelectedSia(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none disabled:opacity-50"
@@ -1022,7 +1043,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Left Column: Metadata (Desktop) */}
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
-        <button 
+        <button
           onClick={onBack}
           className={`flex items-center gap-2 text-sm transition-colors ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300' : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70'}`}
         >
@@ -1038,19 +1059,19 @@ const EPAForm: React.FC<EPAFormProps> = ({
           </div>
           <div className="space-y-6">
             <MetadataField label="EPA Level">
-              <select 
-                disabled={isReadOnly} 
+              <select
+                disabled={isReadOnly}
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(Number(e.target.value))}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
               >
-                {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
               </select>
             </MetadataField>
 
             <MetadataField label="Subspecialty">
-              <select 
-                disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2} 
+              <select
+                disabled={isReadOnly || selectedLevel === 1 || selectedLevel === 2}
                 value={selectedSia}
                 onChange={(e) => setSelectedSia(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors disabled:opacity-50"
@@ -1061,11 +1082,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 <p className="mt-1.5 text-[10px] text-slate-400 italic">Level {selectedLevel} assessments are generic/core.</p>
               )}
             </MetadataField>
-            
+
             <MetadataField label="Assessment Date">
               <input disabled={isReadOnly} type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
             </MetadataField>
-            
+
             <MetadataField label="Supervisor">
               <div className="space-y-2">
                 <input disabled={isReadOnly} type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
@@ -1106,23 +1127,59 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
       {/* Right Column: Section Content */}
       <div className="lg:col-span-8 flex flex-col lg:overflow-hidden">
-        {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) && (
+        {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (
           <div className="sticky top-0 lg:static z-20 bg-[#f8fafc]/80 dark:bg-[#0d1117]/80 backdrop-blur-lg lg:bg-transparent py-2 lg:py-0 border-b lg:border-none border-slate-200 dark:border-white/10 flex gap-1 mb-4 lg:mb-8 overflow-x-auto no-scrollbar">
-            {(selectedLevel === 1 ? LEVEL_1_SECTIONS : selectedLevel === 2 ? LEVEL_2_SECTIONS : LEVEL_3_SECTIONS).map((section, idx) => (
-              <button
-                key={section}
-                onClick={() => setActiveSection(idx)}
-                className={`
-                  px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
-                  ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
-                `}
-              >
-                {section}
-                {activeSection === idx && (
-                  <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
-                )}
-              </button>
-            ))}
+            {(() => {
+              // Select appropriate sections based on level and specialty
+              let sections = LEVEL_3_SECTIONS;
+              if (selectedLevel === 1) sections = LEVEL_1_SECTIONS;
+              else if (selectedLevel === 2) sections = LEVEL_2_SECTIONS;
+              else if (selectedLevel === 4 && selectedSia === "Operating List") sections = OPERATING_LIST_SECTIONS;
+
+              return sections.map((section, idx) => {
+                // Hide empty sections for Level 3 and 4
+                if (selectedLevel === 3 || selectedLevel === 4) {
+                  const specialtyData = getSpecialtyData();
+                  if (specialtyData) {
+                    // Skip hiding logic for Operating List (it has custom structure)
+                    if (selectedSia !== "Operating List") {
+                      // Section A (idx 0) checking
+                      if (idx === 0) {
+                        if ((!specialtyData.learningOutcomes || specialtyData.learningOutcomes.length === 0) && selectedLevel === 4) {
+                          // Keep A visible for now as it usually has content, or at least the Narrative field
+                        }
+                      }
+                      // Section B (idx 1)
+                      if (idx === 1 && (!specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0)) return null;
+                      // Section C (idx 2)
+                      if (idx === 2 && (!specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0)) return null;
+                      // Section D (idx 3)
+                      if (idx === 3 && (!specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0)) return null;
+                      // Section E (idx 4)
+                      if (idx === 4 && (!specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0)) return null;
+                      // Section F (idx 5)
+                      if (idx === 5 && (!specialtyData.criteria.sectionF || specialtyData.criteria.sectionF.length === 0)) return null;
+                    }
+                  }
+                }
+
+                return (
+                  <button
+                    key={section}
+                    onClick={() => setActiveSection(idx)}
+                    className={`
+                      px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
+                      ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
+                    `}
+                  >
+                    {section}
+                    {activeSection === idx && (
+                      <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
+                    )}
+                  </button>
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -1130,7 +1187,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {!isReadOnly && (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
               <div className="flex justify-end mb-4">
-                <button 
+                <button
                   onClick={handleMarkAllMeets}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                 >
@@ -1178,14 +1235,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
                         <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
                         <div className="space-y-3 mb-6">
                           {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label 
+                            <label
                               key={lvl}
                               className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
                             >
-                              <input 
-                                type="radio" 
-                                name="entrustment" 
-                                className="hidden" 
+                              <input
+                                type="radio"
+                                name="entrustment"
+                                className="hidden"
                                 disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
@@ -1269,14 +1326,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
                         <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
                         <div className="space-y-3 mb-6">
                           {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label 
+                            <label
                               key={lvl}
                               className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
                             >
-                              <input 
-                                type="radio" 
-                                name="entrustment" 
-                                className="hidden" 
+                              <input
+                                type="radio"
+                                name="entrustment"
+                                className="hidden"
                                 disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
@@ -1324,8 +1381,116 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 </>
               ) : selectedLevel === 3 || selectedLevel === 4 ? (
                 <>
-                  {activeSection === 0 && renderLearningOutcomes()}
+                  {activeSection === 0 && (() => {
+                    // Operating List has special Section A: Operating List Management (uses sectionB criteria)
+                    if (selectedSia === "Operating List") {
+                      const specialtyData = getSpecialtyData();
+                      if (!specialtyData) return null;
+                      const criteria = specialtyData.criteria.sectionB;
+                      if (criteria.length === 0) {
+                        return (
+                          <GlassCard className="p-6">
+                            <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
+                          </GlassCard>
+                        );
+                      }
+                      return (
+                        <>
+                          <GlassCard className="p-5 lg:p-6 mb-4">
+                            <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-3 block">
+                              Specialty <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              disabled={isReadOnly}
+                              value={operatingListSubspecialty}
+                              onChange={(e) => setOperatingListSubspecialty(e.target.value)}
+                              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <option value="">Select a subspecialty...</option>
+                              <option value="Cataract Surgery">Cataract Surgery</option>
+                              <option value="Cornea & Ocular Surface Disease">Cornea & Ocular Surface Disease</option>
+                              <option value="Glaucoma">Glaucoma</option>
+                              <option value="Medical Retina">Medical Retina</option>
+                              <option value="Neuro-ophthalmology">Neuro-ophthalmology</option>
+                              <option value="Ocular Motility">Ocular Motility</option>
+                              <option value="Oculoplastics">Oculoplastics</option>
+                              <option value="Paediatric Ophthalmology">Paediatric Ophthalmology</option>
+                              <option value="Uveitis">Uveitis</option>
+                              <option value="Vitreoretinal Surgery">Vitreoretinal Surgery</option>
+                            </select>
+                          </GlassCard>
+                          {criteria.map((req, idx) => renderCriterion(req, idx, 'B', specialtyData.showCommentsAlways.sectionB))}
+                        </>
+                      );
+                    }
+                    // Standard Section A: Learning Outcomes
+                    return renderLearningOutcomes();
+                  })()}
                   {activeSection === 1 && (() => {
+                    // Operating List has special Section B: Entrustment only (no ancillary evidence)
+                    if (selectedSia === "Operating List") {
+                      return (
+                        <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
+                            Section B: Entrustment
+                          </h4>
+                          <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
+                          <div className="space-y-3 mb-6">
+                            {ENTRUSTMENT_LEVELS.map(lvl => (
+                              <label
+                                key={lvl}
+                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="entrustment"
+                                  className="hidden"
+                                  disabled={isReadOnly}
+                                  checked={entrustment === lvl}
+                                  onChange={() => setEntrustment(lvl)}
+                                />
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                                  {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
+                                </div>
+                                <span className="text-sm font-semibold">{lvl}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                              </label>
+                              <textarea
+                                disabled={isReadOnly}
+                                value={aspectsEspeciallyGood}
+                                onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                                className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                placeholder="Enter aspects which were especially good..."
+                              />
+                            </div>
+
+                            {entrustment !== "Competent to this level" && entrustment !== "" && (
+                              <div>
+                                <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                  Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
+                                </label>
+                                <textarea
+                                  disabled={isReadOnly}
+                                  value={additionalEvidenceNeeded}
+                                  onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
+                                  className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                  placeholder="Enter additional evidence needed..."
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </GlassCard>
+                      );
+                    }
+
+                    // Standard Section B
                     const specialtyData = getSpecialtyData();
                     if (!specialtyData) return null;
                     const criteria = specialtyData.criteria.sectionB;
@@ -1426,14 +1591,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
                         <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
                         <div className="space-y-3 mb-6">
                           {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label 
+                            <label
                               key={lvl}
                               className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
                             >
-                              <input 
-                                type="radio" 
-                                name="entrustment" 
-                                className="hidden" 
+                              <input
+                                type="radio"
+                                name="entrustment"
+                                className="hidden"
                                 disabled={isReadOnly}
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
@@ -1490,11 +1655,11 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Navigation (Only for Level 1, 2, and 3) */}
           {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) && (
             <div className="flex justify-between items-center w-full">
-              <button 
+              <button
                 disabled={activeSection === 0}
                 onClick={() => setActiveSection(s => s - 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -1506,7 +1671,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>
                 ))}
               </div>
-              <button 
+              <button
                 disabled={activeSection === (selectedLevel === 1 ? LEVEL_1_SECTIONS.length : selectedLevel === 2 ? LEVEL_2_SECTIONS.length : selectedLevel === 3 || selectedLevel === 4 ? LEVEL_3_SECTIONS.length : 0) - 1}
                 onClick={() => setActiveSection(s => s + 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -1523,24 +1688,24 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 Draft saved {lastSaved}
               </span>
             )}
-            
+
             {!isReadOnly && (
               <>
-                <button 
+                <button
                   onClick={handleSaveDraft}
                   className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
@@ -1548,7 +1713,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 </button>
               </>
             )}
-            
+
             {isReadOnly && (
               <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
             )}
@@ -1595,7 +1760,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                     </span>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setIsEvidenceDialogOpen(false);
                     setViewingEvidence(null);

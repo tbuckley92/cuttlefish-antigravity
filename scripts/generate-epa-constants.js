@@ -219,11 +219,26 @@ export interface EPASpecialtyData {
 
 // Main execution
 try {
-  const csvPath = path.join(__dirname, '..', 'epa-forms-data.csv.csv');
-  const csvContent = fs.readFileSync(csvPath, 'utf-8');
-  const csvData = parseCSV(csvContent);
+  const csvFiles = [
+    'epa-L3-forms-data.csv.csv',
+    'epa-L4-forms-data.csv.csv'
+  ];
   
-  const tsCode = generateConstants(csvData);
+  let allCsvData = [];
+  
+  csvFiles.forEach(fileName => {
+    const csvPath = path.join(__dirname, '..', fileName);
+    if (fs.existsSync(csvPath)) {
+      const csvContent = fs.readFileSync(csvPath, 'utf-8');
+      const csvData = parseCSV(csvContent);
+      allCsvData = allCsvData.concat(csvData);
+      console.log(`📖 Processed ${fileName} (${csvData.length} rows)`);
+    } else {
+      console.warn(`⚠️ Warning: ${fileName} not found, skipping.`);
+    }
+  });
+  
+  const tsCode = generateConstants(allCsvData);
   
   const outputPath = path.join(__dirname, '..', 'constants', 'epaSpecialtyData.ts');
   
@@ -235,10 +250,9 @@ try {
   
   fs.writeFileSync(outputPath, tsCode, 'utf-8');
   
-  console.log(`✅ Generated TypeScript constants from CSV`);
-  console.log(`   Input: ${csvPath}`);
+  console.log(`✅ Generated TypeScript constants from CSRV files`);
   console.log(`   Output: ${outputPath}`);
-  console.log(`   Processed ${csvData.length} rows`);
+  console.log(`   Total processed: ${allCsvData.length} rows`);
 } catch (error) {
   console.error('❌ Error generating constants:', error);
   process.exit(1);

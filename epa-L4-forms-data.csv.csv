@@ -9,7 +9,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Oculoplastics,C,Criterion,Participation in MDT meetings,TRUE,TRUE,3
 4,Oculoplastics,C,Criterion,Ability to supervise and train trainees and other health professionals in oculoplastics,TRUE,TRUE,4
 4,Oculoplastics,D,Criterion,OSATS Surgical skills - eyelid and adnexal surgery,FALSE,TRUE,1
-4,Oculoplastics,D,Criterion,OSATS Temporal artery biopsy,FALSE,TRUE,2
+4,Oculoplastics,D,Criterion,OSATS Temporal Artery Biopsy,FALSE,TRUE,2
 4,Oculoplastics,D,Criterion,OSATS Removal of eye (enucleation and evisceration),FALSE,TRUE,3
 4,Oculoplastics,D,Criterion,EPA L4 Managing an oculoplastics operating list,FALSE,TRUE,4
 4,Oculoplastics,E,Criterion,Surgical management of oculoplastic adnexal and lacrimal conditions including complex entropion,TRUE,TRUE,1
@@ -29,8 +29,8 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Cornea & Ocular Surface Disease,A,LearningOutcome,COS4.1 - Demonstrate advanced clinical management and surgical skills.,FALSE,FALSE,4
 4,Cornea & Ocular Surface Disease,B,Criterion,CRS1 Consultation skills in cornea and ocular surface disease,FALSE,TRUE,1
 4,Cornea & Ocular Surface Disease,C,Criterion,Independent management of the cornea and ocular surface clinic,TRUE,TRUE,1
-4,Cornea & Ocular Surface Disease,C,Criterion,Management of complex corneal,TRUE,TRUE,2
-4,Cornea & Ocular Surface Disease,C,Criterion,Management of post refractive surgery complications e.g. ectasia,TRUE,TRUE,3
+4,Cornea & Ocular Surface Disease,C,Criterion,"Management of complex corneal, ocular surface and anterior segment disease including use of immunomodulation",TRUE,TRUE,2
+4,Cornea & Ocular Surface Disease,C,Criterion,"Management of post refractive surgery complications e.g. ectasia, epithelial ingrowth",TRUE,TRUE,3
 4,Cornea & Ocular Surface Disease,C,Criterion,Ability to supervise and train trainees in corneal and ocular surface disease to Level 3 and other health professional in a clinic setting,TRUE,TRUE,4
 4,Cornea & Ocular Surface Disease,D,Criterion,OSATS Surgical skills - cornea and ocular surface,FALSE,TRUE,1
 4,Cornea & Ocular Surface Disease,D,Criterion,OSATS Cataract surgery,FALSE,TRUE,2
@@ -55,7 +55,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Cataract Surgery,B,Criterion,CRS1 Consultation skills in cataract surgery,FALSE,TRUE,1
 4,Cataract Surgery,C,Criterion,Independent management of the cataract clinic,TRUE,TRUE,1
 4,Cataract Surgery,C,Criterion,Perform and interpret biometry in complex cases,TRUE,TRUE,2
-4,Cataract Surgery,D,Criterion,OSATS Managing range of complex cataract surgery cases and different IOL types,FALSE,TRUE,1
+4,Cataract Surgery,D,Criterion,OSATS Complex cataract surgery ,FALSE,TRUE,1
 4,Cataract Surgery,D,Criterion,EPA L4 Managing a cataract operating list,FALSE,TRUE,2
 4,Cataract Surgery,E,Criterion,Performance of anterior vitrectomy,TRUE,TRUE,1
 4,Cataract Surgery,E,Criterion,Placement of secondary IOL,TRUE,TRUE,2
@@ -132,7 +132,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Vitreoretinal Surgery,D,Criterion,OSATS Cataract surgery,FALSE,TRUE,1
 4,Vitreoretinal Surgery,D,Criterion,OSATS Microsurgical skills - vitreoretinal surgery,FALSE,TRUE,2
 4,Vitreoretinal Surgery,D,Criterion,EPA L4 Managing a vitreoretinal operating list,FALSE,TRUE,3
-4,Vitreoretinal Surgery,E,Criterion,Complex cataract surgery,TRUE,TRUE,1
+4,Vitreoretinal Surgery,E,Criterion,"Complex cataract surgery (post-vitrectomy, posterior polar)",TRUE,TRUE,1
 4,Vitreoretinal Surgery,E,Criterion,Management of complications of cataract surgery,TRUE,TRUE,2
 4,Vitreoretinal Surgery,E,Criterion,Supervise and provide objective assessment of other surgical competency at Level 3 (e.g. WpBAs),TRUE,TRUE,3
 4,Vitreoretinal Surgery,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
@@ -142,3 +142,91 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Vitreoretinal Surgery,F,Criterion,Review of personal audit of surgical outcomes,FALSE,TRUE,5
 4,Vitreoretinal Surgery,F,Criterion,CbDs,FALSE,TRUE,6
 4,Vitreoretinal Surgery,F,Criterion,Multi-assessor report,FALSE,TRUE,7
+4,Ocular Motility,A,LearningOutcome,"OM4.4 - Be an effective supervisor, teacher and trainer of ocular motility case management.",FALSE,FALSE,1
+4,Ocular Motility,A,LearningOutcome,"OM4.3 - Apply management and team working skills appropriately, including in complex, dynamic situations.",FALSE,FALSE,2
+4,Ocular Motility,A,LearningOutcome,OM4.2 - Manage the complexity and uncertainty of ocular motility cases.,FALSE,FALSE,3
+4,Ocular Motility,A,LearningOutcome,OM4.1 - Demonstrate advanced clinical management and surgical skills.,FALSE,FALSE,4
+4,Ocular Motility,B,Criterion,CRS1 Consultation skills in ocular motility,TRUE,TRUE,1
+4,Ocular Motility,C,Criterion,Independent management of ocular motility clinic,TRUE,TRUE,1
+4,Ocular Motility,C,Criterion,Complex strabismus assessment and management,TRUE,TRUE,2
+4,Ocular Motility,C,Criterion,Ability to supervise and train trainees and other health professionals in ocular motility disease surgery to Level 3 in a clinic setting,TRUE,TRUE,3
+4,Ocular Motility,D,Criterion,OSATS Extraocular Muscle Surgery,FALSE,TRUE,1
+4,Ocular Motility,D,Criterion,OSATS Microsurgical skills - vitreoretinal surgery,FALSE,TRUE,2
+4,Ocular Motility,D,Criterion,EPA L4 Managing an ocular motility operating list,FALSE,TRUE,3
+4,Ocular Motility,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either in Outpatients or Theatre,TRUE,TRUE,1
+4,Ocular Motility,E,Criterion,DOPS Botulinum toxin injection to extraocular muscles - either in Outpatients or Theatre,TRUE,TRUE,2
+4,Ocular Motility,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
+4,Ocular Motility,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting,FALSE,TRUE,2
+4,Ocular Motility,F,Criterion,Review of record keeping and letters,FALSE,TRUE,3
+4,Ocular Motility,F,Criterion,Review of logbook,FALSE,TRUE,4
+4,Ocular Motility,F,Criterion,Review of personal audit of surgical outcomes,FALSE,TRUE,5
+4,Ocular Motility,F,Criterion,CbDs,FALSE,TRUE,6
+4,Ocular Motility,F,Criterion,Multi-assessor report,FALSE,TRUE,7
+4,Neuro-ophthalmology,A,LearningOutcome,"NO4.4 - Be an effective supervisor, teacher and trainer of neuro-ophthalmology cases.",FALSE,FALSE,1
+4,Neuro-ophthalmology,A,LearningOutcome,"NO4.3 - Apply management and team working skills appropriately, including in complex, dynamic situations.",FALSE,FALSE,2
+4,Neuro-ophthalmology,A,LearningOutcome,NO4.2 - Manage the complexity and uncertainty of neuro-ophthalmology cases.,FALSE,FALSE,3
+4,Neuro-ophthalmology,A,LearningOutcome,NO4.1 - Demonstrate advanced clinical management and surgical skills.,FALSE,FALSE,4
+4,Neuro-ophthalmology,B,Criterion,CRS1 Consultation skills in neuro-ophthalmology,TRUE,TRUE,1
+4,Neuro-ophthalmology,C,Criterion,Independent management of the neuro-ophthalmology clinic,TRUE,TRUE,1
+4,Neuro-ophthalmology,C,Criterion,Use and interpretation of appropriate neuroimaging,TRUE,TRUE,2
+4,Neuro-ophthalmology,C,Criterion,Use of and interpretation of appropriate electrodiagnostic testing,TRUE,TRUE,3
+4,Neuro-ophthalmology,C,Criterion,Ability to supervise and train trainees and other health professionals in neuro-ophthalmology to Level 3 in a clinic setting,TRUE,TRUE,4
+4,Neuro-ophthalmology,D,Criterion,OSATS Temporal Artery Biopsy,FALSE,TRUE,1
+4,Neuro-ophthalmology,D,Criterion,DOPS Botulinum toxin injection to extraocular muscles,FALSE,TRUE,2
+4,Neuro-ophthalmology,D,Criterion,DOPS Forced duction test,FALSE,TRUE,3
+4,Neuro-ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
+4,Neuro-ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting,FALSE,TRUE,2
+4,Neuro-ophthalmology,F,Criterion,Review of record keeping and letters,FALSE,TRUE,3
+4,Neuro-ophthalmology,F,Criterion,Review of logbook,FALSE,TRUE,4
+5,Neuro-ophthalmology,F,Criterion,CbDs,FALSE,TRUE,5
+4,Neuro-ophthalmology,F,Criterion,Multi-assessor report,FALSE,TRUE,6
+4,Paediatric Ophthalmology,A,LearningOutcome,"PO4.4 - Be an effective supervisor, teacher and trainer of paediatric ophthalmology",FALSE,FALSE,1
+4,Paediatric Ophthalmology,A,LearningOutcome,"PO4.3 - Apply management and team working skills appropriately, including in complex, dynamic situations.",FALSE,FALSE,2
+4,Paediatric Ophthalmology,A,LearningOutcome,PO4.2 - Manage the complexity and uncertainty of paediatric ophthalmology cases.,FALSE,FALSE,3
+4,Paediatric Ophthalmology,A,LearningOutcome,PO4.1 - Demonstrate advanced clinical management and surgical skills.,FALSE,FALSE,4
+4,Paediatric Ophthalmology,B,Criterion,CRS1 Consultation skills in paediatric ophthalmology,TRUE,TRUE,1
+4,Paediatric Ophthalmology,C,Criterion,Diagnosis and treatment of ROP,TRUE,TRUE,1
+4,Paediatric Ophthalmology,C,Criterion,Collaborative working with tertiary and special interest teams,TRUE,TRUE,2
+4,Paediatric Ophthalmology,C,Criterion,Ability to supervise and train trainees and other health professionals in paediatric ophthalmology to Level 3 in a clinic setting,TRUE,TRUE,3
+4,Paediatric Ophthalmology,D,Criterion,OSATS - surgery in paediatric patients,FALSE,TRUE,1
+4,Paediatric Ophthalmology,D,Criterion,EPA L4 Managing a paediatric operating list,FALSE,TRUE,2
+4,Paediatric Ophthalmology,E,Criterion,Complex strabismus and nystagmus assessment - either Theatre or Outpatients,TRUE,TRUE,1
+4,Paediatric Ophthalmology,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either Theatre or Outpatients,TRUE,TRUE,2
+4,Paediatric Ophthalmology,E,Criterion,DOPS Retinal Laser - PRP/sector,TRUE,TRUE,3
+4,Paediatric Ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
+4,Paediatric Ophthalmology,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting,FALSE,TRUE,2
+4,Paediatric Ophthalmology,F,Criterion,Review of record keeping and letters,FALSE,TRUE,3
+4,Paediatric Ophthalmology,F,Criterion,Review of logbook,FALSE,TRUE,4
+4,Paediatric Ophthalmology,F,Criterion,Review of personal audit of surgical outcomes,FALSE,TRUE,5
+4,Paediatric Ophthalmology,F,Criterion,CbDs,FALSE,TRUE,6
+4,Paediatric Ophthalmology,F,Criterion,Multi-assessor report,FALSE,TRUE,7
+4,Urgent Eye Care,A,LearningOutcome,"UEC4.4 - Be an effective supervisor, teacher and trainer of urgent eye care.",FALSE,FALSE,1
+4,Urgent Eye Care,A,LearningOutcome,"UEC4.3 - Apply management and team working skills appropriately, including in complex, dynamic situations.",FALSE,FALSE,2
+4,Urgent Eye Care,A,LearningOutcome,UEC4.2 - Manage the complexity and uncertainty of urgent eye care.,FALSE,FALSE,3
+4,Urgent Eye Care,A,LearningOutcome,UEC4.1 - Demonstrate advanced clinical management and surgical skills.,FALSE,FALSE,4
+4,Urgent Eye Care,B,Criterion,CRS1 Consultation skills in urgent eye care,TRUE,TRUE,1
+4,Urgent Eye Care,C,Criterion,Independent management of the urgent eye care clinic,TRUE,TRUE,1
+4,Urgent Eye Care,C,Criterion,Ultrasound of the vitreous cavity,TRUE,TRUE,2
+4,Urgent Eye Care,C,Criterion,DOPS Vitreous biopsy,TRUE,TRUE,3
+4,Urgent Eye Care,C,Criterion,Ability to supervise and train trainees in urgent eye care to Level 3 and other health professionals in a clinic setting,TRUE,TRUE,4
+4,Urgent Eye Care,D,Criterion,OSATS - Trauma,FALSE,TRUE,1
+4,Urgent Eye Care,E,Criterion,Complex strabismus and nystagmus assessment - either Theatre or Outpatients,TRUE,TRUE,1
+4,Urgent Eye Care,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either Theatre or Outpatients,TRUE,TRUE,2
+4,Urgent Eye Care,E,Criterion,DOPS Retinal Laser - PRP/sector,TRUE,TRUE,3
+4,Urgent Eye Care,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1
+4,Urgent Eye Care,F,Criterion,Longitudinal observation by consultant assessor in the theatre and simulation setting,FALSE,TRUE,2
+4,Urgent Eye Care,F,Criterion,Review of record keeping and letters,FALSE,TRUE,3
+4,Urgent Eye Care,F,Criterion,Review of logbook,FALSE,TRUE,4
+5,Urgent Eye Care,F,Criterion,CbDs,FALSE,TRUE,5
+4,Urgent Eye Care,F,Criterion,Multi-assessor report,FALSE,TRUE,6
+4,Community Ophthalmology,A,LearningOutcome,"CO4.4 - Be an effective clinical leader, supervisor and trainer of the multi-disciplinary teams.",FALSE,FALSE,1
+4,Community Ophthalmology,A,LearningOutcome,CO4.3 - Demonstrate skills to assess and assure high quality outcomes in Community Ophthalmology Services.,FALSE,FALSE,2
+4,Community Ophthalmology,A,LearningOutcome,CO4.2 - Evaluate design and delivery of care pathways.,FALSE,FALSE,3
+4,Community Ophthalmology,A,LearningOutcome,CO4.1 - Demonstrate advanced skills necessary to assess the eye health needs of a population and analyse local priorities.,FALSE,FALSE,4
+4,Community Ophthalmology,C,Criterion,Understand local eye health needs,TRUE,TRUE,1
+4,Community Ophthalmology,C,Criterion,Ability to supervise and train trainees in community ophthalmology to Level 3 and other health professionals,TRUE,TRUE,2
+4,Community Ophthalmology,C,Criterion,Health services evaluation project/quality improvement project,TRUE,TRUE,3
+4,Community Ophthalmology,F,Criterion,"Longitudinal, periodic observation by consultant assessor in the outpatient and community setting where possible (consider handling of referrals, communication with primary care, virtual clinics, teleophthalmology, etc.)",FALSE,TRUE,1
+4,Community Ophthalmology,F,Criterion,Review of record keeping and letters,FALSE,TRUE,2
+5,Community Ophthalmology,F,Criterion,CbDs,FALSE,TRUE,3
+4,Community Ophthalmology,F,Criterion,Multi-assessor report,FALSE,TRUE,4
