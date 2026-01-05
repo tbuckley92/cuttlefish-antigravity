@@ -9,7 +9,7 @@ import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
 import { generateEvidencePDF } from '../utils/pdfGenerator';
 import { createEvidenceZip } from '../utils/zipGenerator';
-import { isSupabaseConfigured } from '../utils/supabaseClient';
+import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
 import { getEvidenceFileUrl } from '../utils/storageUtils';
 
 
@@ -27,6 +27,22 @@ interface MyEvidenceProps {
   excludeType?: EvidenceType;
   epaLinkingMode?: boolean; // When true, only show EPA Operating List items
 }
+
+const DELETABLE_COMPLETE_TYPES = [
+  EvidenceType.CurriculumCatchUp,
+  EvidenceType.FourteenFish,
+  EvidenceType.Reflection,
+  EvidenceType.QIP,
+  EvidenceType.Award,
+  EvidenceType.Course,
+  EvidenceType.SignificantEvent,
+  EvidenceType.Research,
+  EvidenceType.Leadership,
+  EvidenceType.Logbook,
+  EvidenceType.Additional,
+  EvidenceType.Compliment,
+  EvidenceType.Other
+];
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({
   allEvidence,
@@ -115,13 +131,32 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     e.stopPropagation();
 
     // For Curriculum Catch Up and FourteenFish, open the uploaded file directly
-    if ((item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) && item.fileUrl) {
+    if (item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) {
       try {
         let urlToOpen = item.fileUrl;
 
+        // Lazy load if missing (legacy optimization)
+        if (!urlToOpen && isSupabaseConfigured) {
+          const { data: fullData } = await supabase
+            .from('evidence')
+            .select('data')
+            .eq('id', item.id)
+            .single();
+
+          if (fullData?.data) {
+            // @ts-ignore
+            urlToOpen = fullData.data.fileUrl || fullData.data.fileBase64;
+          }
+        }
+
+        if (!urlToOpen) {
+          alert('No file attached to this legacy record.');
+          return;
+        }
+
         // If Supabase is configured and it's not a base64/data URL, assume it's a storage path
-        if (isSupabaseConfigured && !item.fileUrl.startsWith('data:') && !item.fileUrl.startsWith('http')) {
-          urlToOpen = await getEvidenceFileUrl(item.fileUrl);
+        if (isSupabaseConfigured && !urlToOpen.startsWith('data:') && !urlToOpen.startsWith('http')) {
+          urlToOpen = await getEvidenceFileUrl(urlToOpen);
         }
 
         window.open(urlToOpen, '_blank');
@@ -391,8 +426,15 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                       </span>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white truncate">
+                      <div className="flex items-center gap-1.5 max-w-[200px] md:max-w-[300px] lg:max-w-[450px]">
+                        <span
+                          className="text-sm font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white whitespace-nowrap overflow-hidden flex-1 min-w-0"
+                          style={{
+                            maskImage: 'linear-gradient(to right, black 80%, transparent 100%)',
+                            WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)'
+                          }}
+                          title={item.title}
+                        >
                           {item.title}
                         </span>
                         {item.fileName && (
@@ -431,15 +473,16 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                             <FileDown size={14} />
                           </button>
                         )}
-                        {item.status === EvidenceStatus.Draft && onDeleteEvidence && (
-                          <button
-                            onClick={(e) => handleDeleteClick(e, item.id)}
-                            className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+                        {(item.status === EvidenceStatus.Draft ||
+                          (item.status === EvidenceStatus.SignedOff && DELETABLE_COMPLETE_TYPES.includes(item.type))) && onDeleteEvidence && (
+                            <button
+                              onClick={(e) => handleDeleteClick(e, item.id)}
+                              className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                       </div>
                     </td>
                     <td className="px-2 py-3 text-center">

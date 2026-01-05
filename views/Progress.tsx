@@ -16,6 +16,8 @@ interface ProgressProps {
   onDeleteEvidence?: (id: string) => void;
   portfolioProgress?: PortfolioProgressItem[];
   onUpsertProgress?: (item: Partial<PortfolioProgressItem>) => void;
+  onDeleteProgress?: (sia: string, level: number, evidenceId: string) => void;
+  onViewEvidence?: (item: EvidenceItem) => void;
 }
 
 import { SPECIALTIES } from '../constants';
@@ -35,7 +37,7 @@ const fileToDataURL = (file: File): Promise<string> => {
   });
 };
 
-export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack, profile, onUpdateProfile, onUpsertEvidence, onDeleteEvidence, portfolioProgress, onUpsertProgress }) => {
+export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, isSupervisorView, onBack, profile, onUpdateProfile, onUpsertEvidence, onDeleteEvidence, portfolioProgress, onUpsertProgress, onDeleteProgress, onViewEvidence }) => {
   const [isCatchUpMode, setIsCatchUpMode] = useState(false);
   const [selectedCatchUpBoxes, setSelectedCatchUpBoxes] = useState<Set<string>>(new Set());
   const [uploadedCatchUpFiles, setUploadedCatchUpFiles] = useState<Array<{ file: File, dataUrl: string, fileName: string }>>([]);
@@ -49,6 +51,9 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
   const [linkingFileBoxKeys, setLinkingFileBoxKeys] = useState<string[]>([]);
   const [linkingIsCatchUp, setLinkingIsCatchUp] = useState<boolean>(false);
   const [linkingSelectedBoxes, setLinkingSelectedBoxes] = useState<Set<string>>(new Set());
+
+  // Dialog state
+  const [evidenceDialogData, setEvidenceDialogData] = useState<{ title: string, sia: string, level: number, items: EvidenceItem[] } | null>(null);
 
   // Ref removed: using allEvidence prop directly to ensure immediate UI updates
 
@@ -275,11 +280,99 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
     }
   };
 
+
+
+  /**
+   * Helper to find all evidence associated with a box.
+   * Merges explicit links (portfolioProgress) and implicit links (Evidence logic).
+   */
+  const getEvidenceForBox = (column: string, level: number): EvidenceItem[] => {
+    const boxKey = `${column}-${level}`;
+    const foundIds = new Set<string>();
+    const foundItems: EvidenceItem[] = [];
+
+    // 1. Check portfolio_progress (Explicit links)
+    if (portfolioProgress) {
+      const linkedProgress = portfolioProgress.filter(p => p.sia === column && p.level === level);
+      linkedProgress.forEach(p => {
+        if (p.evidence_id) foundIds.add(p.evidence_id);
+      });
+    }
+
+    // 2. Check Implicit Logic (GSAT, EPA Levels 1/2, Specialty EPAs)
+    // Note: This logic mirrors getStatus but returns items
+    if (column === "GSAT") {
+      allEvidence.filter(e => e.type === EvidenceType.GSAT && e.level === level).forEach(e => foundIds.add(e.id));
+    } else if (level === 1 || level === 2) {
+      // Generic EPAs apply to level 1 & 2
+      allEvidence.filter(e => e.type === EvidenceType.EPA && e.level === level).forEach(e => foundIds.add(e.id));
+    } else {
+      // Specialty Logic
+      allEvidence.filter(e => {
+        if (e.type !== EvidenceType.EPA || e.level !== level) return false;
+        const evidenceSia = e.sia?.toLowerCase().trim() || "";
+        const columnSia = column.toLowerCase().trim();
+        if (columnSia === "cornea & ocular surface") {
+          return evidenceSia.includes("cornea") && evidenceSia.includes("surface");
+        }
+        return evidenceSia === columnSia;
+      }).forEach(e => foundIds.add(e.id));
+    }
+
+    // 3. Check Legacy Completions (if they map to specific items in allEvidence)
+    // Legacy mapping is tricky because one item covers multiple boxes, but we want to show that item here.
+    const isLegacyCompleted = profile?.curriculumCatchUpCompletions?.[boxKey] || profile?.fourteenFishCompletions?.[boxKey];
+    if (isLegacyCompleted) {
+      const sia = column !== "GSAT" ? column : "GSAT";
+      // Find items that MIGHT match this box
+      allEvidence.filter(e => {
+        const isCCU = e.type === EvidenceType.CurriculumCatchUp && profile?.curriculumCatchUpCompletions?.[boxKey];
+        const isFish = e.type === EvidenceType.FourteenFish && profile?.fourteenFishCompletions?.[boxKey];
+        if (!isCCU && !isFish) return false;
+
+        const siaMatch = sia === "GSAT" ? !e.sia : e.sia === sia;
+        // Naive title check often used in legacy mapping
+        const titleMatch = e.title.includes(sia);
+        return siaMatch && titleMatch;
+      }).forEach(e => foundIds.add(e.id));
+    }
+
+    // Retrieve full objects
+    foundIds.forEach(id => {
+      const item = allEvidence.find(e => e.id === id);
+      if (item) foundItems.push(item);
+    });
+
+    return foundItems;
+  };
+
+
   const handleBoxClick = (column: string, level: number) => {
+    // Desktop Check for Dialog (min-width 768px matching Tailwind md)
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+
+    // If we are NOT in special modes (CatchUp/FourteenFish/Linking), 
+    // and on Desktop, we want to show the dialog of linked evidence.
+    const isNormalMode = !isCatchUpMode && !isFourteenFishMode && !linkingFileUrl;
+
+    if (isDesktop && isNormalMode) {
+      const items = getEvidenceForBox(column, level);
+      if (items.length > 0) {
+        setEvidenceDialogData({
+          title: `${column} - Level ${level}`,
+          sia: column,
+          level: level,
+          items
+        });
+        return; // Stop processing explicit legacy clicks below if we opened dialog
+      }
+    }
+
     const boxKey = `${column}-${level}`;
 
     // If box is completed (check only profile, not selected boxes), open file in new tab
     // First check EvidenceItem entries (more reliable after page reload)
+    // ... (rest of original logic)
     if (profile?.curriculumCatchUpCompletions?.[boxKey]) {
       // Look for EvidenceItem entry matching this SIA (not specific level)
       const sia = column !== "GSAT" ? column : "GSAT";
@@ -1898,6 +1991,96 @@ export const Progress: React.FC<ProgressProps> = ({ allEvidence, traineeName, is
           <p className="text-xs text-slate-500 leading-relaxed">The GSAT column tracks the 6 domains of non-patient management (Research, Leadership, etc.) collectively for that training level.</p>
         </GlassCard>
       </div>
+      {/* Evidence Dialog (Desktop Only) */}
+      {evidenceDialogData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{evidenceDialogData.title}</h3>
+                <p className="text-sm text-slate-500 dark:text-white/60">{evidenceDialogData.items.length} linked evidence item(s)</p>
+              </div>
+              <button
+                onClick={() => setEvidenceDialogData(null)}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500 dark:text-white/60" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {evidenceDialogData.items.map(item => {
+                const isLegacyType = item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish;
+                const statusLabel = item.status === EvidenceStatus.SignedOff ? 'SIGNED OFF' :
+                  item.status === EvidenceStatus.Submitted ? 'SUBMITTED' : 'DRAFT';
+                const statusColor = item.status === EvidenceStatus.SignedOff ? 'text-emerald-600 bg-emerald-50' :
+                  item.status === EvidenceStatus.Submitted ? 'text-amber-600 bg-amber-50' : 'text-slate-500 bg-slate-100';
+
+                return (
+                  <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-colors group">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.status === EvidenceStatus.SignedOff ? 'bg-emerald-100 text-emerald-600' :
+                        item.status === EvidenceStatus.Submitted ? 'bg-amber-100 text-amber-600' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                        {item.status === EvidenceStatus.SignedOff ? <CheckCircle2 size={16} /> :
+                          item.status === EvidenceStatus.Submitted ? <Clock size={16} /> :
+                            <FileText size={16} />}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-sm text-slate-900 dark:text-white truncate pr-2">{item.title}</h4>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 flex-wrap">
+                          <span className="uppercase tracking-wider font-bold text-[10px]">{item.type}</span>
+                          <span>•</span>
+                          <span>{new Date(item.date).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${statusColor}`}>{statusLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isLegacyType && onDeleteProgress && (
+                        <button
+                          onClick={() => {
+                            const isComplete = item.status === EvidenceStatus.SignedOff;
+                            const confirmMsg = isComplete
+                              ? `This evidence is SIGNED OFF. Are you sure you want to unlink "${item.title}" from ${evidenceDialogData.sia} Level ${evidenceDialogData.level}? This will modify a completed record.`
+                              : `Unlink "${item.title}" from ${evidenceDialogData.sia} Level ${evidenceDialogData.level}?`;
+
+                            if (window.confirm(confirmMsg)) {
+                              onDeleteProgress(evidenceDialogData.sia, evidenceDialogData.level, item.id);
+                              // Refresh dialog by removing this item
+                              const updatedItems = evidenceDialogData.items.filter(i => i.id !== item.id);
+                              if (updatedItems.length === 0) {
+                                setEvidenceDialogData(null);
+                              } else {
+                                setEvidenceDialogData({ ...evidenceDialogData, items: updatedItems });
+                              }
+                            }
+                          }}
+                          className="px-2 py-1 rounded-lg text-rose-500 dark:text-rose-400 text-xs font-medium hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors whitespace-nowrap"
+                        >
+                          Unlink
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setEvidenceDialogData(null); // Close dialog
+                          onViewEvidence?.(item); // Navigate
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white dark:bg-indigo-500/20 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-500 dark:hover:bg-indigo-500/30 transition-colors whitespace-nowrap shadow-sm"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

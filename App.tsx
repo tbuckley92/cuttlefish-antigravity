@@ -206,27 +206,45 @@ const App: React.FC = () => {
 
     const fetchEvidence = async () => {
       setIsLoadingEvidence(true);
-      const { data, error } = await supabase
+      // Optimised Fetch:
+      // 1. Fetch ALL data for non-legacy items (they are small/modern)
+      const nonLegacyPromise = supabase
         .from('evidence')
         .select('*')
         .eq('trainee_id', session.user.id)
+        .neq('type', 'Curriculum Catch Up')
+        .neq('type', 'FourteenFish')
         .order('event_date', { ascending: false });
 
-      if (!isMounted) return;
+      // 2. Fetch LIGHTWEIGHT data for legacy items (exclude 'data' column which has base64)
+      const legacyPromise = supabase
+        .from('evidence')
+        .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
+        .eq('trainee_id', session.user.id)
+        .in('type', ['Curriculum Catch Up', 'FourteenFish'])
+        .order('event_date', { ascending: false });
+
+      const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
+
+      if (nonLegacyResponse.error) console.error('Error fetching modern evidence:', nonLegacyResponse.error);
+      if (legacyResponse.error) console.error('Error fetching legacy evidence:', legacyResponse.error);
+
+      const combinedData = [
+        ...(nonLegacyResponse.data || []),
+        ...(legacyResponse.data || [])
+      ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+
+      // Process data
+      if (combinedData) {
+        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+        // @ts-ignore
+        const mappedItems = combinedData.map(mapRowToEvidenceItem);
+        setAllEvidence(mappedItems);
+      }
+
       setIsLoadingEvidence(false);
 
-      if (error) {
-        console.error('Error fetching evidence:', error);
-        return;
-      }
 
-      if (data) {
-        // Import mapper dynamically or assume it's imported at top (we will add import)
-        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
-        const mappedItems = data.map(mapRowToEvidenceItem);
-        setAllEvidence(mappedItems);
-        setAllEvidence(mappedItems);
-      }
 
       // Fetch Portfolio Progress
       const { data: progressData, error: progressError } = await supabase
@@ -516,7 +534,6 @@ const App: React.FC = () => {
     } else {
       setCurrentView(View.RecordForm);
     }
-    setCurrentView(View.RecordForm);
   }
 
 
@@ -555,6 +572,35 @@ const App: React.FC = () => {
 
       if (error) {
         console.error('Error saving portfolio progress:', error);
+      }
+    }
+  };
+
+  // Handler for unlinking evidence from progress matrix
+  const handleDeleteProgress = async (sia: string, level: number, evidenceId: string) => {
+    // 1. Remove from local state
+    setPortfolioProgress(prev => prev.filter(p => !(p.sia === sia && p.level === level && p.evidence_id === evidenceId)));
+
+    // 2. Update evidence item's selectedBoxes to remove this SIA-Level
+    const evidenceItem = allEvidence.find(e => e.id === evidenceId);
+    if (evidenceItem && (evidenceItem as any).selectedBoxes) {
+      const boxKey = `${sia}-${level}`;
+      const updatedBoxes = ((evidenceItem as any).selectedBoxes as string[]).filter((k: string) => k !== boxKey);
+      handleUpsertEvidence({ id: evidenceId, selectedBoxes: updatedBoxes } as any);
+    }
+
+    // 3. Delete from Supabase
+    if (isSupabaseConfigured && supabase && session?.user) {
+      const { error } = await supabase
+        .from('portfolio_progress')
+        .delete()
+        .eq('trainee_id', session.user.id)
+        .eq('sia', sia)
+        .eq('level', level)
+        .eq('evidence_id', evidenceId);
+
+      if (error) {
+        console.error('Error deleting portfolio progress:', error);
       }
     }
   };
@@ -734,28 +780,71 @@ const App: React.FC = () => {
     setCurrentView(View.AddEvidence);
   };
 
-  const handleEditEvidence = (item: EvidenceItem) => {
+  const handleEditEvidence = async (item: EvidenceItem) => {
     setEditingEvidence(item);
     if (item.type === EvidenceType.MSF) {
       setCurrentView(View.MSFSubmission);
     } else if (item.type === EvidenceType.EPA) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.EPAForm);
     } else if (item.type === EvidenceType.DOPs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.DOPsForm);
     } else if (item.type === EvidenceType.OSATs) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.OSATSForm);
     } else if (item.type === EvidenceType.CbD) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.CBDForm);
     } else if (item.type === EvidenceType.CRS) {
-      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.CRSForm);
     } else if (item.type === EvidenceType.GSAT) {
-      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status, originView: View.Evidence });
+      setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.GSATForm);
+    } else if (item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) {
+      // Lazy load legacy data if missing
+      // @ts-ignore
+      if (!item.fileBase64 && !item.fileUrl && !item.file) {
+        // Show loading state or just wait? The UI might freeze slightly, but it's better than initial load freeze.
+        try {
+          // Temporarily show generic loading if needed, or just await
+          const { data: fullData, error } = await supabase
+            .from('evidence')
+            .select('*')
+            .eq('id', item.id)
+            .single();
+
+          if (fullData) {
+            const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+            const fullItem = mapRowToEvidenceItem(fullData);
+
+            // Update cache
+            setAllEvidence(prev => prev.map(e => e.id === item.id ? fullItem : e));
+
+            // Set view params with full item
+            setSelectedFormParams({ sia: '', level: 0, id: fullItem.id, status: fullItem.status, originView: currentView });
+            setCurrentView(View.EPALegacyForm);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to lazy load legacy item", err);
+        }
+      }
+
+      setSelectedFormParams({ sia: '', level: 0, id: item.id, status: item.status, originView: currentView });
+      setCurrentView(View.EPALegacyForm);
+    } else if (item.type === EvidenceType.EPAOperatingList) {
+      // Extract subspecialty from item data if available
+      const subspecialty = item.epaOperatingListFormData?.subspecialty || '';
+      setSelectedFormParams({
+        sia: subspecialty,
+        level: 0, // Not strictly used but good for consistency
+        id: item.id,
+        status: item.status,
+        originView: currentView
+      });
+      setCurrentView(View.EPAOperatingListForm);
     } else {
       setCurrentView(View.AddEvidence);
     }
@@ -1403,12 +1492,41 @@ const App: React.FC = () => {
             onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
             portfolioProgress={viewingTraineeId ? [] : portfolioProgress}
             onUpsertProgress={viewingTraineeId ? undefined : handleUpsertProgress}
+            onDeleteProgress={viewingTraineeId ? undefined : handleDeleteProgress}
+            onViewEvidence={handleEditEvidence}
           />
         );
       case View.EPALegacyForm:
+        const existingLegacyItem = selectedFormParams?.id
+          ? allEvidence.find(e => e.id === selectedFormParams.id)
+          : null;
+
+        // Reconstruct initial data if viewing
+        let initialLegacyData: any = undefined;
+        if (existingLegacyItem) {
+          initialLegacyData = {
+            id: existingLegacyItem.id,
+            title: existingLegacyItem.title,
+            type: existingLegacyItem.type,
+            fileUrl: existingLegacyItem.fileUrl,
+            fileBase64: existingLegacyItem.fileBase64, // Pass base64 data if available
+            fileName: existingLegacyItem.fileName,
+            // @ts-ignore
+            selectedBoxes: new Set(existingLegacyItem.selectedBoxes || [])
+          };
+        }
+
         return (
           <EPALegacyForm
-            onBack={() => setCurrentView(View.RecordForm)}
+            onBack={() => {
+              if (selectedFormParams?.originView) {
+                setCurrentView(selectedFormParams.originView);
+              } else {
+                setCurrentView(View.RecordForm);
+              }
+            }}
+            initialData={initialLegacyData}
+            isReadOnly={!!existingLegacyItem}
             sias={[
               ...SPECIALTIES.map(s => ({ id: s, specialty: s, level: 0 } as SIA)),
               { id: 'GSAT', specialty: 'GSAT', level: 0 } as SIA
@@ -1440,8 +1558,11 @@ const App: React.FC = () => {
                 date: new Date().toISOString().split('T')[0],
                 status: EvidenceStatus.SignedOff, // Auto-signed off for legacy
                 fileUrl: fileUrl, // Storage path or Base64 fallback
+                fileBase64: data.fileBase64, // Always store base64 for viewing
                 fileName: data.file?.name,
                 notes: `Legacy Upload. Levels: ${levels}`,
+                // @ts-ignore - Dynamic field
+                selectedBoxes: Array.from(data.selectedBoxes)
               } as EvidenceItem;
 
               await handleUpsertEvidence(evidenceItem);
@@ -1527,6 +1648,7 @@ const App: React.FC = () => {
             setSelectedFormParams(null);
             setCurrentView(View.EPAForm);
           } else if (type === 'EPALegacy') {
+            setSelectedFormParams(null);
             setCurrentView(View.EPALegacyForm);
           }
           else if (type === 'GSAT') {

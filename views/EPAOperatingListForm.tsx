@@ -208,7 +208,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
             type: EvidenceType.EPAOperatingList,
             title: `EPA Operating List - ${subspecialty}`,
             date,
-            status: EvidenceStatus.Submitted,
+            status: EvidenceStatus.SignedOff,
             supervisorGmc: gmc,
             supervisorName: name,
             supervisorEmail: email,
@@ -487,6 +487,21 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                             </div>
                         )}
                     </div>
+                    {/* Read-Only Close View Action */}
+                    {isReadOnly && (
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-white/10 flex justify-end z-50">
+                            <div className="max-w-7xl mx-auto w-full flex justify-end">
+                                <button
+                                    onClick={onBack}
+                                    className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-lg"
+                                >
+                                    CLOSE VIEW
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {/* Spacing for fixed bottom bar */}
+                    {isReadOnly && <div className="h-20" />}
                 </div>
             </div>
 
