@@ -37,7 +37,10 @@ const OSATS_TYPES = [
   "OSATS Interpret biometry",
   "OSATS Intravitreal injection",
   "OSATS Extraocular Muscle Surgery",
-  "OSATS Complex cataract surgery"
+  "OSATS Complex cataract surgery",
+  "OSATS Removal of eye (enucleation and evisceration)",
+  "OSATS Temporal Artery Biopsy",
+  "OSATS Trauma"
 ];
 
 const OSATS_SECTIONS = [
@@ -556,8 +559,8 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', competency.key, opt)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
                       }`}
                   >
                     {opt}
@@ -607,8 +610,8 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', competency.key, opt)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
                       }`}
                   >
                     {opt}
@@ -710,8 +713,8 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">OSATS Assessment</h2>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
               }`}>
               {status}
             </span>
@@ -793,10 +796,10 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                   <div
                     key={i}
                     className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
-                        ? 'bg-green-500'
-                        : activeSection === i
-                          ? 'bg-indigo-500'
-                          : 'bg-slate-200 dark:bg-white/10'
+                      ? 'bg-green-500'
+                      : activeSection === i
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-200 dark:bg-white/10'
                       }`}
                   ></div>
                 ))}
@@ -818,8 +821,8 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
               <p className="text-xs text-slate-500 dark:text-white/40 mt-1">{specialty} - Level {trainingLevel}</p>
             </div>
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' :
-                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
-                  'bg-indigo-100 text-indigo-700'
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
+                'bg-indigo-100 text-indigo-700'
               }`}>
               {status}
             </span>
@@ -957,10 +960,10 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
                   key={idx}
                   onClick={() => setActiveSection(idx)}
                   className={`w-2 h-2 rounded-full cursor-pointer transition-all ${activeSection === idx
-                      ? 'bg-indigo-600 w-6'
-                      : isSectionComplete(idx)
-                        ? 'bg-indigo-300 dark:bg-indigo-600'
-                        : 'bg-slate-300 dark:bg-white/10'
+                    ? 'bg-indigo-600 w-6'
+                    : isSectionComplete(idx)
+                      ? 'bg-indigo-300 dark:bg-indigo-600'
+                      : 'bg-slate-300 dark:bg-white/10'
                     }`}
                 ></div>
               ))}

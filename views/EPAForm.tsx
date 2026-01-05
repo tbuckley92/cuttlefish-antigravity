@@ -29,7 +29,7 @@ interface EPAFormProps {
   onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
-  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
+  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
 }
@@ -69,6 +69,16 @@ const getOSATSSubtypeFromCriterion = (criterion: string): string | null => {
   if (name === 'Interpret biometry') return 'OSATS Interpret biometry';
   // Fallback
   return `OSATS ${name}`;
+};
+
+const getDOPSSubtypeFromCriterion = (criterion: string): string | null => {
+  if (!criterion.startsWith('DOPS ')) return null;
+  const name = criterion.replace('DOPS ', '');
+  return name;
+};
+
+const getCBDSubtypeFromCriterion = (criterion: string): boolean => {
+  return criterion.includes('Case-based Discussions') || criterion.startsWith('CbD ');
 };
 
 const getOperatingListFromCriterion = (criterion: string): boolean => {
@@ -271,6 +281,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [viewingEvidence, setViewingEvidence] = useState<EvidenceItem | null>(null);
   const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
   const [operatingListSubspecialty, setOperatingListSubspecialty] = useState("");
+
+  const activeSectionsList = (() => {
+    if (selectedLevel === 1) return LEVEL_1_SECTIONS;
+    if (selectedLevel === 2) return LEVEL_2_SECTIONS;
+    if (selectedLevel === 4 && selectedSia === "Operating List") return OPERATING_LIST_SECTIONS;
+    return LEVEL_3_SECTIONS;
+  })();
 
   // Lock based on status only (Submitted or SignedOff/Complete)
   const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
@@ -632,6 +649,22 @@ const EPAForm: React.FC<EPAFormProps> = ({
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[10px] font-bold uppercase text-orange-600 hover:bg-orange-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete OSATS
+                    </button>
+                  )}
+                  {onCompleteMandatoryForm && req.startsWith('DOPS ') && getDOPSSubtypeFromCriterion(req) && (
+                    <button
+                      onClick={() => onCompleteMandatoryForm('DOPs', getDOPSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-[10px] font-bold uppercase text-teal-600 hover:bg-teal-100 transition-all"
+                    >
+                      <ClipboardCheck size={14} /> Complete DOPS
+                    </button>
+                  )}
+                  {onCompleteMandatoryForm && getCBDSubtypeFromCriterion(req) && (
+                    <button
+                      onClick={() => onCompleteMandatoryForm('CbD', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-[10px] font-bold uppercase text-purple-600 hover:bg-purple-100 transition-all"
+                    >
+                      <ClipboardCheck size={14} /> Complete CbD
                     </button>
                   )}
                   {onCompleteMandatoryForm && getOperatingListFromCriterion(req) && (
@@ -1112,18 +1145,14 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <div className="flex justify-between items-center mb-4">
                 <span className="text-xs text-slate-400 uppercase font-semibold">Progress</span>
                 <span className="text-xs text-slate-600">
-                  {selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4 ? '6 Sections' : 'EPA Details'}
+                  {activeSectionsList.length > 0 ? `${activeSectionsList.length} Sections` : 'EPA Details'}
                 </span>
               </div>
-              <div className={`grid gap-2 ${selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 ? 'grid-cols-6' : 'grid-cols-1'}`}>
-                {selectedLevel === 1 ? LEVEL_1_SECTIONS.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>
-                )) : selectedLevel === 2 ? LEVEL_2_SECTIONS.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>
-                )) : selectedLevel === 3 ? LEVEL_3_SECTIONS.map((_, i) => (
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${activeSectionsList.length || 1}, minmax(0, 1fr))` }}>
+                {activeSectionsList.length > 0 ? activeSectionsList.map((_, i) => (
                   <div key={i} className={`h-1 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>
                 )) : (
-                  <div className="h-1 col-span-3 rounded-full bg-indigo-500"></div>
+                  <div className="h-1 col-span-full rounded-full bg-indigo-500"></div>
                 )}
               </div>
             </div>
@@ -1143,57 +1172,49 @@ const EPAForm: React.FC<EPAFormProps> = ({
       <div className="lg:col-span-8 flex flex-col lg:overflow-hidden">
         {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (
           <div className="sticky top-0 lg:static z-20 bg-[#f8fafc]/80 dark:bg-[#0d1117]/80 backdrop-blur-lg lg:bg-transparent py-2 lg:py-0 border-b lg:border-none border-slate-200 dark:border-white/10 flex gap-1 mb-4 lg:mb-8 overflow-x-auto no-scrollbar">
-            {(() => {
-              // Select appropriate sections based on level and specialty
-              let sections = LEVEL_3_SECTIONS;
-              if (selectedLevel === 1) sections = LEVEL_1_SECTIONS;
-              else if (selectedLevel === 2) sections = LEVEL_2_SECTIONS;
-              else if (selectedLevel === 4 && selectedSia === "Operating List") sections = OPERATING_LIST_SECTIONS;
-
-              return sections.map((section, idx) => {
-                // Hide empty sections for Level 3 and 4
-                if (selectedLevel === 3 || selectedLevel === 4) {
-                  const specialtyData = getSpecialtyData();
-                  if (specialtyData) {
-                    // Skip hiding logic for Operating List (it has custom structure)
-                    if (selectedSia !== "Operating List") {
-                      // Section A (idx 0) checking
-                      if (idx === 0) {
-                        if ((!specialtyData.learningOutcomes || specialtyData.learningOutcomes.length === 0) && selectedLevel === 4) {
-                          // Keep A visible for now as it usually has content, or at least the Narrative field
-                        }
+            {activeSectionsList.map((section, idx) => {
+              // Hide empty sections for Level 3 and 4
+              if (selectedLevel === 3 || selectedLevel === 4) {
+                const specialtyData = getSpecialtyData();
+                if (specialtyData) {
+                  // Skip hiding logic for Operating List (it has custom structure)
+                  if (selectedSia !== "Operating List") {
+                    // Section A (idx 0) checking
+                    if (idx === 0) {
+                      if ((!specialtyData.learningOutcomes || specialtyData.learningOutcomes.length === 0) && selectedLevel === 4) {
+                        // Keep A visible for now as it usually has content, or at least the Narrative field
                       }
-                      // Section B (idx 1)
-                      if (idx === 1 && (!specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0)) return null;
-                      // Section C (idx 2)
-                      if (idx === 2 && (!specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0)) return null;
-                      // Section D (idx 3)
-                      if (idx === 3 && (!specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0)) return null;
-                      // Section E (idx 4)
-                      if (idx === 4 && (!specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0)) return null;
-                      // Section F (idx 5)
-                      if (idx === 5 && (!specialtyData.criteria.sectionF || specialtyData.criteria.sectionF.length === 0)) return null;
                     }
+                    // Section B (idx 1)
+                    if (idx === 1 && (!specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0)) return null;
+                    // Section C (idx 2)
+                    if (idx === 2 && (!specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0)) return null;
+                    // Section D (idx 3)
+                    if (idx === 3 && (!specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0)) return null;
+                    // Section E (idx 4)
+                    if (idx === 4 && (!specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0)) return null;
+                    // Section F (idx 5)
+                    if (idx === 5 && (!specialtyData.criteria.sectionF || specialtyData.criteria.sectionF.length === 0)) return null;
                   }
                 }
+              }
 
-                return (
-                  <button
-                    key={section}
-                    onClick={() => setActiveSection(idx)}
-                    className={`
+              return (
+                <button
+                  key={section}
+                  onClick={() => setActiveSection(idx)}
+                  className={`
                       px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
                       ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
                     `}
-                  >
-                    {section}
-                    {activeSection === idx && (
-                      <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
-                    )}
-                  </button>
-                );
-              });
-            })()}
+                >
+                  {section}
+                  {activeSection === idx && (
+                    <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -1670,8 +1691,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
 
-          {/* Row 1: Navigation (Only for Level 1, 2, and 3) */}
-          {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) && (
+          {/* Row 1: Navigation (Only for Level 1, 2, 3 and 4) */}
+          {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (
             <div className="flex justify-between items-center w-full">
               <button
                 disabled={activeSection === 0}
@@ -1681,12 +1702,12 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
               </button>
               <div className="flex gap-1.5">
-                {(selectedLevel === 1 ? LEVEL_1_SECTIONS : selectedLevel === 2 ? LEVEL_2_SECTIONS : selectedLevel === 3 || selectedLevel === 4 ? LEVEL_3_SECTIONS : []).map((_, i) => (
+                {activeSectionsList.map((_, i) => (
                   <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>
                 ))}
               </div>
               <button
-                disabled={activeSection === (selectedLevel === 1 ? LEVEL_1_SECTIONS.length : selectedLevel === 2 ? LEVEL_2_SECTIONS.length : selectedLevel === 3 || selectedLevel === 4 ? LEVEL_3_SECTIONS.length : 0) - 1}
+                disabled={activeSection === activeSectionsList.length - 1}
                 onClick={() => setActiveSection(s => s + 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
               >
@@ -1739,7 +1760,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       {isEvidenceDialogOpen && viewingEvidence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-6 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
+            <div className="p-6 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2rem]">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
@@ -1890,7 +1911,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   </button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
         </div>
       )}

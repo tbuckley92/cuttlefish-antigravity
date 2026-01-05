@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
-  Clock, AlertCircle, FileText, BookOpen, Users, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
+  Clock, AlertCircle, FileText, BookOpen, Users,
   ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
   UploadCloud, Calendar, Save, Eye
 } from '../components/Icons';
@@ -24,11 +24,11 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
   const totalSteps = 5;
 
   // Track the ID of the persistent ARCP Prep evidence item
-  const existingPrepRecord = useMemo(() => 
+  const existingPrepRecord = useMemo(() =>
     allEvidence.find(e => e.type === EvidenceType.ARCPPrep),
     [allEvidence]
   );
-  
+
   const [prepId] = useState(existingPrepRecord?.id || Math.random().toString(36).substr(2, 9));
   const [lastSaved, setLastSaved] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -88,12 +88,12 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
   // Find existing artifacts in allEvidence
-  const existingFormR = useMemo(() => 
+  const existingFormR = useMemo(() =>
     allEvidence.find(e => e.title.toLowerCase().includes("form r")),
     [allEvidence]
   );
 
-  const existingLogbook = useMemo(() => 
+  const existingLogbook = useMemo(() =>
     allEvidence.find(e => e.type === EvidenceType.Logbook),
     [allEvidence]
   );
@@ -101,7 +101,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
   // Dynamic Artifact Statuses for Part 1
   const artifactStatuses = useMemo(() => {
     const isComplete = (type?: EvidenceType, titleSearch?: string) => {
-      return allEvidence.some(e => 
+      return allEvidence.some(e =>
         (type && e.type === type && e.status === EvidenceStatus.SignedOff) ||
         (titleSearch && e.title.toLowerCase().includes(titleSearch.toLowerCase()) && e.status === EvidenceStatus.SignedOff)
       );
@@ -250,8 +250,8 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
   const renderProgress = () => (
     <div className="flex items-center gap-4 mb-8">
       <div className="flex-1 h-1.5 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-indigo-600 transition-all duration-500 ease-out" 
+        <div
+          className="h-full bg-indigo-600 transition-all duration-500 ease-out"
           style={{ width: `${(step / totalSteps) * 100}%` }}
         ></div>
       </div>
@@ -273,28 +273,28 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
         <p className="text-sm text-slate-500 mt-1">Review core compliance documentation.</p>
       </div>
       <div className="grid gap-4">
-        <ArtifactRow 
-          icon={<FileText className="text-blue-500" />} 
-          title="Form R" 
-          description="Self-declaration of professional practice." 
+        <ArtifactRow
+          icon={<FileText className="text-blue-500" />}
+          title="Form R"
+          description="Self-declaration of professional practice."
           status={artifactStatuses.formR}
           onClick={handleOpenFormR}
           hasFile={!!(formRFileUrl || existingFormR?.fileUrl || formRFileName || existingFormR?.fileName)}
           onView={handleViewPDF}
         />
-        <ArtifactRow 
-          icon={<ClipboardCheck className="text-teal-500" />} 
-          title="Eyelogbook" 
-          description="Full surgical logbook summary." 
+        <ArtifactRow
+          icon={<ClipboardCheck className="text-teal-500" />}
+          title="Eyelogbook"
+          description="Full surgical logbook summary."
           status={artifactStatuses.eyeLogbook}
           onClick={handleOpenLogbook}
           hasFile={!!(logbookFileUrl || existingLogbook?.fileUrl || logbookFileName || existingLogbook?.fileName)}
           onView={handleViewLogbookPDF}
         />
-        <ArtifactRow 
-          icon={<Activity className="text-indigo-500" />} 
-          title="PDP" 
-          description="Personal Development Plan integration (Coming Soon)." 
+        <ArtifactRow
+          icon={<Activity className="text-indigo-500" />}
+          title="PDP"
+          description="Personal Development Plan integration (Coming Soon)."
           status={artifactStatuses.pdp}
           onClick={handleOpenPDP}
           isPDP={true}
@@ -312,9 +312,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
       <div className="grid gap-4">
         {sias.length > 0 ? sias.map(sia => {
           // Calculate completion status for this SIA entry - matching Dashboard logic exactly
-          const matchingEpas = allEvidence.filter(e => 
-            e.type === EvidenceType.EPA && 
-            e.level === sia.level && 
+          const matchingEpas = allEvidence.filter(e =>
+            e.type === EvidenceType.EPA &&
+            e.level === sia.level &&
             (sia.level <= 2 ? true : e.sia === sia.specialty)
           );
 
@@ -332,30 +332,28 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                 </div>
                 <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
               </div>
-              
+
               {/* Status section matching Dashboard display */}
               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                  <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
-                    currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                  <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
                     currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
-                    currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
-                    'text-slate-300'
-                  }`}>
-                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
-                     currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                     currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                      currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                        'text-slate-300'
+                    }`}>
+                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
+                      currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
+                        currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
                     {currentStatus}
                   </span>
                 </div>
                 <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-700 ${
-                    currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                  <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
                     currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
-                    currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
-                    'bg-slate-200 w-0'
-                  }`}></div>
+                      currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                        'bg-slate-200 w-0'
+                    }`}></div>
                 </div>
               </div>
             </div>
@@ -402,30 +400,28 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
             </div>
-            
+
             {/* Status section matching EPA/SIA display */}
             <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
-                  currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
                   currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
-                  currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
-                  'text-slate-300'
-                }`}>
-                  {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
-                   currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                   currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                    currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                      'text-slate-300'
+                  }`}>
+                  {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
+                    currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
+                      currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
                   {gsatStatus}
                 </span>
               </div>
               <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                <div className={`h-full transition-all duration-700 ${
-                  currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
                   currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
-                  currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
-                  'bg-slate-200 w-0'
-                }`}></div>
+                    currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                      'bg-slate-200 w-0'
+                  }`}></div>
               </div>
             </div>
           </div>
@@ -474,16 +470,17 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
-      
+
       {/* Form R Dialog */}
       {isFormRDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Form R</h2>
                   <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Professional Declaration</p>
+                  <a href="https://trainee.tis.nhs.uk/" target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:text-indigo-600 font-bold mt-1 block hover:underline">Link to TIS: https://trainee.tis.nhs.uk/</a>
                 </div>
                 <button onClick={() => setIsFormRDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
                   <X size={20} />
@@ -495,8 +492,8 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Completion Date</label>
                   <div className="relative">
                     <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" />
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={formRDate}
                       onChange={(e) => setFormRDate(e.target.value)}
                       className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium"
@@ -508,7 +505,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   <div className="flex justify-between items-center mb-3">
                     <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Document Upload (PDF)</label>
                     {(formRFileUrl || existingFormR?.fileUrl) && (
-                      <button 
+                      <button
                         onClick={() => handleViewPDF()}
                         className="flex items-center gap-1.5 text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition-colors"
                       >
@@ -516,7 +513,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                       </button>
                     )}
                   </div>
-                  <div 
+                  <div
                     onClick={() => formRFileInputRef.current?.click()}
                     className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${formRFileName ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-50/20'}`}
                   >
@@ -537,13 +534,13 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                 </div>
 
                 <div className="pt-4 flex flex-col gap-3">
-                  <button 
+                  <button
                     onClick={handleFormRSubmit}
                     className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
                   >
                     <Save size={18} /> {existingFormR ? 'Update Form R' : 'Submit Form R'}
                   </button>
-                  <button 
+                  <button
                     onClick={() => setIsFormRDialogOpen(false)}
                     className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
                   >
@@ -551,7 +548,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   </button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
         </div>
       )}
@@ -560,7 +557,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
       {isPDPDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-2xl animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem] max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem] max-h-[90vh] overflow-hidden flex flex-col">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Personal Development Plan</h2>
@@ -578,13 +575,13 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Goal {idx + 1}</h3>
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Brief title</label>
                           <p className="text-sm font-medium text-slate-900 dark:text-white">{goal.title || 'Untitled Goal'}</p>
                         </div>
-                        
+
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Agreed action(s) or goal(s)</label>
                           <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{goal.actions || '–'}</p>
@@ -611,11 +608,10 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
 
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Status</label>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
-                            goal.status === 'COMPLETE'
-                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
-                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                          }`}>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${goal.status === 'COMPLETE'
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            }`}>
                             {goal.status || 'IN PROGRESS'}
                           </span>
                         </div>
@@ -631,14 +627,14 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
               </div>
 
               <div className="pt-6 mt-6 border-t border-slate-200 dark:border-white/10">
-                <button 
+                <button
                   onClick={() => setIsPDPDialogOpen(false)}
                   className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
                 >
                   Close
                 </button>
               </div>
-            </GlassCard>
+            </div>
           </div>
         </div>
       )}
@@ -647,7 +643,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
       {isLogbookDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <GlassCard className="p-8 bg-white/100 dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
+            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Eyelogbook</h2>
@@ -663,8 +659,8 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Extraction Date</label>
                   <div className="relative">
                     <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500" />
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={logbookDate}
                       onChange={(e) => setLogbookDate(e.target.value)}
                       className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-teal-500/50 transition-all font-medium"
@@ -676,7 +672,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   <div className="flex justify-between items-center mb-3">
                     <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Logbook PDF Export</label>
                     {(logbookFileUrl || existingLogbook?.fileUrl) && (
-                      <button 
+                      <button
                         onClick={() => handleViewLogbookPDF()}
                         className="flex items-center gap-1.5 text-[10px] font-black uppercase text-teal-600 hover:text-teal-700 transition-colors"
                       >
@@ -684,7 +680,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                       </button>
                     )}
                   </div>
-                  <div 
+                  <div
                     onClick={() => logbookFileInputRef.current?.click()}
                     className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${logbookFileName ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-500/10' : 'border-slate-200 dark:border-white/10 hover:border-teal-500/50 hover:bg-teal-50/20'}`}
                   >
@@ -705,13 +701,13 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                 </div>
 
                 <div className="pt-4 flex flex-col gap-3">
-                  <button 
+                  <button
                     onClick={handleLogbookSubmit}
                     className="w-full py-4 rounded-2xl bg-teal-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-600/30 hover:bg-teal-500 transition-all flex items-center justify-center gap-2"
                   >
                     <Save size={18} /> {existingLogbook ? 'Update Eyelogbook' : 'Submit Eyelogbook'}
                   </button>
-                  <button 
+                  <button
                     onClick={() => setIsLogbookDialogOpen(false)}
                     className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
                   >
@@ -719,7 +715,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
                   </button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
         </div>
       )}
@@ -737,33 +733,33 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
 
       <div className="min-h-[500px]">
         {renderProgress()}
-        
+
         {/* Compact Navigation Bar relocated to here */}
         <div className="flex justify-between items-center mb-12 -mt-4">
-          <button 
+          <button
             onClick={prevStep}
             disabled={step === 1}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-0"
           >
             <ChevronLeft size={16} /> Previous
           </button>
-          
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => saveStatus(EvidenceStatus.Draft)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-100 transition-all"
             >
               <Save size={14} /> Save Draft
             </button>
             {step < totalSteps ? (
-              <button 
+              <button
                 onClick={nextStep}
                 className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all uppercase tracking-widest"
               >
                 Next Part <ChevronRight size={16} />
               </button>
             ) : (
-              <button 
+              <button
                 onClick={handleFinish}
                 className="px-8 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xl hover:bg-black transition-all uppercase tracking-widest"
               >
@@ -772,7 +768,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
             )}
           </div>
         </div>
-        
+
         <div className="overflow-hidden">
           {step === 1 && renderPart1()}
           {step === 2 && renderPart2()}
@@ -791,11 +787,10 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
   const isClickable = isPDP ? isComplete : true;
 
   return (
-    <div 
+    <div
       onClick={isClickable ? onClick : undefined}
-      className={`p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group transition-all ${
-        isClickable ? 'hover:shadow-lg cursor-pointer' : 'cursor-default'
-      }`}
+      className={`p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group transition-all ${isClickable ? 'hover:shadow-lg cursor-pointer' : 'cursor-default'
+        }`}
     >
       <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
         {icon}
@@ -818,7 +813,7 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
               {/* Always show View/Edit on hover if a file or completion state exists */}
               <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 {hasFile && onView && (
-                  <button 
+                  <button
                     onClick={onView}
                     className="flex items-center gap-1 text-[10px] text-teal-600 font-black uppercase tracking-tight hover:text-teal-700"
                   >
@@ -826,7 +821,7 @@ const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description:
                   </button>
                 )}
                 {!isPending && (
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); onClick?.(); }}
                     className="flex items-center gap-1 text-[10px] text-indigo-500 font-black uppercase tracking-tight"
                   >

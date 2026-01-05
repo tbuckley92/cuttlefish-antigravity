@@ -78,7 +78,7 @@ interface ReturnTarget {
 
 // Context for launching mandatory CRS/OSATS/EPAOperatingList from EPA
 interface MandatoryFormContext {
-  expectedType: 'CRS' | 'OSATs' | 'EPAOperatingList';
+  expectedType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs' | 'CbD';
   defaultSubtype: string;
   reqKey: string;
   returnSection: number;
@@ -366,7 +366,9 @@ const App: React.FC = () => {
     const ctx = mandatoryContext;
     const isMatchingMandatoryType = ctx && (
       (ctx.expectedType === 'CRS' && item.type === EvidenceType.CRS) ||
-      (ctx.expectedType === 'OSATs' && item.type === EvidenceType.OSATs)
+      (ctx.expectedType === 'OSATs' && item.type === EvidenceType.OSATs) ||
+      (ctx.expectedType === 'DOPs' && item.type === EvidenceType.DOPs) ||
+      (ctx.expectedType === 'CbD' && item.type === EvidenceType.CbD)
     );
 
     setAllEvidence(prev => {
@@ -745,7 +747,7 @@ const App: React.FC = () => {
 
   // Handler for launching mandatory CRS/OSATS/EPAOperatingList from EPA
   const handleCompleteMandatoryForm = (
-    formType: 'CRS' | 'OSATs' | 'EPAOperatingList',
+    formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs' | 'CbD',
     defaultSubtype: string,
     reqKey: string,
     sectionIndex: number,
@@ -800,6 +802,17 @@ const App: React.FC = () => {
         originFormParams: epaParams
       });
       setCurrentView(View.OSATSForm);
+    } else if (formType === 'DOPs') {
+      setSelectedFormParams({
+        sia: originSia ?? (selectedFormParams?.sia || ''),
+        level: originLevel ?? (selectedFormParams?.level || 1),
+        supervisorName: selectedFormParams?.supervisorName,
+        supervisorEmail: selectedFormParams?.supervisorEmail,
+        type: defaultSubtype, // This will be used for initialDopsType
+        originView: View.EPAForm,
+        originFormParams: epaParams
+      });
+      setCurrentView(View.DOPsForm);
     } else if (formType === 'EPAOperatingList') {
       // Navigate to EPA Operating List Form
       setSelectedFormParams({
@@ -810,6 +823,16 @@ const App: React.FC = () => {
         originFormParams: epaParams
       });
       setCurrentView(View.EPAOperatingListForm);
+    } else if (formType === 'CbD') {
+      setSelectedFormParams({
+        sia: originSia ?? (selectedFormParams?.sia || ''),
+        level: originLevel ?? (selectedFormParams?.level || 1),
+        supervisorName: selectedFormParams?.supervisorName,
+        supervisorEmail: selectedFormParams?.supervisorEmail,
+        originView: View.EPAForm,
+        originFormParams: epaParams
+      });
+      setCurrentView(View.CBDForm);
     }
   };
 
@@ -930,6 +953,45 @@ const App: React.FC = () => {
   // Handler for EPA Operating List form submission - handles auto-linking back to origin EPA
   const handleEPAOperatingListSubmitted = () => {
     if (mandatoryContext && mandatoryContext.expectedType === 'EPAOperatingList') {
+      const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
+
+      // Use the ref if set (newly created), otherwise check for existing evidence (if editing)
+      const evidenceId = mandatoryCreatedIdRef.current || (selectedFormParams?.id);
+
+      if (evidenceId) {
+        // Auto-link the created evidence to the EPA criterion
+        setLinkedEvidence(prev => ({
+          ...prev,
+          [reqKey]: [...new Set([...(prev[reqKey] || []), evidenceId])]
+        }));
+      }
+
+      // Set return target for scroll
+      setReturnTarget({
+        originView: View.EPAForm,
+        section: returnSection,
+        index: returnIndex
+      });
+
+      // Navigate back to origin EPA form
+      setSelectedFormParams({
+        ...epaFormParams,
+        initialSection: returnSection
+      });
+      setCurrentView(View.EPAForm);
+
+      // Clear mandatory context
+      setMandatoryContext(null);
+      mandatoryCreatedIdRef.current = null;
+    } else {
+      // Fallback to normal behavior
+      handleFormSubmitted();
+    }
+  };
+
+  // Handler for CbD form submission - handles auto-linking back to EPA
+  const handleCBDSubmitted = () => {
+    if (mandatoryContext && mandatoryContext.expectedType === 'CbD') {
       const { reqKey, returnSection, returnIndex, epaFormParams } = mandatoryContext;
 
       // Use the ref if set (newly created), otherwise check for existing evidence (if editing)
@@ -1238,6 +1300,7 @@ const App: React.FC = () => {
             initialAssessorName={selectedFormParams?.supervisorName}
             initialAssessorEmail={selectedFormParams?.supervisorEmail}
             initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
+            initialDopsType={selectedFormParams?.type}
             onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
@@ -1278,7 +1341,7 @@ const App: React.FC = () => {
             initialAssessorEmail={selectedFormParams?.supervisorEmail}
             initialStatus={selectedFormParams?.status || existingCBD?.status || EvidenceStatus.Draft}
             onBack={handleBackToOrigin}
-            onSubmitted={handleFormSubmitted}
+            onSubmitted={handleCBDSubmitted}
             onSave={handleUpsertEvidence}
             allEvidence={allEvidence}
           />

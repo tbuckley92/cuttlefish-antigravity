@@ -17,6 +17,7 @@ interface DOPsFormProps {
   initialAssessorName?: string;
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
+  initialDopsType?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -42,7 +43,9 @@ const DOPS_TYPES = [
   "Forced duction test",
   "Vitreous biopsy",
   "B-Scan",
-  "Periocular drug delivery"
+  "Periocular drug delivery",
+  "Botulinum toxin injection to extraocular muscles",
+  "Botulinum toxin injection to lid"
 ];
 
 const DOPS_SECTIONS = [
@@ -183,6 +186,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
+  initialDopsType,
   onBack,
   onSubmitted,
   onSave,
@@ -190,7 +194,13 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
 }) => {
   const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
   const [activeSection, setActiveSection] = useState(0);
-  const [selectedDopsType, setSelectedDopsType] = useState(DOPS_TYPES[0]); // Default to "Custom"
+  // Use initialDopsType when creating new (no id), otherwise default to "Custom"
+  const [selectedDopsType, setSelectedDopsType] = useState(() => {
+    if (!id && initialDopsType && DOPS_TYPES.includes(initialDopsType)) {
+      return initialDopsType;
+    }
+    return DOPS_TYPES[0]; // Default to "Custom"
+  });
   const [trainingLevel, setTrainingLevel] = useState(level.toString());
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);

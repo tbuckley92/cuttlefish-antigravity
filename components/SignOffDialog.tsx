@@ -143,7 +143,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg animate-in slide-in-from-bottom-8 duration-300">
-        <GlassCard className="p-6 md:p-8 bg-white/100 dark:bg-slate-900 shadow-2xl ring-1 ring-slate-200 dark:ring-white/10 border-none">
+        <div className="p-6 md:p-8 bg-white dark:bg-slate-900 shadow-2xl rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 border-none">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Sign off assessment</h2>
@@ -177,8 +177,8 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
             <div>
               <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">GMC Number</label>
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={gmc}
                   onChange={(e) => setGmc(e.target.value)}
                   placeholder="Enter 7-digit GMC"
@@ -195,11 +195,11 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
 
             <div>
               <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block flex justify-between">
-                Signature 
+                Signature
                 <button onClick={clearCanvas} className="text-indigo-500 hover:text-indigo-600 transition-colors">Clear</button>
               </label>
               <div className="relative group">
-                <canvas 
+                <canvas
                   ref={canvasRef}
                   width={400}
                   height={120}
@@ -244,7 +244,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
                 }
               `}</style>
               <div className="relative">
-                <button 
+                <button
                   onClick={handleConfirm}
                   disabled={!canSubmit}
                   className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -271,7 +271,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
                   </div>
                 )}
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 className="w-full mt-2 py-3 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-slate-600 transition-colors text-center"
               >
@@ -279,7 +279,7 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
               </button>
             </div>
           </div>
-        </GlassCard>
+        </div>
       </div>
     </div>
   );
