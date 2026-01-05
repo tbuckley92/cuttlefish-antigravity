@@ -7,6 +7,7 @@ import {
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, X, Eye
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
 import { EPA_SPECIALTY_DATA } from '../constants/epaSpecialtyData';
@@ -23,10 +24,11 @@ interface EPAFormProps {
   initialStatus?: EvidenceStatus;
   originView?: any; // View enum type
   originFormParams?: any; // FormParams type
+  traineeName?: string; // Add trainee name from profile
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
-  onLinkRequested: (reqIndex: number | string, sectionIndex: number) => void;
+  onLinkRequested: (reqIndex: number | string, sectionIndex: number, currentFormParams?: any) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
@@ -68,7 +70,7 @@ const getOSATSSubtypeFromCriterion = (criterion: string): string | null => {
   if (name === 'Lateral canthotomy / cantholysis') return 'OSATS Lateral canthotomy / cantholysis';
   if (name === 'Interpret biometry') return 'OSATS Interpret biometry';
   // Fallback
-  return `OSATS ${name}`;
+  return `OSATS ${name} `;
 };
 
 const getDOPSSubtypeFromCriterion = (criterion: string): string | null => {
@@ -236,19 +238,20 @@ const EPAForm: React.FC<EPAFormProps> = ({
   initialStatus = EvidenceStatus.Draft,
   originView,
   originFormParams,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   onLinkRequested,
   onRemoveLink,
   onViewLinkedEvidence,
-  onCompleteMandatoryForm,
   linkedEvidenceData,
-  allEvidence = []
+  allEvidence = [],
+  onCompleteMandatoryForm
 }) => {
   // #region agent log
   // Log the actual props object to see what React is passing
-  const propsObj = { id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, linkedEvidenceData, allEvidence };
+  const propsObj = { id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, traineeName, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, onCompleteMandatoryForm, linkedEvidenceData, allEvidence };
   const receivedProps = {
     hasOnViewLinkedEvidence: !!onViewLinkedEvidence,
     onViewLinkedEvidenceType: typeof onViewLinkedEvidence,
@@ -260,7 +263,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   console.log('EPAForm.tsx: Props received, onViewLinkedEvidence:', onViewLinkedEvidence, 'in props:', 'onViewLinkedEvidence' in propsObj, 'propsObj.onViewLinkedEvidence:', propsObj.onViewLinkedEvidence);
   fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'EPAForm.tsx:189', message: 'EPAForm props received', data: receivedProps, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch((e) => { console.error('Log fetch failed:', e); });
   // #endregion
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedLevel, setSelectedLevel] = useState(level);
   const [selectedSia, setSelectedSia] = useState(sia);
@@ -343,8 +346,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
         // Try to find the criterion element by its key
         const sectionKey = activeSection === 0 ? 'A' : activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
         const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : selectedLevel === 4 ? 'L4' : '';
-        const reqKey = `EPA-${levelPrefix}-${selectedSia}-${sectionKey}-${autoScrollToIdx}`;
-        const el = document.getElementById(`epa-criterion-${reqKey}`);
+        const reqKey = `EPA - ${levelPrefix} -${selectedSia} -${sectionKey} -${autoScrollToIdx} `;
+        const el = document.getElementById(`epa - criterion - ${reqKey} `);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           // Highlight effect
@@ -433,7 +436,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   }, [id, selectedLevel, allEvidence]);
 
   // Handle saving data to parent
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     onSave({
       id: formId,
       title: selectedSia === 'Operating List' && operatingListSubspecialty
@@ -444,13 +447,16 @@ const EPAForm: React.FC<EPAFormProps> = ({
       level: selectedLevel,
       status: newStatus,
       date: new Date().toISOString().split('T')[0],
-      notes: `EPA Assessment with ${supervisorName}. Overall Judgement: ${entrustment || 'N/A'}`,
+      notes: `EPA Assessment with ${name || supervisorName}. Overall Judgement: ${entrustment || 'N/A'}`,
+      supervisorGmc: gmc,
+      supervisorName: name || supervisorName,
+      supervisorEmail: email || supervisorEmail,
       epaFormData: {
         comments,
         grading,
         entrustment,
-        supervisorName,
-        supervisorEmail,
+        supervisorName: name || supervisorName,
+        supervisorEmail: email || supervisorEmail,
         linkedEvidence: linkedEvidenceData || {},
         aspectsEspeciallyGood: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? aspectsEspeciallyGood : undefined,
         additionalEvidenceNeeded: (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3) ? additionalEvidenceNeeded : undefined,
@@ -484,6 +490,29 @@ const EPAForm: React.FC<EPAFormProps> = ({
     }, 600);
   };
 
+  const handleLinkRequestInternal = (reqKey: string | number, sectionIdx: number) => {
+    // Save draft state first
+    saveToParent(status);
+
+    // Pass current identity and form data to update selectedFormParams
+    onLinkRequested(reqKey, sectionIdx, {
+      id: formId,
+      level: selectedLevel,
+      sia: selectedSia,
+      supervisorName,
+      supervisorEmail,
+      epaFormData: {
+        traineeNarrative,
+        comments,
+        grading,
+        entrustment,
+        aspectsEspeciallyGood,
+        additionalEvidenceNeeded,
+        operatingListSubspecialty
+      }
+    });
+  };
+
   const handleEmailForm = () => {
     if (!supervisorName || !supervisorEmail) {
       alert("Please provide supervisor name and email.");
@@ -495,10 +524,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = (gmc: string) => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setSupervisorName(name);
+    setSupervisorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
+    if (onSubmitted) onSubmitted();
   };
 
   const handleCommentChange = (key: string, text: string) => {
@@ -524,7 +556,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       else if (activeSection === 4) criteria = LEVEL_1_CRITERIA.sectionE;
       else if (activeSection === 5) criteria = LEVEL_1_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA-L1-${selectedSia}-${sectionKey}-${idx}`] = "Yes it does (YES)";
+        newGrading[`EPA - L1 - ${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
       });
     } else if (selectedLevel === 2) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
@@ -535,7 +567,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       else if (activeSection === 4) criteria = LEVEL_2_CRITERIA.sectionE;
       else if (activeSection === 5) criteria = LEVEL_2_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA-L2-${selectedSia}-${sectionKey}-${idx}`] = "Yes it does (YES)";
+        newGrading[`EPA - L2 - ${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
       });
     } else if (selectedLevel === 3 || selectedLevel === 4) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
@@ -549,13 +581,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
         else if (activeSection === 5) criteria = specialtyData.criteria.sectionF;
         const levelPrefix = selectedLevel === 3 ? 'L3' : 'L4';
         criteria.forEach((_, idx) => {
-          newGrading[`EPA-${levelPrefix}-${selectedSia}-${sectionKey}-${idx}`] = "Yes it does (YES)";
+          newGrading[`EPA - ${levelPrefix} -${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
         });
       }
     } else {
       const criteria = CURRICULUM_DATA.filter(r => (selectedSia === "No attached SIA" ? r.specialty === "Oculoplastics" : r.specialty === selectedSia) && r.level === selectedLevel);
       criteria.forEach((_, idx) => {
-        newGrading[`EPA-GEN-${selectedSia}-${idx}`] = "Meets expectations";
+        newGrading[`EPA - GEN - ${selectedSia} -${idx} `] = "Meets expectations";
       });
     }
 
@@ -579,7 +611,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const renderCriterion = (req: string, idx: number, sectionKey: string, showCommentForAll: boolean = false) => {
     const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : selectedLevel === 4 ? 'L4' : '';
     // Include SIA in key to scope linked evidence per specialty (important for L3/L4 which have different SIAs)
-    const reqKey = `EPA-${levelPrefix}-${selectedSia}-${sectionKey}-${idx}`;
+    const reqKey = `EPA - ${levelPrefix} -${selectedSia} -${sectionKey} -${idx} `;
     const linkedIds = linkedEvidenceData[reqKey] || [];
     const isLevel1Or2Or3Or4 = selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4;
     const gradingOptions = isLevel1Or2Or3Or4 ? LEVEL_2_GRADING_OPTIONS : ["Major concerns", "Minor concerns", "Meets expectations"];
@@ -676,7 +708,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                     </button>
                   )}
                   <button
-                    onClick={() => onLinkRequested(reqKey, activeSection)}
+                    onClick={() => handleLinkRequestInternal(reqKey, activeSection)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
                   >
                     <Plus size={14} /> Link Evidence
@@ -718,9 +750,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                         >
                           <td className="px-4 py-2">
                             <span className={`
-                              inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
+inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
                               ${getLinkedEvidenceTypeColors(ev.type)}
-                            `}>
+`}>
                               {ev.type}
                             </span>
                           </td>
@@ -730,7 +762,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 {ev.title}
                               </span>
                               {ev.fileName && (
-                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName}`}>
+                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName} `}>
                                   <FileText size={8} />
                                 </div>
                               )}
@@ -746,10 +778,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                             {ev.date}
                           </td>
                           <td className="px-4 py-2">
-                            <span className={`
-                              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium
                               ${getLinkedEvidenceStatusColors(ev.status)}
-                            `}>
+`}>
                               {getLinkedEvidenceStatusIcon(ev.status)}
                               {ev.status}
                             </span>
@@ -818,7 +849,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
     const levelPrefix = selectedLevel === 1 ? 'L1' : selectedLevel === 2 ? 'L2' : selectedLevel === 3 ? 'L3' : 'L4';
     // Include SIA in key to scope linked evidence per specialty
-    const narrativeKey = `EPA-${levelPrefix}-${selectedSia}-A-NARRATIVE`;
+    const narrativeKey = `EPA - ${levelPrefix} -${selectedSia} -A - NARRATIVE`;
     const linkedNarrativeIds = linkedEvidenceData[narrativeKey] || [];
 
     return (
@@ -853,7 +884,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold block">Linked Evidence</label>
               {!isReadOnly && (
                 <button
-                  onClick={() => onLinkRequested(narrativeKey, 0)}
+                  onClick={() => handleLinkRequestInternal(narrativeKey, 0)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
                 >
                   <Plus size={14} /> Link Evidence
@@ -894,9 +925,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                         >
                           <td className="px-4 py-2">
                             <span className={`
-                              inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
+inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight
                               ${getLinkedEvidenceTypeColors(ev.type)}
-                            `}>
+`}>
                               {ev.type}
                             </span>
                           </td>
@@ -906,7 +937,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 {ev.title}
                               </span>
                               {ev.fileName && (
-                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName}`}>
+                                <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName} `}>
                                   <FileText size={8} />
                                 </div>
                               )}
@@ -923,9 +954,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
                           </td>
                           <td className="px-4 py-2">
                             <span className={`
-                              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium
+inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px] font - medium
                               ${getLinkedEvidenceStatusColors(ev.status)}
-                            `}>
+`}>
                               {getLinkedEvidenceStatusIcon(ev.status)}
                               {ev.status}
                             </span>
@@ -991,7 +1022,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
             {outcomes.map((outcome, idx) => (
               <GlassCard
                 key={idx}
-                className={`p-4 lg:p-5 transition-all duration-300 ${isReadOnly ? 'bg-slate-50/50' : ''}`}
+                className={`p - 4 lg: p - 5 transition - all duration - 300 ${isReadOnly ? 'bg-slate-50/50' : ''} `}
               >
                 <p className="text-[13px] leading-snug font-semibold text-slate-900 dark:text-white/90">
                   {outcome}
@@ -1018,8 +1049,9 @@ const EPAForm: React.FC<EPAFormProps> = ({
         onClose={() => setIsSignOffOpen(false)}
         onConfirm={handleSignOffConfirm}
         formInfo={{
-          type: `EPA Level ${selectedLevel}`,
-          traineeName: INITIAL_PROFILE.name,
+          type: `EPA Level ${selectedLevel} `,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: supervisorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: supervisorName || "Supervisor"
         }}
@@ -1092,7 +1124,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
         <button
           onClick={onBack}
-          className={`flex items-center gap-2 text-sm transition-colors ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300' : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70'}`}
+          className={`flex items - center gap - 2 text - sm transition - colors ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300' : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70'} `}
         >
           <ArrowLeft size={16} /> {backButtonText}
         </button>
@@ -1100,7 +1132,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
         <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">EPA Final Record</h2>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>
+            <span className={`px - 2 py - 1 rounded - full text - [10px] font - bold uppercase tracking - wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'} `}>
               {status}
             </span>
           </div>
@@ -1150,7 +1182,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${activeSectionsList.length || 1}, minmax(0, 1fr))` }}>
                 {activeSectionsList.length > 0 ? activeSectionsList.map((_, i) => (
-                  <div key={i} className={`h-1 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'}`}></div>
+                  <div key={i} className={`h - 1 rounded - full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'} `}></div>
                 )) : (
                   <div className="h-1 col-span-full rounded-full bg-indigo-500"></div>
                 )}
@@ -1203,10 +1235,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                 <button
                   key={section}
                   onClick={() => setActiveSection(idx)}
-                  className={`
-                      px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
-                      ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
-                    `}
+                  className={`px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}`}
                 >
                   {section}
                   {activeSection === idx && (
@@ -1272,7 +1301,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                           {ENTRUSTMENT_LEVELS.map(lvl => (
                             <label
                               key={lvl}
-                              className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
                             >
                               <input
                                 type="radio"
@@ -1282,7 +1311,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
                                 {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
                               </div>
                               <span className="text-sm font-semibold">{lvl}</span>
@@ -1363,7 +1392,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                           {ENTRUSTMENT_LEVELS.map(lvl => (
                             <label
                               key={lvl}
-                              className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
                             >
                               <input
                                 type="radio"
@@ -1373,7 +1402,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
                                 {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
                               </div>
                               <span className="text-sm font-semibold">{lvl}</span>
@@ -1474,7 +1503,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                             {ENTRUSTMENT_LEVELS.map(lvl => (
                               <label
                                 key={lvl}
-                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                                className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
                               >
                                 <input
                                   type="radio"
@@ -1484,7 +1513,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                   checked={entrustment === lvl}
                                   onChange={() => setEntrustment(lvl)}
                                 />
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                                <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
                                   {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
                                 </div>
                                 <span className="text-sm font-semibold">{lvl}</span>
@@ -1628,7 +1657,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                           {ENTRUSTMENT_LEVELS.map(lvl => (
                             <label
                               key={lvl}
-                              className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
                             >
                               <input
                                 type="radio"
@@ -1638,7 +1667,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                                 checked={entrustment === lvl}
                                 onChange={() => setEntrustment(lvl)}
                               />
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
                                 {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
                               </div>
                               <span className="text-sm font-semibold">{lvl}</span>
@@ -1703,7 +1732,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
               </button>
               <div className="flex gap-1.5">
                 {activeSectionsList.map((_, i) => (
-                  <div key={i} className={`w-1.5 h-1.5 rounded-full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'}`}></div>
+                  <div key={i} className={`w - 1.5 h - 1.5 rounded - full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'} `}></div>
                 ))}
               </div>
               <button
@@ -1768,15 +1797,15 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   </h2>
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className={`
-                      inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tight
+inline - flex items - center px - 3 py - 1 rounded - full text - xs font - bold uppercase tracking - tight
                       ${getLinkedEvidenceTypeColors(viewingEvidence.type)}
-                    `}>
+`}>
                       {viewingEvidence.type}
                     </span>
                     <span className={`
-                      inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
+inline - flex items - center gap - 1.5 px - 3 py - 1 rounded - full text - xs font - medium
                       ${getLinkedEvidenceStatusColors(viewingEvidence.status)}
-                    `}>
+`}>
                       {getLinkedEvidenceStatusIcon(viewingEvidence.status)}
                       {viewingEvidence.status}
                     </span>
@@ -1958,3 +1987,4 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
 );
 
 export default EPAForm;
+

@@ -142,6 +142,10 @@ export interface EvidenceItem {
   fileName?: string;
   fileType?: string;
   fileUrl?: string;
+  // Sign-off specifics (in-person)
+  supervisorGmc?: string;
+  supervisorName?: string;
+  supervisorEmail?: string;
   // MSF specific
   msfRespondents?: MSFRespondent[];
   // Dynamic fields for specific types
@@ -242,6 +246,20 @@ export interface EvidenceItem {
       aspectsEspeciallyGood: string;
       suggestionsForImprovement: string;
       agreedActionPlan: string;
+    };
+  };
+  marFormData?: {
+    specialty: string;
+    sectionA: Record<string, { rating: string; comments: string }>;
+    sectionB: Record<string, { rating: string; comments: string }>;
+    sectionC: {
+      complimentsComplaints: { notApplicable: boolean; text: string };
+      healthIssues: { notApplicable: boolean; text: string };
+      probityConcerns: { hasConcerns: boolean; sharedWithTrainee: string; outcome: string };
+    };
+    sectionD: {
+      overallPerformanceAtExpectedLevel: boolean;
+      suggestionsForImprovement: string;
     };
   };
   crsFormData?: {

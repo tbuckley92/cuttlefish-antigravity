@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { INITIAL_PROFILE } from '../constants';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
@@ -17,6 +18,7 @@ interface MARFormProps {
   initialAssessorName?: string;
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
+  traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -92,19 +94,20 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
   </div>
 );
 
-const MARForm: React.FC<MARFormProps> = ({ 
+const MARForm: React.FC<MARFormProps> = ({
   id,
-  sia = "General Ophthalmology", 
-  level = 1, 
+  sia = "General Ophthalmology",
+  level = 1,
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
   const [trainingLevel, setTrainingLevel] = useState(level.toString());
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
@@ -156,10 +159,10 @@ const MARForm: React.FC<MARFormProps> = ({
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.MAR);
       if (savedForm?.marFormData) {
         const data = savedForm.marFormData;
-        
+
         // Load specialty
         if (data.specialty) setSpecialty(data.specialty);
-        
+
         // Load Section A
         if (data.sectionA) {
           const aRatings: Record<string, string> = {};
@@ -183,7 +186,7 @@ const MARForm: React.FC<MARFormProps> = ({
           setSectionARatings(aRatings);
           setSectionAComments(aComments);
         }
-        
+
         // Load Section B
         if (data.sectionB) {
           const bRatings: Record<string, string> = {};
@@ -203,7 +206,7 @@ const MARForm: React.FC<MARFormProps> = ({
           setSectionBRatings(bRatings);
           setSectionBComments(bComments);
         }
-        
+
         // Load Section C
         if (data.sectionC) {
           if (data.sectionC.complimentsComplaints) {
@@ -216,7 +219,7 @@ const MARForm: React.FC<MARFormProps> = ({
             setProbityConcerns(data.sectionC.probityConcerns);
           }
         }
-        
+
         // Load Section D
         if (data.sectionD) {
           if (data.sectionD.overallPerformanceAtExpectedLevel !== undefined) {
@@ -226,7 +229,7 @@ const MARForm: React.FC<MARFormProps> = ({
             setSuggestionsForImprovement(data.sectionD.suggestionsForImprovement);
           }
         }
-        
+
         // Load status and level
         if (savedForm.status) setStatus(savedForm.status);
         if (savedForm.level) setTrainingLevel(savedForm.level.toString());
@@ -234,14 +237,17 @@ const MARForm: React.FC<MARFormProps> = ({
     }
   }, [id, allEvidence]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: Partial<EvidenceItem> = {
       id: formId,
       title: `MAR: ${specialty} - Level ${trainingLevel}`,
       type: EvidenceType.MAR,
-      sia: sia,
+      sia: specialty,
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || assessorName,
+      supervisorEmail: email || assessorEmail,
       date: new Date().toISOString().split('T')[0],
       marFormData: {
         specialty,
@@ -320,9 +326,11 @@ const MARForm: React.FC<MARFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = () => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setAssessorName(name);
+    setAssessorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -348,7 +356,7 @@ const MARForm: React.FC<MARFormProps> = ({
   const handleMarkAllMeets = () => {
     if (isLocked) return;
     const allMeets = "Meets expectations for level of training";
-    
+
     // Mark all Section A competencies
     const newSectionA = { ...sectionARatings };
     SECTION_A_COMPETENCIES.forEach(competency => {
@@ -367,15 +375,15 @@ const MARForm: React.FC<MARFormProps> = ({
   const isSectionComplete = (sectionIdx: number): boolean => {
     if (sectionIdx === 0) {
       // Section A - all 4 competencies need ratings
-      return sectionARatings["efficiency"] && 
-             sectionARatings["clinicalSkills"] && 
-             sectionARatings["proceduralSkills"] && 
-             sectionARatings["diagnosticSkills"];
+      return sectionARatings["efficiency"] &&
+        sectionARatings["clinicalSkills"] &&
+        sectionARatings["proceduralSkills"] &&
+        sectionARatings["diagnosticSkills"];
     } else if (sectionIdx === 1) {
       // Section B - all 3 competencies need ratings
-      return sectionBRatings["clarityAccuracyDetail"] && 
-             sectionBRatings["recognisingNeedForSeniorHelp"] && 
-             sectionBRatings["displayOfCareAndCompassion"];
+      return sectionBRatings["clarityAccuracyDetail"] &&
+        sectionBRatings["recognisingNeedForSeniorHelp"] &&
+        sectionBRatings["displayOfCareAndCompassion"];
     } else if (sectionIdx === 2) {
       // Section C - no mandatory fields, always complete
       return true;
@@ -397,22 +405,21 @@ const MARForm: React.FC<MARFormProps> = ({
           const rating = sectionARatings[competency.key] || "";
           const comments = sectionAComments[competency.key] || "";
           const isFilled = rating || comments.trim();
-          
+
           return (
             <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
-              
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {MAR_RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', competency.key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -442,22 +449,21 @@ const MARForm: React.FC<MARFormProps> = ({
           const rating = sectionBRatings[competency.key] || "";
           const comments = sectionBComments[competency.key] || "";
           const isFilled = rating || comments.trim();
-          
+
           return (
             <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
-              
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {MAR_RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', competency.key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -492,11 +498,10 @@ const MARForm: React.FC<MARFormProps> = ({
             <button
               disabled={isLocked}
               onClick={() => setComplimentsComplaints(prev => ({ ...prev, notApplicable: !prev.notApplicable, text: prev.notApplicable ? prev.text : "" }))}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                complimentsComplaints.notApplicable
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${complimentsComplaints.notApplicable
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               Not applicable
             </button>
@@ -519,11 +524,10 @@ const MARForm: React.FC<MARFormProps> = ({
             <button
               disabled={isLocked}
               onClick={() => setHealthIssues(prev => ({ ...prev, notApplicable: !prev.notApplicable, text: prev.notApplicable ? prev.text : "" }))}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                healthIssues.notApplicable
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${healthIssues.notApplicable
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               Not applicable
             </button>
@@ -546,27 +550,25 @@ const MARForm: React.FC<MARFormProps> = ({
             <button
               disabled={isLocked}
               onClick={() => setProbityConcerns(prev => ({ ...prev, hasConcerns: false, outcomeNotApplicable: false, outcome: "" }))}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                !probityConcerns.hasConcerns
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${!probityConcerns.hasConcerns
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               No concerns
             </button>
             <button
               disabled={isLocked}
               onClick={() => setProbityConcerns(prev => ({ ...prev, hasConcerns: true }))}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                probityConcerns.hasConcerns
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${probityConcerns.hasConcerns
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               Yes, I have some concerns
             </button>
           </div>
-          
+
           {probityConcerns.hasConcerns && (
             <div className="space-y-4">
               <div>
@@ -577,11 +579,10 @@ const MARForm: React.FC<MARFormProps> = ({
                   <button
                     disabled={isLocked}
                     onClick={() => setProbityConcerns(prev => ({ ...prev, outcomeNotApplicable: !prev.outcomeNotApplicable, outcome: prev.outcomeNotApplicable ? prev.outcome : "" }))}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      probityConcerns.outcomeNotApplicable
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${probityConcerns.outcomeNotApplicable
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     Not applicable
                   </button>
@@ -613,22 +614,20 @@ const MARForm: React.FC<MARFormProps> = ({
             <button
               disabled={isLocked}
               onClick={() => setOverallPerformanceAtExpectedLevel(true)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider border transition-all ${
-                overallPerformanceAtExpectedLevel === true
-                  ? 'bg-green-600 border-green-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider border transition-all ${overallPerformanceAtExpectedLevel === true
+                ? 'bg-green-600 border-green-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               Yes
             </button>
             <button
               disabled={isLocked}
               onClick={() => setOverallPerformanceAtExpectedLevel(false)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider border transition-all ${
-                overallPerformanceAtExpectedLevel === false
-                  ? 'bg-red-600 border-red-600 text-white shadow-md' 
-                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider border transition-all ${overallPerformanceAtExpectedLevel === false
+                ? 'bg-red-600 border-red-600 text-white shadow-md'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                }`}
             >
               No
             </button>
@@ -651,13 +650,14 @@ const MARForm: React.FC<MARFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      <SignOffDialog 
+      <SignOffDialog
         isOpen={isSignOffOpen}
         onClose={() => setIsSignOffOpen(false)}
         onConfirm={handleSignOffConfirm}
         formInfo={{
           type: `MAR - ${specialty}`,
-          traineeName: INITIAL_PROFILE.name,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: assessorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: assessorName || "Assessor"
         }}
@@ -681,21 +681,21 @@ const MARForm: React.FC<MARFormProps> = ({
           </div>
           <div className="space-y-6">
             <MetadataField label="Level">
-              <select 
-                value={trainingLevel} 
-                onChange={(e) => setTrainingLevel(e.target.value)} 
-                disabled={isLocked} 
+              <select
+                value={trainingLevel}
+                onChange={(e) => setTrainingLevel(e.target.value)}
+                disabled={isLocked}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
               >
-                {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
               </select>
             </MetadataField>
 
             <MetadataField label="Specialty SIA">
-              <select 
-                value={specialty} 
-                onChange={(e) => setSpecialty(e.target.value)} 
-                disabled={isLocked} 
+              <select
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                disabled={isLocked}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
               >
                 {MAR_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -733,15 +733,14 @@ const MARForm: React.FC<MARFormProps> = ({
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {MAR_SECTIONS.map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`h-1 rounded-full transition-colors ${
-                      isSectionComplete(i) 
-                        ? 'bg-green-500' 
-                        : activeSection === i 
-                          ? 'bg-indigo-500' 
-                          : 'bg-slate-200 dark:bg-white/10'
-                    }`}
+                  <div
+                    key={i}
+                    className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
+                      ? 'bg-green-500'
+                      : activeSection === i
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-200 dark:bg-white/10'
+                      }`}
                   ></div>
                 ))}
               </div>
@@ -764,7 +763,7 @@ const MARForm: React.FC<MARFormProps> = ({
           <ArrowLeft size={16} /> Back
         </button>
         <GlassCard className="p-4">
-          <button 
+          <button
             onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
             className="w-full flex justify-between items-center"
           >
@@ -781,24 +780,24 @@ const MARForm: React.FC<MARFormProps> = ({
               <ChevronDown size={16} className="text-slate-400" />
             </div>
           </button>
-          
+
           {isMetadataExpanded && (
             <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Level">
-                <select 
-                  value={trainingLevel} 
-                  onChange={(e) => setTrainingLevel(e.target.value)} 
-                  disabled={isLocked} 
+                <select
+                  value={trainingLevel}
+                  onChange={(e) => setTrainingLevel(e.target.value)}
+                  disabled={isLocked}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                 >
-                  {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                  {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
                 </select>
               </MetadataField>
               <MetadataField label="Specialty SIA">
-                <select 
-                  value={specialty} 
-                  onChange={(e) => setSpecialty(e.target.value)} 
-                  disabled={isLocked} 
+                <select
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  disabled={isLocked}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                 >
                   {MAR_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -857,7 +856,7 @@ const MARForm: React.FC<MARFormProps> = ({
                 {MAR_SECTIONS[activeSection]}
               </h3>
               {!isLocked && (activeSection === 0 || activeSection === 1) && (
-                <button 
+                <button
                   onClick={handleMarkAllMeets}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                 >
@@ -877,10 +876,10 @@ const MARForm: React.FC<MARFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Navigation */}
           <div className="flex justify-between items-center w-full">
-            <button 
+            <button
               disabled={activeSection === 0}
               onClick={() => setActiveSection(s => s - 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -889,19 +888,18 @@ const MARForm: React.FC<MARFormProps> = ({
             </button>
             <div className="flex gap-1.5">
               {MAR_SECTIONS.map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                    activeSection === i 
-                      ? 'bg-indigo-500' 
-                      : isSectionComplete(i)
-                        ? 'bg-green-500'
-                        : 'bg-slate-300 dark:bg-white/10'
-                  }`}
+                <div
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${activeSection === i
+                    ? 'bg-indigo-500'
+                    : isSectionComplete(i)
+                      ? 'bg-green-500'
+                      : 'bg-slate-300 dark:bg-white/10'
+                    }`}
                 ></div>
               ))}
             </div>
-            <button 
+            <button
               disabled={activeSection === MAR_SECTIONS.length - 1}
               onClick={() => setActiveSection(s => s + 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -920,15 +918,15 @@ const MARForm: React.FC<MARFormProps> = ({
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >

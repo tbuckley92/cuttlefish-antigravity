@@ -32,6 +32,7 @@ import { Footer } from './components/Footer';
 import { Auth } from './views/Auth';
 import { ProfileSetup } from './views/ProfileSetup';
 import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
+import { uuidv4 } from './utils/uuid';
 
 enum View {
   Dashboard = 'dashboard',
@@ -143,6 +144,8 @@ const App: React.FC = () => {
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [addEvidenceKey, setAddEvidenceKey] = useState(0); // Counter for unique AddEvidence keys
   const [sias, setSias] = useState<SIA[]>(() => (isSupabaseConfigured ? [] : INITIAL_SIAS));
+
+  // Change default to empty array; we will load from DB if configured, or local storage if not
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
     if (isSupabaseConfigured) return [];
     const savedEvidence = localStorage.getItem('eyePortfolio_evidence');
@@ -155,6 +158,8 @@ const App: React.FC = () => {
     }
     return INITIAL_EVIDENCE;
   });
+
+  const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
 
   // Profile state with localStorage persistence
   const [profile, setProfile] = useState<UserProfile>(() => {
@@ -170,19 +175,56 @@ const App: React.FC = () => {
     return INITIAL_PROFILE;
   });
 
-  // Persist evidence to localStorage whenever it changes
+
+  // Persist evidence to localStorage whenever it changes (only if Supabase is NOT configured)
   useEffect(() => {
     if (!isSupabaseConfigured) {
       localStorage.setItem('eyePortfolio_evidence', JSON.stringify(allEvidence));
     }
   }, [allEvidence]);
 
-  // Persist profile to localStorage whenever it changes
+  // Persist profile to localStorage whenever it changes (only if Supabase is NOT configured)
   useEffect(() => {
     if (!isSupabaseConfigured) {
       localStorage.setItem('eyePortfolio_profile', JSON.stringify(profile));
     }
   }, [profile]);
+
+  // Load evidence from Supabase when session exists
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !session?.user) return;
+
+    let isMounted = true;
+
+    const fetchEvidence = async () => {
+      setIsLoadingEvidence(true);
+      const { data, error } = await supabase
+        .from('evidence')
+        .select('*')
+        .eq('trainee_id', session.user.id)
+        .order('event_date', { ascending: false });
+
+      if (!isMounted) return;
+      setIsLoadingEvidence(false);
+
+      if (error) {
+        console.error('Error fetching evidence:', error);
+        return;
+      }
+
+      if (data) {
+        // Import mapper dynamically or assume it's imported at top (we will add import)
+        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+        const mappedItems = data.map(mapRowToEvidenceItem);
+        setAllEvidence(mappedItems);
+      }
+    };
+
+    fetchEvidence();
+
+    return () => { isMounted = false; };
+  }, [session?.user]);
+
 
   // Supabase session lifecycle
   useEffect(() => {
@@ -361,7 +403,8 @@ const App: React.FC = () => {
     });
   };
 
-  const handleUpsertEvidence = (item: Partial<EvidenceItem> & { id?: string }) => {
+
+  const handleUpsertEvidence = async (item: Partial<EvidenceItem> & { id?: string }) => {
     // Capture ID for mandatory form context (CRS/OSATS launched from EPA)
     const ctx = mandatoryContext;
     const isMatchingMandatoryType = ctx && (
@@ -371,34 +414,73 @@ const App: React.FC = () => {
       (ctx.expectedType === 'CbD' && item.type === EvidenceType.CbD)
     );
 
+    // Optimistic Update / Local State Update
+    let newItemId = item.id;
+    if (!newItemId) {
+      // Import uuidv4 helper dynamically or assume it's available. 
+      // We will import it at the top of the file in a separate edit or use full import here if possible.
+      // For now, let's assume we import uuidv4 from utils.
+      // Actually, to avoid "cannot find name uuidv4" error, let's use the full import logic or just copy logic?
+      // Better to import it properly. I will modify imports first? 
+      // Wait, I can't modify imports easily in the same tool call if they are far away.
+      // I'll assume I'll add the import in a separate block or this same block if top is reachable.
+      // But this is line 365. App.tsx is large.
+      // I will just use `crypto.randomUUID()` with my inline polyfill here, OR cleaner: use the helper.
+      // I'll check if I can add the import.
+      newItemId = uuidv4();
+    }
+
+    // Store ID for mandatory context (before async op)
+    if (isMatchingMandatoryType) {
+      mandatoryCreatedIdRef.current = newItemId;
+    }
+
+    const optimisticItem: EvidenceItem = {
+      ...item,
+      id: newItemId,
+      date: item.date || new Date().toISOString().split('T')[0],
+      status: item.status || EvidenceStatus.Draft,
+      title: item.title || 'Untitled Evidence',
+      type: item.type || EvidenceType.Other,
+    } as EvidenceItem;
+
+    // Update local state immediately
     setAllEvidence(prev => {
-      const { id: itemId, ...itemData } = item;
-      const exists = itemId ? prev.find(e => e.id === itemId) : null;
-
+      const exists = prev.find(e => e.id === newItemId);
       if (exists) {
-        // Track the ID if it's a mandatory form context match
-        if (isMatchingMandatoryType) {
-          mandatoryCreatedIdRef.current = itemId!;
-        }
-        return prev.map(e => e.id === itemId ? { ...e, ...itemData } as EvidenceItem : e);
+        return prev.map(e => e.id === newItemId ? { ...e, ...item } as EvidenceItem : e);
       } else {
-        const newItem: EvidenceItem = {
-          id: itemId || Math.random().toString(36).substr(2, 9),
-          date: new Date().toISOString().split('T')[0],
-          status: EvidenceStatus.Draft,
-          title: 'Untitled Evidence',
-          type: EvidenceType.Other,
-          ...itemData
-        } as EvidenceItem;
-
-        // Track the created ID for mandatory form context (auto-linking)
-        if (isMatchingMandatoryType) {
-          mandatoryCreatedIdRef.current = newItem.id;
-        }
-
-        return [newItem, ...prev];
+        return [optimisticItem, ...prev];
       }
     });
+
+    // Supabase Persistence
+    if (isSupabaseConfigured && supabase && session?.user) {
+      try {
+        const { mapEvidenceItemToRow } = await import('./utils/evidenceMapper');
+        const rowData = mapEvidenceItemToRow(optimisticItem);
+
+        // ensure trainee_id is set
+        const payload = {
+          ...rowData,
+          trainee_id: session.user.id
+        };
+
+        const { error } = await supabase
+          .from('evidence')
+          .upsert(payload);
+
+        if (error) {
+          console.error('Error saving evidence to Supabase:', error);
+          alert(`Failed to save evidence to server: ${error.message}`);
+          // Consider reverting local state here if strict consistency is required
+        }
+      } catch (err) {
+        console.error('Exception saving evidence:', err);
+      }
+    } else {
+      // Local storage persistence is handled by the useEffect [allEvidence] hook
+    }
   };
 
   const handleBackToOrigin = () => {
@@ -536,13 +618,13 @@ const App: React.FC = () => {
       setCurrentView(View.MSFSubmission);
     } else {
       const newMSF: EvidenceItem = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: uuidv4(),
         type: EvidenceType.MSF,
         title: `MSF - ${INITIAL_PROFILE.name} - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
         date: new Date().toISOString().split('T')[0],
         status: EvidenceStatus.Draft,
         msfRespondents: Array.from({ length: 11 }, () => ({
-          id: Math.random().toString(36).substr(2, 9),
+          id: uuidv4(),
           name: '',
           email: '',
           role: 'Consultant',
@@ -581,7 +663,7 @@ const App: React.FC = () => {
       : '–';
 
     const newSia: SIA = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: uuidv4(),
       specialty,
       level,
       supervisorName,
@@ -591,14 +673,19 @@ const App: React.FC = () => {
     setSias(prev => [...prev, newSia]);
   };
 
-  const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number) => {
+  const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number, currentFormParams?: any) => {
     let linkKey = '';
     if (domain) {
       linkKey = `GSAT-${domain}-${reqIndex}`;
     } else {
-      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA-')
+      // EPAForm passes reqKey like 'EPA - L1 -SIA -B -0 ' - use it directly if it starts with 'EPA - '
+      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA - ')
         ? reqIndex
         : `EPA-${reqIndex}`;
+    }
+
+    if (currentFormParams) {
+      setSelectedFormParams(prev => ({ ...prev, ...currentFormParams }));
     }
 
     setLinkingReqIdx(linkKey);
@@ -613,10 +700,13 @@ const App: React.FC = () => {
 
   const handleConfirmSelection = (ids: string[]) => {
     if (linkingReqIdx !== null) {
-      setLinkedEvidence(prev => ({
-        ...prev,
-        [linkingReqIdx]: [...new Set([...(prev[linkingReqIdx] || []), ...ids])]
-      }));
+      setLinkedEvidence(prev => {
+        const newLinked = {
+          ...prev,
+          [linkingReqIdx]: [...new Set([...(prev[linkingReqIdx] || []), ...ids])]
+        };
+        return newLinked;
+      });
     }
     setIsSelectionMode(false);
     if (returnTarget) {
@@ -737,8 +827,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteEvidence = (id: string) => {
+  const handleDeleteEvidence = async (id: string) => {
+    // Optimistic delete from local state
     setAllEvidence(prev => prev.filter(e => e.id !== id));
+
+    if (isSupabaseConfigured && supabase && session?.user) {
+      const { error } = await supabase
+        .from('evidence')
+        .delete()
+        .eq('id', id)
+        .eq('trainee_id', session.user.id); // RLS redundancy safety
+
+      if (error) {
+        console.error('Error deleting evidence from Supabase:', error);
+        alert('Failed to delete evidence from server.');
+        // Could revert state here by fetching fresh data
+      }
+    }
   };
 
   const handleFormSubmitted = () => {
@@ -1161,7 +1266,7 @@ const App: React.FC = () => {
       case View.MSFResponse:
         return (
           <MSFResponseForm
-            traineeName={INITIAL_PROFILE.name}
+            traineeName={profile.name}
             onBack={() => setCurrentView(View.MSFSubmission)}
             onSubmitted={() => {
               if (editingEvidence && activeRespondentId) {
@@ -1228,9 +1333,10 @@ const App: React.FC = () => {
         const levelLinkedEvidence: Record<string, string[]> = {};
         const currentLevel = selectedFormParams?.level || 1;
         const currentSia = selectedFormParams?.sia || 'No attached SIA';
-        const levelPrefix = currentLevel === 1 ? 'EPA-L1-' : currentLevel === 2 ? 'EPA-L2-' : currentLevel === 3 ? 'EPA-L3-' : currentLevel === 4 ? 'EPA-L4-' : '';
+        // Match the reqKey format from EPAForm: `EPA - ${levelPrefix} -${selectedSia} -${sectionKey} -${idx} `
+        const levelPrefix = currentLevel === 1 ? 'L1' : currentLevel === 2 ? 'L2' : currentLevel === 3 ? 'L3' : currentLevel === 4 ? 'L4' : '';
         // Full prefix includes both level and SIA to scope linked evidence per specialty
-        const fullPrefix = `${levelPrefix}${currentSia}-`;
+        const fullPrefix = `EPA - ${levelPrefix} -${currentSia} -`;
 
         if (existingEPA?.epaFormData?.linkedEvidence && fullPrefix) {
           Object.keys(existingEPA.epaFormData.linkedEvidence).forEach(key => {
@@ -1260,10 +1366,11 @@ const App: React.FC = () => {
             initialSection={selectedFormParams?.initialSection ?? returnTarget?.section}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={mandatoryContext?.expectedType === 'EPA' ? handleEPAFromEPASubmitted : handleFormSubmitted}
             onSave={handleUpsertEvidence}
-            onLinkRequested={(idx, section) => handleLinkRequested(idx, View.EPAForm, undefined, section)}
+            onLinkRequested={(idx, section, formParams) => handleLinkRequested(idx, View.EPAForm, undefined, section, formParams)}
             linkedEvidenceData={levelLinkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
             onViewLinkedEvidence={handleViewLinkedEvidence}
@@ -1277,6 +1384,7 @@ const App: React.FC = () => {
           <GSATForm
             id={selectedFormParams?.id}
             initialLevel={selectedFormParams?.level || 1}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
@@ -1301,6 +1409,7 @@ const App: React.FC = () => {
             initialAssessorEmail={selectedFormParams?.supervisorEmail}
             initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
             initialDopsType={selectedFormParams?.type}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
@@ -1322,6 +1431,7 @@ const App: React.FC = () => {
             initialOsatsType={selectedFormParams?.type}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleOSATSSubmitted}
             onSave={handleUpsertEvidence}
@@ -1340,6 +1450,7 @@ const App: React.FC = () => {
             initialAssessorName={selectedFormParams?.supervisorName}
             initialAssessorEmail={selectedFormParams?.supervisorEmail}
             initialStatus={selectedFormParams?.status || existingCBD?.status || EvidenceStatus.Draft}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleCBDSubmitted}
             onSave={handleUpsertEvidence}
@@ -1361,6 +1472,7 @@ const App: React.FC = () => {
             initialCrsType={selectedFormParams?.type}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleCRSSubmitted}
             onSave={handleUpsertEvidence}
@@ -1379,6 +1491,7 @@ const App: React.FC = () => {
             initialAssessorName={selectedFormParams?.supervisorName}
             initialAssessorEmail={selectedFormParams?.supervisorEmail}
             initialStatus={selectedFormParams?.status || existingMAR?.status || EvidenceStatus.Draft}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
@@ -1398,11 +1511,12 @@ const App: React.FC = () => {
             initialStatus={selectedFormParams?.status || existingEPAOpList?.status || EvidenceStatus.Draft}
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
+            traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleEPAOperatingListSubmitted}
             onSave={(item) => {
               // Ensure we capture the ID created by handleUpsertEvidence
-              const itemId = item.id || Math.random().toString(36).substr(2, 9);
+              const itemId = item.id || uuidv4();
               handleUpsertEvidence({ ...item, id: itemId });
 
               const ctx = mandatoryContext;

@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { INITIAL_PROFILE } from '../constants';
+
+import { uuidv4 } from '../utils/uuid';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
 interface CBDFormProps {
@@ -17,6 +19,7 @@ interface CBDFormProps {
   initialAssessorName?: string;
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
+  traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -105,19 +108,20 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
   </div>
 );
 
-const CBDForm: React.FC<CBDFormProps> = ({ 
+const CBDForm: React.FC<CBDFormProps> = ({
   id,
-  sia = "Cataract Surgery", 
-  level = 1, 
+  sia = "Cataract Surgery",
+  level = 1,
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
   const [trainingLevel, setTrainingLevel] = useState(level.toString());
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
@@ -170,31 +174,31 @@ const CBDForm: React.FC<CBDFormProps> = ({
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.CbD);
       if (savedForm?.cbdFormData) {
         const data = savedForm.cbdFormData;
-        
+
         // Load specialty and supervisor info
         if (data.specialty) setSpecialty(data.specialty);
         if (data.supervisorName) setSupervisorName(data.supervisorName);
         if (data.supervisorEmail) setSupervisorEmail(data.supervisorEmail);
-        
+
         // Load Section A
         if (data.sectionA) {
           if (data.sectionA.clinicalScenario) setClinicalScenario(data.sectionA.clinicalScenario);
           if (data.sectionA.clinicalDiscussion) setClinicalDiscussion(data.sectionA.clinicalDiscussion);
         }
-        
+
         // Load Section B
         if (data.sectionB) {
           if (data.sectionB.ratings) setSectionBRatings(data.sectionB.ratings);
           if (data.sectionB.comments) setSectionBComments(data.sectionB.comments);
         }
-        
+
         // Load Section C
         if (data.sectionC) {
           if (data.sectionC.aspectsEspeciallyGood) setAspectsEspeciallyGood(data.sectionC.aspectsEspeciallyGood);
           if (data.sectionC.suggestionsForImprovement) setSuggestionsForImprovement(data.sectionC.suggestionsForImprovement);
           if (data.sectionC.agreedActionPlan) setAgreedActionPlan(data.sectionC.agreedActionPlan);
         }
-        
+
         // Load status and level
         if (savedForm.status) setStatus(savedForm.status);
         if (savedForm.level) setTrainingLevel(savedForm.level.toString());
@@ -202,7 +206,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
     }
   }, [id, allEvidence]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: any = {
       id: formId,
       title: `CBD: ${specialty} - Level ${trainingLevel}`,
@@ -210,6 +214,9 @@ const CBDForm: React.FC<CBDFormProps> = ({
       sia: specialty,
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || supervisorName,
+      supervisorEmail: email || supervisorEmail,
       date: new Date().toISOString().split('T')[0],
       notes: clinicalScenario, // General notes field
       cbdFormData: {
@@ -217,7 +224,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
         supervisorName,
         supervisorEmail,
         sectionA: {
-        clinicalScenario,
+          clinicalScenario,
           clinicalDiscussion
         },
         sectionB: {
@@ -237,7 +244,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
   const handleSaveDraft = () => {
     setStatus(EvidenceStatus.Draft);
     saveToParent(EvidenceStatus.Draft);
-      setShowSaveMessage(true);
+    setShowSaveMessage(true);
     setTimeout(() => setShowSaveMessage(false), 2000);
   };
 
@@ -252,9 +259,11 @@ const CBDForm: React.FC<CBDFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = () => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setSupervisorName(name);
+    setSupervisorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -280,7 +289,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
   const handleMarkAllMeets = () => {
     if (isLocked) return;
     const allMeets = "Meets expectations";
-    
+
     // Mark all Section B competencies
     const newSectionB = { ...sectionBRatings };
     SECTION_B_COMPETENCIES.forEach(competency => {
@@ -301,9 +310,9 @@ const CBDForm: React.FC<CBDFormProps> = ({
       return SECTION_B_COMPETENCIES.every(competency => sectionBRatings[competency.key]);
     } else {
       // Section C - all 3 fields are mandatory
-      return aspectsEspeciallyGood.trim().length > 0 && 
-             suggestionsForImprovement.trim().length > 0 && 
-             agreedActionPlan.trim().length > 0;
+      return aspectsEspeciallyGood.trim().length > 0 &&
+        suggestionsForImprovement.trim().length > 0 &&
+        agreedActionPlan.trim().length > 0;
     }
   };
 
@@ -353,22 +362,21 @@ const CBDForm: React.FC<CBDFormProps> = ({
           const comment = sectionBComments[competency.key] || "";
           const showCommentBox = rating === "Major concerns" || rating === "Minor concerns";
           const isFilled = rating || comment.trim();
-          
+
           return (
             <GlassCard key={competency.key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{competency.label}</p>
-              
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {CBD_RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange(competency.key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -444,16 +452,17 @@ const CBDForm: React.FC<CBDFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      <SignOffDialog 
-        isOpen={isSignOffOpen} 
-        onClose={() => setIsSignOffOpen(false)} 
-        onConfirm={handleSignOffConfirm} 
-        formInfo={{ 
-          type: "CBD", 
-          traineeName: INITIAL_PROFILE.name, 
-          date: new Date().toLocaleDateString(), 
-          supervisorName: supervisorName || "Supervisor" 
-        }} 
+      <SignOffDialog
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "CBD",
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: supervisorEmail,
+          date: new Date().toLocaleDateString(),
+          supervisorName: supervisorName || "Supervisor"
+        }}
       />
 
       {/* Left Column: Metadata (Desktop) */}
@@ -464,15 +473,14 @@ const CBDForm: React.FC<CBDFormProps> = ({
         >
           <ArrowLeft size={16} /> Back
         </button>
-        
+
         <GlassCard className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">CBD Assessment</h2>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
-              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 
-              'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+              }`}>
               {status}
             </span>
           </div>
@@ -537,15 +545,14 @@ const CBDForm: React.FC<CBDFormProps> = ({
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {CBD_SECTIONS.map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`h-1 rounded-full transition-colors ${
-                      isSectionComplete(i) 
-                        ? 'bg-green-500' 
-                        : activeSection === i 
-                          ? 'bg-indigo-500' 
-                          : 'bg-slate-200 dark:bg-white/10'
-                    }`}
+                  <div
+                    key={i}
+                    className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
+                      ? 'bg-green-500'
+                      : activeSection === i
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-200 dark:bg-white/10'
+                      }`}
                   ></div>
                 ))}
               </div>
@@ -556,7 +563,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
 
       {/* Mobile Metadata Summary */}
       <div className="lg:hidden mb-4">
-        <button 
+        <button
           onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
           className="w-full flex items-center justify-between p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
         >
@@ -565,17 +572,16 @@ const CBDForm: React.FC<CBDFormProps> = ({
               <p className="text-sm font-semibold text-slate-900 dark:text-white">CBD Assessment</p>
               <p className="text-xs text-slate-500 dark:text-white/40 mt-1">{specialty} - Level {trainingLevel}</p>
             </div>
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-              status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : 
-              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 
-              'bg-indigo-100 text-indigo-700'
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' :
+              status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
+                'bg-indigo-100 text-indigo-700'
+              }`}>
               {status}
             </span>
           </div>
           <ChevronDown size={20} className={`text-slate-400 transition-transform ${isMetadataExpanded ? 'rotate-180' : ''}`} />
         </button>
-        
+
         {isMetadataExpanded && (
           <div className="mt-2 p-4 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
             <div>
@@ -656,7 +662,7 @@ const CBDForm: React.FC<CBDFormProps> = ({
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {!isLocked && activeSection === 1 && (
               <div className="flex justify-end mb-4">
-                <button 
+                <button
                   onClick={handleMarkAllMeets}
                   className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                 >
@@ -675,33 +681,32 @@ const CBDForm: React.FC<CBDFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Navigation */}
           <div className="flex justify-between items-center w-full">
-            <button 
+            <button
               disabled={activeSection === 0}
               onClick={() => setActiveSection(s => s - 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
             >
               <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
             </button>
-            
+
             <div className="flex gap-1">
               {CBD_SECTIONS.map((_, idx) => (
                 <div
                   key={idx}
                   onClick={() => setActiveSection(idx)}
-                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${
-                    activeSection === idx
-                      ? 'bg-indigo-600 w-6'
-                      : isSectionComplete(idx)
-                        ? 'bg-indigo-300 dark:bg-indigo-600'
-                        : 'bg-slate-300 dark:bg-white/10'
-                  }`}
+                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${activeSection === idx
+                    ? 'bg-indigo-600 w-6'
+                    : isSectionComplete(idx)
+                      ? 'bg-indigo-300 dark:bg-indigo-600'
+                      : 'bg-slate-300 dark:bg-white/10'
+                    }`}
                 ></div>
               ))}
             </div>
-            <button 
+            <button
               disabled={activeSection === CBD_SECTIONS.length - 1}
               onClick={() => setActiveSection(s => s + 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -720,15 +725,15 @@ const CBDForm: React.FC<CBDFormProps> = ({
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >

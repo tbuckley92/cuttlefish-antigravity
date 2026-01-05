@@ -2,12 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 // Added missing Activity icon to the imports below
-import { 
-  User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus, 
+import {
+  User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus,
   ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
   FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
   ExternalLink, Activity, Clock
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { INITIAL_PROFILE, SPECIALTIES, DEANERIES } from '../constants';
 import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal, EvidenceItem, EvidenceStatus } from '../types';
 
@@ -32,20 +33,20 @@ interface DashboardProps {
   isResident?: boolean; // true if user is a Resident (requires ES fields), false for Supervisors
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ 
-  sias, 
+const Dashboard: React.FC<DashboardProps> = ({
+  sias,
   allEvidence,
   profile,
   onUpdateProfile,
-  onRemoveSIA, 
-  onUpdateSIA, 
-  onAddSIA, 
-  onNavigateToEPA, 
-  onNavigateToDOPs, 
-  onNavigateToOSATS, 
+  onRemoveSIA,
+  onUpdateSIA,
+  onAddSIA,
+  onNavigateToEPA,
+  onNavigateToDOPs,
+  onNavigateToOSATS,
   onNavigateToCBD,
   onNavigateToCRS,
-  onNavigateToEvidence, 
+  onNavigateToEvidence,
   onNavigateToRecordForm,
   onNavigateToAddEvidence,
   onNavigateToGSAT,
@@ -55,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [isEditing, setIsEditing] = useState(false);
   const [esValidationError, setEsValidationError] = useState<string | null>(null);
-  
+
   // Educational Supervisor editing state
   const [isEditingSupervisor, setIsEditingSupervisor] = useState(false);
   const [tempSupervisor, setTempSupervisor] = useState({
@@ -63,12 +64,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     supervisorEmail: '',
     supervisorGmc: ''
   });
-  
+
   // Update tempProfile when profile prop changes
   useEffect(() => {
     setTempProfile(profile);
   }, [profile]);
-  
+
   // Dialog State
   const [isAddingSIA, setIsAddingSIA] = useState(false);
   const [newSiaSpecialty, setNewSiaSpecialty] = useState('');
@@ -203,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // PDP Modal Logic
   const openPDPModal = () => {
     setTempPDPGoals(profile.pdpGoals.length > 0 ? [...profile.pdpGoals] : [{
-      id: Math.random().toString(36).substr(2, 9),
+      id: uuidv4(),
       title: '',
       actions: '',
       targetDate: '',
@@ -224,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     setTempPDPGoals([
       ...tempPDPGoals,
       {
-        id: Math.random().toString(36).substr(2, 9),
+        id: uuidv4(),
         title: '',
         actions: '',
         targetDate: '',
@@ -276,7 +277,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* PDP Modal - Styled to match EPA modal exactly */}
       {isPDPModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -300,28 +301,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <div key={goal.id} className="space-y-6 pt-4 border-t border-slate-100 dark:border-white/5 first:border-none first:pt-0">
                       <div className="flex justify-between items-center">
                         <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Goal {idx + 1} Entry</h3>
-                        <button 
+                        <button
                           onClick={() => setTempPDPGoals(tempPDPGoals.filter(g => g.id !== goal.id))}
                           className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 gap-5 text-sm">
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Brief title</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={goal.title}
                             onChange={(e) => handleUpdateGoal(goal.id, 'title', e.target.value)}
                             className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
                           />
                         </div>
-                        
+
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Agreed action(s) or goal(s)</label>
-                          <textarea 
+                          <textarea
                             value={goal.actions}
                             onChange={(e) => handleUpdateGoal(goal.id, 'actions', e.target.value)}
                             className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 h-24 resize-none outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
@@ -331,8 +332,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Target date</label>
-                            <input 
-                              type="date" 
+                            <input
+                              type="date"
                               value={goal.targetDate}
                               onChange={(e) => handleUpdateGoal(goal.id, 'targetDate', e.target.value)}
                               className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
@@ -342,7 +343,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                         <div>
                           <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Trainee appraisal of progress toward PDP goal</label>
-                          <textarea 
+                          <textarea
                             value={goal.successCriteria}
                             onChange={(e) => handleUpdateGoal(goal.id, 'successCriteria', e.target.value)}
                             className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 h-24 resize-none outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-900 dark:text-white"
@@ -354,21 +355,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleUpdateGoal(goal.id, 'status', 'IN PROGRESS')}
-                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
-                                (goal.status || 'IN PROGRESS') === 'IN PROGRESS'
-                                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20'
-                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
-                              }`}
+                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${(goal.status || 'IN PROGRESS') === 'IN PROGRESS'
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
+                                }`}
                             >
                               IN PROGRESS
                             </button>
                             <button
                               onClick={() => handleUpdateGoal(goal.id, 'status', 'COMPLETE')}
-                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
-                                goal.status === 'COMPLETE'
-                                  ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20'
-                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
-                              }`}
+                              className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${goal.status === 'COMPLETE'
+                                ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20'
+                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/60'
+                                }`}
                             >
                               COMPLETE
                             </button>
@@ -389,15 +388,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <Plus size={16} /> Add another goal {tempPDPGoals.length >= 2 && '(Max 2)'}
                 </button>
-                
+
                 <div className="grid grid-cols-2 gap-4">
-                  <button 
+                  <button
                     onClick={closePDPModal}
                     className="py-4 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleFinishPDP}
                     className="py-4 rounded-2xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all"
                   >
@@ -430,7 +429,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">Training Level</label>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4].map(l => (
-                      <button 
+                      <button
                         key={l}
                         onClick={() => {
                           setNewSiaLevel(l);
@@ -452,7 +451,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       No specialty SIA
                     </div>
                   ) : (
-                    <select 
+                    <select
                       value={newSiaSpecialty}
                       onChange={(e) => setNewSiaSpecialty(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50"
@@ -465,15 +464,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="pt-4 border-t border-slate-100 dark:border-white/10 space-y-4">
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Assigned Supervisor</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="Supervisor Name"
                       value={newSiaSupervisorName}
                       onChange={(e) => setNewSiaSupervisorName(e.target.value)}
                       className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500/50"
                     />
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       placeholder="Supervisor Email"
                       value={newSiaSupervisorEmail}
                       onChange={(e) => setNewSiaSupervisorEmail(e.target.value)}
@@ -483,7 +482,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="pt-4">
-                  <button 
+                  <button
                     onClick={handleConfirmAddSIA}
                     className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
                   >
@@ -518,7 +517,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <input type="text" value={tempProfile.name} onChange={(e) => handleInputChange('name', e.target.value)} className="flex-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500/50" placeholder="Full Name" />
                 </div>
                 <div className="flex gap-2">
-                   <select value={tempProfile.grade} onChange={(e) => handleInputChange('grade', e.target.value as TrainingGrade)} className="bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-medium text-indigo-600 outline-none">
+                  <select value={tempProfile.grade} onChange={(e) => handleInputChange('grade', e.target.value as TrainingGrade)} className="bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-medium text-indigo-600 outline-none">
                     {Object.values(TrainingGrade).map(grade => <option key={grade} value={grade}>{grade}</option>)}
                   </select>
                   <select value={tempProfile.deanery || tempProfile.location || ''} onChange={(e) => handleInputChange('deanery', e.target.value)} className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs text-slate-500 outline-none">
@@ -553,7 +552,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="pt-3 border-t border-slate-100 dark:border-white/5">
                 <div className="flex items-center gap-2 mb-2">
                   <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold">EXAM RESULTS</p>
-                  <button 
+                  <button
                     onClick={isEditingExams ? closeExamEditing : openExamEditing}
                     className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
                     title={isEditingExams ? "Cancel editing" : "Edit exams"}
@@ -666,13 +665,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                       profile.pdpGoals.map((goal) => {
                         const goalStatus = goal.status || 'IN PROGRESS';
                         return (
-                          <span 
+                          <span
                             key={goal.id}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              goalStatus === 'COMPLETE'
-                                ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
-                                : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                            }`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${goalStatus === 'COMPLETE'
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                              }`}
                           >
                             {goalStatus}
                           </span>
@@ -684,7 +682,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </span>
                     )}
                   </div>
-                  <button 
+                  <button
                     onClick={openPDPModal}
                     className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
                     title="Edit PDP"
@@ -698,7 +696,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="pt-4 border-t border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold">EDUCATIONAL SUPERVISOR</p>
-                <button 
+                <button
                   onClick={isEditingSupervisor ? closeSupervisorEditing : openSupervisorEditing}
                   className="p-1.5 rounded-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-colors flex-shrink-0"
                   title={isEditingSupervisor ? "Cancel editing" : "Edit supervisor"}
@@ -714,26 +712,26 @@ const Dashboard: React.FC<DashboardProps> = ({
               {isEditingSupervisor ? (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <input 
-                      type="text" 
-                      value={tempSupervisor.supervisorName} 
-                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorName: e.target.value }))} 
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" 
-                      placeholder="Supervisor Name *" 
+                    <input
+                      type="text"
+                      value={tempSupervisor.supervisorName}
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorName: e.target.value }))}
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm"
+                      placeholder="Supervisor Name *"
                     />
-                    <input 
-                      type="email" 
-                      value={tempSupervisor.supervisorEmail} 
-                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorEmail: e.target.value }))} 
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono" 
-                      placeholder="Supervisor Email *" 
+                    <input
+                      type="email"
+                      value={tempSupervisor.supervisorEmail}
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorEmail: e.target.value }))}
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono"
+                      placeholder="Supervisor Email *"
                     />
-                    <input 
-                      type="text" 
-                      value={tempSupervisor.supervisorGmc} 
-                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorGmc: e.target.value }))} 
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm" 
-                      placeholder="Supervisor GMC *" 
+                    <input
+                      type="text"
+                      value={tempSupervisor.supervisorGmc}
+                      onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorGmc: e.target.value }))}
+                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm"
+                      placeholder="Supervisor GMC *"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -763,33 +761,31 @@ const Dashboard: React.FC<DashboardProps> = ({
                       {profile.supervisorGmc && <p className="text-[11px] text-slate-400 font-mono">GMC: {profile.supervisorGmc}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="mt-4 flex flex-col gap-2">
-                    <button 
+                    <button
                       onClick={onNavigateToGSAT}
                       className="w-full py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
                     >
                       <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                     </button>
-                    
+
                     <div className="flex flex-col gap-1.5">
-                      <button 
+                      <button
                         onClick={onNavigateToARCPPrep}
                         className="w-full py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-xs font-bold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group"
                       >
                         <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                       </button>
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          arcpPrepStatus === "COMPLETE" ? "bg-emerald-500" : 
-                          arcpPrepStatus === "IN PROGRESS" ? "bg-amber-400 animate-pulse" : 
-                          "bg-slate-300"
-                        }`}></div>
-                        <span className={`text-[9px] font-black uppercase tracking-widest ${
-                          arcpPrepStatus === "COMPLETE" ? "text-emerald-600" : 
-                          arcpPrepStatus === "IN PROGRESS" ? "text-amber-600" : 
-                          "text-slate-400"
-                        }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${arcpPrepStatus === "COMPLETE" ? "bg-emerald-500" :
+                          arcpPrepStatus === "IN PROGRESS" ? "bg-amber-400 animate-pulse" :
+                            "bg-slate-300"
+                          }`}></div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${arcpPrepStatus === "COMPLETE" ? "text-emerald-600" :
+                          arcpPrepStatus === "IN PROGRESS" ? "text-amber-600" :
+                            "text-slate-400"
+                          }`}>
                           {arcpPrepStatus}
                         </span>
                       </div>
@@ -807,20 +803,20 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-xl font-medium text-slate-900">Current EPAs</h2>
           <div className="flex flex-wrap gap-2">
-            <button 
-              onClick={() => handleOpenAddDialog(1)} 
+            <button
+              onClick={() => handleOpenAddDialog(1)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
             >
               <Plus size={14} /> Add L1
             </button>
-            <button 
-              onClick={() => handleOpenAddDialog(2)} 
+            <button
+              onClick={() => handleOpenAddDialog(2)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
             >
               <Plus size={14} /> Add L2
             </button>
-            <button 
-              onClick={() => handleOpenAddDialog(3)} 
+            <button
+              onClick={() => handleOpenAddDialog(3)}
               className="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 uppercase tracking-wider"
             >
               <Plus size={16} /> Add SIA L3/L4
@@ -831,9 +827,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {sias.map(sia => {
             // Calculate completion status for this SIA entry
-            const matchingEpas = allEvidence.filter(e => 
-              e.type === EvidenceType.EPA && 
-              e.level === sia.level && 
+            const matchingEpas = allEvidence.filter(e =>
+              e.type === EvidenceType.EPA &&
+              e.level === sia.level &&
               (sia.level <= 2 ? true : e.sia === sia.specialty)
             );
 
@@ -850,17 +846,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
                   </div>
                 )}
-                
+
                 {editingSiaId === sia.id ? (
                   <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center"><h3 className="text-sm font-bold uppercase tracking-widest text-indigo-600">Edit Entry</h3><div className="flex gap-1"><button onClick={saveSIAEdit} className="p-1.5 text-teal-600 hover:bg-teal-500/10 rounded-full"><CheckCircle2 size={16} /></button><button onClick={cancelSIAEdit} className="p-1.5 text-rose-600 hover:bg-rose-500/10 rounded-full"><X size={16} /></button></div></div>
                     <div className="space-y-3">
                       <div>
                         <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Specialty Domain</label>
-                        <select 
+                        <select
                           disabled={editSiaFields.level === 1 || editSiaFields.level === 2}
-                          value={editSiaFields.specialty} 
-                          onChange={(e) => setEditSiaFields(prev => ({ ...prev, specialty: e.target.value }))} 
+                          value={editSiaFields.specialty}
+                          onChange={(e) => setEditSiaFields(prev => ({ ...prev, specialty: e.target.value }))}
                           className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none disabled:opacity-50"
                         >
                           <option value="No specialty SIA">No specialty SIA</option>
@@ -871,14 +867,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Required Level</label>
                         <div className="flex gap-1.5">
                           {[1, 2, 3, 4].map(l => (
-                            <button 
-                              key={l} 
+                            <button
+                              key={l}
                               onClick={() => {
                                 const newFields: Partial<SIA> = { level: l };
                                 if (l === 1 || l === 2) newFields.specialty = "No specialty SIA";
                                 else if (editSiaFields.specialty === "No specialty SIA") newFields.specialty = SPECIALTIES[0];
                                 setEditSiaFields(prev => ({ ...prev, ...newFields }));
-                              }} 
+                              }}
                               className={`flex-1 py-1 rounded-lg text-[10px] font-semibold transition-all border ${editSiaFields.level === l ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600'}`}
                             >
                               L{l}
@@ -911,31 +907,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <EvidenceChip type={EvidenceType.Other} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
                     </div>
                     <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-4">
-                       <div className="flex flex-col gap-1">
-                         <div className="flex items-center justify-between">
-                           <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                           <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${
-                             currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
-                             currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
-                             currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
-                             'text-slate-300'
-                           }`}>
-                             {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> : 
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
+                          <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                            currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
+                              currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
+                                'text-slate-300'
+                            }`}>
+                            {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
                               currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                              currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
-                             {currentStatus}
-                           </span>
-                         </div>
-                         <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                           <div className={`h-full transition-all duration-700 ${
-                             currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
-                             currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
-                             currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
-                             'bg-slate-200 w-0'
-                           }`}></div>
-                         </div>
-                       </div>
-                       <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-1 py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-semibold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>
+                                currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                            {currentStatus}
+                          </span>
+                        </div>
+                        <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                          <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
+                            currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
+                              currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
+                                'bg-slate-200 w-0'
+                            }`}></div>
+                        </div>
+                      </div>
+                      <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-1 py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-semibold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>
                     </div>
                   </>
                 )}
@@ -959,7 +953,7 @@ const ProfileItem: React.FC<{ icon: React.ReactNode; label: string; value: React
 );
 
 const EvidenceChip: React.FC<{ type: string, icon: React.ReactNode, onClick?: () => void }> = ({ type, icon, onClick }) => (
-  <button 
+  <button
     onClick={onClick}
     className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:border-slate-200 transition-all flex flex-col items-center gap-1">
     {icon}

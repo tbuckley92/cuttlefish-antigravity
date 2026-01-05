@@ -578,7 +578,7 @@ export const LEVEL_4_CATARACT_SURGERY: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in cataract surgery",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the cataract clinic",
@@ -671,7 +671,7 @@ export const LEVEL_4_CORNEA_AND_OCULAR_SURFACE_DISEASE: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in cornea and ocular surface disease",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the cornea and ocular surface clinic",
@@ -727,7 +727,7 @@ export const LEVEL_4_GLAUCOMA: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in glaucoma",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the glaucoma clinic",
@@ -778,7 +778,7 @@ export const LEVEL_4_MEDICAL_RETINA: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in medical retina",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the medical retina clinic",
@@ -826,7 +826,7 @@ export const LEVEL_4_NEURO_OPHTHALMOLOGY: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in neuro-ophthalmology",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the neuro-ophthalmology clinic",
@@ -845,7 +845,7 @@ export const LEVEL_4_NEURO_OPHTHALMOLOGY: EPASpecialtyData = {
       "Longitudinal observation by consultant assessor in the outpatient and/or on call setting",
       "Longitudinal observation by consultant assessor in the theatre and simulation setting",
       "Review of record keeping and letters",
-      "Review of logbook",
+      "CbDs",
       "Multi-assessor report",
     ],
   },
@@ -874,7 +874,7 @@ export const LEVEL_4_OCULAR_MOTILITY: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in ocular motility",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of ocular motility clinic",
@@ -888,7 +888,7 @@ export const LEVEL_4_OCULAR_MOTILITY: EPASpecialtyData = {
     ],
     sectionE: [
       "Management of complications of strabismus surgery and re-do surgery - either in Outpatients or Theatre",
-      "DOPS Botulinum toxin injection to extraocular muscles - either in Outpatients or Theatre",
+      "DOPS Botulinum Toxin injection to extraocular muscles - either in Outpatients or Theatre",
     ],
     sectionF: [
       "Longitudinal observation by consultant assessor in the outpatient and/or on call setting",
@@ -925,7 +925,7 @@ export const LEVEL_4_OCULOPLASTICS: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in oculoplastics",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the oculoplastics clinic",
@@ -934,7 +934,7 @@ export const LEVEL_4_OCULOPLASTICS: EPASpecialtyData = {
       "Ability to supervise and train trainees and other health professionals in oculoplastics",
     ],
     sectionD: [
-      "OSATS Surgical skills - eyelid and adnexal surgery",
+      "OSATS Lid Surgery",
       "OSATS Temporal Artery Biopsy",
       "OSATS Removal of eye (enucleation and evisceration)",
       "EPA L4 Operating List",
@@ -980,7 +980,7 @@ export const LEVEL_4_PAEDIATRIC_OPHTHALMOLOGY: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in paediatric ophthalmology",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Diagnosis and treatment of ROP",
@@ -1031,7 +1031,7 @@ export const LEVEL_4_URGENT_EYE_CARE: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in urgent eye care",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the urgent eye care clinic",
@@ -1040,7 +1040,7 @@ export const LEVEL_4_URGENT_EYE_CARE: EPASpecialtyData = {
       "Ability to supervise and train trainees in urgent eye care to Level 3 and other health professionals in a clinic setting",
     ],
     sectionD: [
-      "OSATS - Trauma",
+      "OSATS Trauma",
     ],
     sectionE: [
       "Complex strabismus and nystagmus assessment - either Theatre or Outpatients",
@@ -1080,7 +1080,7 @@ export const LEVEL_4_UVEITIS: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in uveitis",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of the uveitis eye care clinic",
@@ -1125,7 +1125,7 @@ export const LEVEL_4_VITREORETINAL_SURGERY: EPASpecialtyData = {
   ],
   criteria: {
     sectionB: [
-      "CRS1 Consultation skills in vitreoretinal surgery",
+      "CRS Consultation skills",
     ],
     sectionC: [
       "Independent management of vitreoretinal clinic",
@@ -1170,38 +1170,6 @@ export const LEVEL_4_VITREORETINAL_SURGERY: EPASpecialtyData = {
 };
 
 export const LEVEL_5_COMMUNITY_OPHTHALMOLOGY: EPASpecialtyData = {
-  learningOutcomes: [
-  ],
-  criteria: {
-    sectionB: [
-    ],
-    sectionC: [
-    ],
-    sectionD: [
-    ],
-    sectionE: [
-    ],
-    sectionF: [
-      "CbDs",
-    ],
-  },
-  sectionBlurbs: {
-    sectionB: false,
-    sectionC: false,
-    sectionD: false,
-    sectionE: false,
-    sectionF: false,
-  },
-  showCommentsAlways: {
-    sectionB: false,
-    sectionC: false,
-    sectionD: false,
-    sectionE: false,
-    sectionF: true,
-  },
-};
-
-export const LEVEL_5_NEURO_OPHTHALMOLOGY: EPASpecialtyData = {
   learningOutcomes: [
   ],
   criteria: {
@@ -1298,7 +1266,6 @@ export const EPA_SPECIALTY_DATA: Record<number, Record<string, EPASpecialtyData>
   },
   5: {
     "Community Ophthalmology": LEVEL_5_COMMUNITY_OPHTHALMOLOGY,
-    "Neuro-ophthalmology": LEVEL_5_NEURO_OPHTHALMOLOGY,
     "Urgent Eye Care": LEVEL_5_URGENT_EYE_CARE,
   },
 };

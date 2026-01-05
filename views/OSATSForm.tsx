@@ -6,6 +6,7 @@ import {
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { INITIAL_PROFILE } from '../constants';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
@@ -20,6 +21,7 @@ interface OSATSFormProps {
   initialOsatsType?: string; // Pre-select OSATS type when launching from EPA
   originView?: any; // View enum type
   originFormParams?: any; // FormParams type
+  traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -201,12 +203,13 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
   initialOsatsType,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
   // Use initialOsatsType when creating new (no id), otherwise default to "OSATS - Custom"
   const [selectedOsatsType, setSelectedOsatsType] = useState(() => {
@@ -313,21 +316,22 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
     }
   }, [id, allEvidence]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: any = {
       id: formId,
-      title: `${selectedOsatsType}: ${specialty} - Level ${trainingLevel}`,
+      title: `OSATS: ${selectedOsatsType} `,
       type: EvidenceType.OSATs,
-      sia: specialty,
-      level: parseInt(trainingLevel) || 1,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || supervisorName,
+      supervisorEmail: email || supervisorEmail,
       date: new Date().toISOString().split('T')[0],
       notes: caseDescription, // General notes field
       osatsFormData: {
         osatsType: selectedOsatsType,
         specialty,
-        supervisorName,
-        supervisorEmail,
+        supervisorName: name || supervisorName,
+        supervisorEmail: email || supervisorEmail,
         sectionA: {
           caseDescription,
           operativeDetails,
@@ -370,9 +374,11 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = () => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setSupervisorName(name);
+    setSupervisorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -694,7 +700,8 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
         onConfirm={handleSignOffConfirm}
         formInfo={{
           type: "OSATS",
-          traineeName: INITIAL_PROFILE.name,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: supervisorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: supervisorName || "Supervisor"
         }}

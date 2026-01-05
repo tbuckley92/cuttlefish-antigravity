@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, Calendar, User, 
-  Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, Calendar, User,
+  Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2,
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
   FileText, X, ShieldCheck, Mail, Save
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, INITIAL_PROFILE } from '../constants';
 import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
@@ -14,6 +15,7 @@ import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } fro
 interface GSATFormProps {
   id?: string;
   initialLevel?: number;
+  traineeName?: string;
   initialSection?: number;
   autoScrollToIdx?: number;
   initialStatus?: EvidenceStatus;
@@ -38,15 +40,16 @@ const domains = [
   "Health Promotion"
 ];
 
-const GSATForm: React.FC<GSATFormProps> = ({ 
+const GSATForm: React.FC<GSATFormProps> = ({
   id,
-  initialLevel = 1, 
+  initialLevel = 1,
+  traineeName,
   initialSection = 0,
   autoScrollToIdx,
   initialStatus = EvidenceStatus.Draft,
   originView,
   originFormParams,
-  onBack, 
+  onBack,
   onSubmitted,
   onSave,
   onLinkRequested,
@@ -55,7 +58,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
   linkedEvidenceData,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(initialSection);
   const [level, setLevel] = useState(initialLevel);
   const [comments, setComments] = useState<Record<string, string>>({}); // "domain-idx" -> text
@@ -71,22 +74,25 @@ const GSATForm: React.FC<GSATFormProps> = ({
   const supervisorEmail = INITIAL_PROFILE.supervisorEmail;
 
   const currentDomain = domains[activeSection];
-  const domainRequirements = CURRICULUM_DATA.filter(r => 
-    r.domain === "Non-patient Management" && 
-    r.level === level && 
+  const domainRequirements = CURRICULUM_DATA.filter(r =>
+    r.domain === "Non-patient Management" &&
+    r.level === level &&
     r.specialty === currentDomain
   );
 
   const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
 
   // Handle saving data to parent
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     onSave({
       id: formId,
       title: `GSAT Matrix Level ${level}`,
       type: EvidenceType.GSAT,
       level: level,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || supervisorName,
+      supervisorEmail: email || supervisorEmail,
       date: new Date().toISOString().split('T')[0],
       notes: `GSAT Assessment covering multiple domains. Overall completeness: ${completeness}%`,
       gsatFormData: {
@@ -144,10 +150,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = (gmc: string) => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
+    if (onSubmitted) onSubmitted();
   };
 
   const handleCommentChange = (idx: number, text: string) => {
@@ -162,9 +169,9 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   const isSectionComplete = (idx: number) => {
     const domain = domains[idx];
-    const requirements = CURRICULUM_DATA.filter(r => 
-      r.domain === "Non-patient Management" && 
-      r.level === level && 
+    const requirements = CURRICULUM_DATA.filter(r =>
+      r.domain === "Non-patient Management" &&
+      r.level === level &&
       r.specialty === domain
     );
     if (requirements.length === 0) return true; // Mark complete if no requirements for this level
@@ -175,14 +182,15 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      
-      <SignOffDialog 
+
+      <SignOffDialog
         isOpen={isSignOffOpen}
         onClose={() => setIsSignOffOpen(false)}
         onConfirm={handleSignOffConfirm}
         formInfo={{
           type: "GSAT",
-          traineeName: INITIAL_PROFILE.name,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: supervisorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: supervisorName || "Supervisor"
         }}
@@ -200,7 +208,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
           </button>
         )}
         <GlassCard className="p-4">
-          <div 
+          <div
             className="flex justify-between items-center cursor-pointer"
             onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
           >
@@ -217,17 +225,17 @@ const GSATForm: React.FC<GSATFormProps> = ({
               <ChevronDown size={16} className="text-slate-400" />
             </div>
           </div>
-          
+
           {isMetadataExpanded && (
             <div className="pt-4 mt-3 border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-2">
               <MetadataField label="Training Level">
-                <select 
+                <select
                   disabled={isLocked}
-                  value={level} 
+                  value={level}
                   onChange={(e) => setLevel(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 outline-none"
                 >
-                  {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                  {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
                 </select>
               </MetadataField>
               <MetadataField label="Date">
@@ -265,13 +273,13 @@ const GSATForm: React.FC<GSATFormProps> = ({
           </div>
           <div className="space-y-6">
             <MetadataField label="Training Level">
-              <select 
+              <select
                 disabled={isLocked}
-                value={level} 
+                value={level}
                 onChange={(e) => setLevel(Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500/50 transition-colors"
               >
-                {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
               </select>
               {!isLocked && <p className="mt-2 text-[10px] text-slate-400 italic">Changing level reloads all outcomes below.</p>}
             </MetadataField>
@@ -359,7 +367,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 const linkedIds = linkedEvidenceData[reqKey] || [];
                 const commentValue = comments[`${currentDomain}-${idx}`] || '';
                 const isFilled = commentValue.trim() || linkedIds.length > 0;
-                
+
                 return (
                   <GlassCard key={idx} id={`gsat-outcome-${idx}`} className={`p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
                     <div className="flex gap-4 items-start mb-6">
@@ -372,7 +380,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                     <div className="space-y-4">
                       <div>
                         <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Trainee Reflection</label>
-                        <textarea 
+                        <textarea
                           disabled={isLocked}
                           value={comments[`${currentDomain}-${idx}`] || ''}
                           onChange={(e) => handleCommentChange(idx, e.target.value)}
@@ -387,15 +395,15 @@ const GSATForm: React.FC<GSATFormProps> = ({
                           {linkedIds.map(evId => {
                             const ev = allEvidence.find(e => e.id === evId);
                             return (
-                              <div 
-                                key={evId} 
+                              <div
+                                key={evId}
                                 onClick={() => onViewLinkedEvidence?.(evId)}
                                 className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600 cursor-pointer hover:bg-indigo-100/80 transition-colors"
                               >
                                 <LinkIcon size={10} />
                                 <span className="max-w-[150px] truncate">{ev?.title || "Evidence Record"}</span>
                                 {!isLocked && (
-                                  <button 
+                                  <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onRemoveLink(reqKey, evId);
@@ -409,8 +417,8 @@ const GSATForm: React.FC<GSATFormProps> = ({
                             );
                           })}
                           {!isLocked && (
-                            <button 
-                              onClick={() => onLinkRequested(idx, currentDomain, activeSection)} 
+                            <button
+                              onClick={() => onLinkRequested(idx, currentDomain, activeSection)}
                               className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
                             >
                               <Plus size={14} /> Link Record
@@ -436,24 +444,24 @@ const GSATForm: React.FC<GSATFormProps> = ({
 
         {/* Bottom Action Area */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-8 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Domain Navigation */}
           <div className="flex justify-between items-center w-full">
-            <button 
+            <button
               disabled={activeSection === 0}
               onClick={() => setActiveSection(s => s - 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
             >
               <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
             </button>
-            
+
             <div className="flex gap-1.5 items-center">
               {domains.map((_, i) => (
                 <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${activeSection === i ? 'bg-indigo-500 scale-125' : 'bg-slate-200 dark:bg-white/10'}`}></div>
               ))}
             </div>
 
-            <button 
+            <button
               disabled={activeSection === domains.length - 1}
               onClick={() => setActiveSection(s => s + 1)}
               className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -469,18 +477,18 @@ const GSATForm: React.FC<GSATFormProps> = ({
                 Draft saved {lastSaved}
               </span>
             )}
-            
+
             {!isLocked && (
               <>
-                <button 
+                <button
                   key="save-draft"
                   onClick={handleSaveDraft}
                   className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   key="email-form"
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
@@ -488,7 +496,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
 
-                <button 
+                <button
                   key="sign-off"
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"

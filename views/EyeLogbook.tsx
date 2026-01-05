@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { uuidv4 } from '../utils/uuid';
 import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -20,7 +21,7 @@ interface LogbookEntry {
 }
 
 // Complication types for cataract surgery
-type ComplicationType = 
+type ComplicationType =
   | 'Incomplete removal of lens matter'
   | 'Unintended damage to iris'
   | 'Running out of capsulorhexis'
@@ -141,17 +142,17 @@ const EyeLogbook: React.FC = () => {
     const saved = localStorage.getItem('eyePortfolio_eyelogbook_activeTab');
     return (saved as TabType) || 'logbook';
   });
-  
+
   // Logbook table filters
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [sideFilter, setSideFilter] = useState<string>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // Procedure Stats filter
   const [procedureFilter, setProcedureFilter] = useState<string>('all');
-  
+
   // Complication Log state
   const [showComplicationLog, setShowComplicationLog] = useState(false);
   const [complicationCases, setComplicationCases] = useState<ComplicationCase[]>(() => {
@@ -166,8 +167,8 @@ const EyeLogbook: React.FC = () => {
             return {
               ...caseItem,
               complications: [caseItem.complication],
-              otherDetails: caseItem.complication === 'Other' && caseItem.otherDetails 
-                ? { 'Other': caseItem.otherDetails } 
+              otherDetails: caseItem.complication === 'Other' && caseItem.otherDetails
+                ? { 'Other': caseItem.otherDetails }
                 : undefined
             };
           }
@@ -182,7 +183,7 @@ const EyeLogbook: React.FC = () => {
   const [isAddingCase, setIsAddingCase] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [viewingCaseId, setViewingCaseId] = useState<string | null>(null);
-  
+
   // Complication form state
   const [formPatientId, setFormPatientId] = useState('');
   const [formDate, setFormDate] = useState('');
@@ -192,7 +193,7 @@ const EyeLogbook: React.FC = () => {
   const [formOtherDetails, setFormOtherDetails] = useState<Record<string, string>>({});
   const [formCause, setFormCause] = useState('');
   const [formActionTaken, setFormActionTaken] = useState('');
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Persist entries to localStorage whenever they change
@@ -241,11 +242,11 @@ const EyeLogbook: React.FC = () => {
   const parseDate = (dateStr: string): Date | null => {
     const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (!match) return null;
-    
+
     const year = parseInt(match[1], 10);
     const month = parseInt(match[2], 10) - 1;
     const day = parseInt(match[3], 10);
-    
+
     const date = new Date(year, month, day);
     if (date.getDate() !== day || date.getMonth() !== month || date.getFullYear() !== year) {
       return null;
@@ -277,7 +278,7 @@ const EyeLogbook: React.FC = () => {
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
-        
+
         // Extract text items with positions, filtering empty strings
         const textItems: Array<{ text: string; x: number; y: number }> = textContent.items
           .filter((item: any) => item.str.trim())
@@ -289,7 +290,7 @@ const EyeLogbook: React.FC = () => {
 
         // Group text items by Y position (rows) - with 3px tolerance for same-row items
         const rows: Map<number, Array<{ text: string; x: number }>> = new Map();
-        
+
         for (const item of textItems) {
           // Find existing row within tolerance
           let rowY = item.y;
@@ -299,7 +300,7 @@ const EyeLogbook: React.FC = () => {
               break;
             }
           }
-          
+
           if (!rows.has(rowY)) {
             rows.set(rowY, []);
           }
@@ -315,19 +316,19 @@ const EyeLogbook: React.FC = () => {
         for (const rowItems of sortedRows) {
           // Skip header rows and very short rows
           if (rowItems.length < 4) continue;
-          
+
           // Look for date pattern YYYY-MM-DD in the row
           const dateIndex = rowItems.findIndex(item => /^\d{4}-\d{2}-\d{2}$/.test(item));
           if (dateIndex === -1) continue;
-          
+
           const date = rowItems[dateIndex];
           const parsedDate = parseDate(date);
           if (!parsedDate) continue;
-          
+
           // Extract procedure (items before date, excluding side)
           let procedure = '';
           let side = '';
-          
+
           for (let i = 0; i < dateIndex; i++) {
             const item = rowItems[i];
             if (['L', 'R', 'B/L'].includes(item)) {
@@ -336,17 +337,17 @@ const EyeLogbook: React.FC = () => {
               procedure = procedure ? procedure + ' ' + item : item;
             }
           }
-          
+
           // Skip if no valid procedure found
           if (!procedure || procedure.length < 3) continue;
-          
+
           // Extract fields after date
           const afterDate = rowItems.slice(dateIndex + 1);
-          
+
           // Find role index (P, PS, SJ, A)
           let roleIndex = -1;
           let patientIdParts: string[] = [];
-          
+
           for (let i = 0; i < afterDate.length; i++) {
             const item = afterDate[i];
             // Match role codes - PS and SJ before P and A to avoid partial matches
@@ -359,17 +360,17 @@ const EyeLogbook: React.FC = () => {
               patientIdParts.push(item);
             }
           }
-          
+
           const patientId = patientIdParts.join('').replace(/\s+/g, '').replace(/,/g, '');
           const role = roleIndex >= 0 ? afterDate[roleIndex] : 'P';
-          
+
           // Hospital and Grade are after role
           let hospital = 'Unknown';
           let grade = '';
-          
+
           if (roleIndex >= 0 && roleIndex < afterDate.length - 1) {
             const remaining = afterDate.slice(roleIndex + 1);
-            
+
             // Grade is usually last and matches training grade patterns
             for (let i = remaining.length - 1; i >= 0; i--) {
               const gradeMatch = remaining[i].match(/^(ST[1-7]|ASTO|TSC|OLT|FY[12]|CT[12]|FTSTA)$/i);
@@ -382,13 +383,13 @@ const EyeLogbook: React.FC = () => {
                 break;
               }
             }
-            
+
             // If no grade found, assume all remaining is hospital
             if (!grade && remaining.length > 0) {
               hospital = remaining.join(' ');
             }
           }
-          
+
           extractedEntries.push({
             procedure: procedure.trim(),
             side,
@@ -449,7 +450,7 @@ const EyeLogbook: React.FC = () => {
     const now = new Date();
     let startDate: Date | null = null;
     let endDate: Date = now;
-    
+
     switch (timePeriod) {
       case 'LAST_MONTH':
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -480,28 +481,28 @@ const EyeLogbook: React.FC = () => {
   // Filtered entries for Logbook table
   const filteredLogbookEntries = useMemo(() => {
     let filtered = getTimeFilteredEntries(entries);
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(e => 
+      filtered = filtered.filter(e =>
         e.procedure.toLowerCase().includes(query) ||
         e.hospital.toLowerCase().includes(query) ||
         e.patientId.includes(query)
       );
     }
-    
+
     if (roleFilter !== 'all') {
       filtered = filtered.filter(e => e.role === roleFilter);
     }
-    
+
     if (sideFilter !== 'all') {
       filtered = filtered.filter(e => e.side === sideFilter);
     }
-    
+
     if (gradeFilter !== 'all') {
       filtered = filtered.filter(e => e.grade === gradeFilter);
     }
-    
+
     // Sort by date (newest first)
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [entries, searchQuery, roleFilter, sideFilter, gradeFilter, timePeriod, customStartDate, customEndDate]);
@@ -522,7 +523,7 @@ const EyeLogbook: React.FC = () => {
   const esrGridData = useMemo(() => {
     const timeFiltered = getTimeFilteredEntries(entries);
     const grid: Record<string, Record<string, Record<string, number>>> = {};
-    
+
     // Initialize grid structure
     for (const category of Object.keys(ESR_CATEGORIES)) {
       grid[category] = {};
@@ -533,21 +534,21 @@ const EyeLogbook: React.FC = () => {
         }
       }
     }
-    
+
     // Populate grid
     for (const entry of timeFiltered) {
       const category = getESRCategory(entry.procedure);
       if (!category) continue;
-      
+
       const role = entry.role || 'P';
       const grade = entry.grade || '';
-      
+
       // Only count if we have a valid grade in our list
       if (TRAINING_GRADES.includes(grade) && ESR_ROLES.includes(role)) {
         grid[category][role][grade]++;
       }
     }
-    
+
     return grid;
   }, [entries, timePeriod, customStartDate, customEndDate]);
 
@@ -570,14 +571,14 @@ const EyeLogbook: React.FC = () => {
   // Procedure Stats data
   const procedureStatsData = useMemo(() => {
     let filtered = getTimeFilteredEntries(entries);
-    
+
     if (procedureFilter !== 'all') {
       filtered = filtered.filter(e => e.procedure === procedureFilter);
     }
-    
+
     // Group by month
     const monthlyData: Record<string, number> = {};
-    
+
     filtered.forEach(entry => {
       const date = new Date(entry.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -600,11 +601,11 @@ const EyeLogbook: React.FC = () => {
   // Role breakdown for Procedure Stats
   const procedureStatsRoleBreakdown = useMemo(() => {
     let filtered = getTimeFilteredEntries(entries);
-    
+
     if (procedureFilter !== 'all') {
       filtered = filtered.filter(e => e.procedure === procedureFilter);
     }
-    
+
     return filtered.reduce((acc, e) => {
       const role = e.role || 'P';
       acc[role] = (acc[role] || 0) + 1;
@@ -693,7 +694,7 @@ const EyeLogbook: React.FC = () => {
       alert('Maximum 3 complications allowed');
       return;
     }
-    
+
     // Validate "Other" complications have details
     for (const comp of formComplications) {
       if (comp === 'Other' && !formOtherDetails['Other']?.trim()) {
@@ -711,7 +712,7 @@ const EyeLogbook: React.FC = () => {
     }
 
     const caseData: ComplicationCase = {
-      id: editingCaseId || Math.random().toString(36).substr(2, 9),
+      id: editingCaseId || uuidv4(),
       patientId: formPatientId,
       date: formDate,
       laterality: formLaterality,
@@ -748,11 +749,10 @@ const EyeLogbook: React.FC = () => {
   const TabButton = ({ tab, label, icon }: { tab: TabType; label: string; icon: React.ReactNode }) => (
     <button
       onClick={() => setActiveTab(tab)}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-        activeTab === tab
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-      }`}
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab
+        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+        }`}
     >
       {icon}
       {label}
@@ -775,18 +775,16 @@ const EyeLogbook: React.FC = () => {
           </div>
           <button
             onClick={() => setShowComplicationLog(!showComplicationLog)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              showComplicationLog
-                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
-                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${showComplicationLog
+              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+              : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+              }`}
           >
             <AlertTriangle size={16} />
             Complication Log
             {complicationCases.length > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                showComplicationLog ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-800'
-              }`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${showComplicationLog ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-800'
+                }`}>
                 {complicationCases.length}
               </span>
             )}
@@ -898,516 +896,512 @@ const EyeLogbook: React.FC = () => {
         </div>
       ) : (
         <>
-      {/* Upload Section */}
-      <GlassCard className="p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">
-              Upload Summary PDF
-            </label>
-            <div className="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-              <p className="text-xs text-slate-700 mb-2">
-                <strong>Upload PDF report from EyeLogbook called "All Entries" (suitable for CCT)</strong>
-              </p>
-              <p className="text-xs text-slate-600 mb-1">When generating the PDF, select:</p>
-              <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 ml-2">
-                <li>Grouped by College Type (CCT Required Format)</li>
-                <li>Include Patient IDs (Required for CCT Output)</li>
-              </ul>
-            </div>
-            {!uploadedFile && !fileName ? (
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="group relative h-24 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer"
-              >
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                  className="hidden" 
-                />
-                <UploadCloud size={24} className="mb-2 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-indigo-600">
-                  Click to upload PDF from EyeLogbook.co.uk
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <FileText size={20} className="text-indigo-600" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{uploadedFile?.name || fileName}</p>
-                    <p className="text-xs text-slate-500">
-                      {entries.length} procedures extracted
+          {/* Upload Section */}
+          <GlassCard className="p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">
+                  Upload Summary PDF
+                </label>
+                <div className="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                  <p className="text-xs text-slate-700 mb-2">
+                    <strong>Upload PDF report from EyeLogbook called "All Entries" (suitable for CCT)</strong>
+                  </p>
+                  <p className="text-xs text-slate-600 mb-1">When generating the PDF, select:</p>
+                  <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 ml-2">
+                    <li>Grouped by College Type (CCT Required Format)</li>
+                    <li>Include Patient IDs (Required for CCT Output)</li>
+                  </ul>
+                </div>
+                {!uploadedFile && !fileName ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group relative h-24 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer"
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept=".pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <UploadCloud size={24} className="mb-2 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-indigo-600">
+                      Click to upload PDF from EyeLogbook.co.uk
                     </p>
                   </div>
-                </div>
-                <button 
-                  onClick={removeFile}
-                  className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400 hover:text-rose-500"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            )}
-            {isProcessing && (
-              <p className="text-xs text-slate-500 text-center mt-2">Processing PDF...</p>
-            )}
-          </div>
-        </div>
-      </GlassCard>
-
-      {/* Tab Navigation */}
-      {entries.length > 0 && (
-        <div className="flex gap-2 mb-6">
-          <TabButton tab="logbook" label="Logbook" icon={<List size={16} />} />
-          <TabButton tab="esr-grid" label="ESR Grid" icon={<Grid size={16} />} />
-          <TabButton tab="procedure-stats" label="Procedure Stats" icon={<PieChart size={16} />} />
-        </div>
-      )}
-
-      {/* Logbook Tab */}
-      {activeTab === 'logbook' && entries.length > 0 && (
-        <div className="space-y-6">
-          {/* Filters */}
-          <GlassCard className="p-4">
-            <div className="flex flex-wrap gap-4">
-              {/* Search */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Search
-                </label>
-                <div className="relative">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search procedures, hospitals..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
-                  />
-                </div>
-              </div>
-              
-              {/* Role Filter */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Role
-                </label>
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  <option value="all">All Roles</option>
-                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                    <option key={key} value={key}>{key} - {label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Side Filter */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Side
-                </label>
-                <select
-                  value={sideFilter}
-                  onChange={(e) => setSideFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  <option value="all">All Sides</option>
-                  <option value="L">Left (L)</option>
-                  <option value="R">Right (R)</option>
-                  <option value="B/L">Bilateral (B/L)</option>
-                </select>
-              </div>
-              
-              {/* Grade Filter */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Grade
-                </label>
-                <select
-                  value={gradeFilter}
-                  onChange={(e) => setGradeFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  <option value="all">All Grades</option>
-                  {uniqueGrades.map(grade => (
-                    <option key={grade} value={grade}>{grade}</option>
-                  ))}
-                </select>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <FileText size={20} className="text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{uploadedFile?.name || fileName}</p>
+                        <p className="text-xs text-slate-500">
+                          {entries.length} procedures extracted
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeFile}
+                      className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400 hover:text-rose-500"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                )}
+                {isProcessing && (
+                  <p className="text-xs text-slate-500 text-center mt-2">Processing PDF...</p>
+                )}
               </div>
             </div>
           </GlassCard>
 
-          {/* Table */}
-          <GlassCard className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Procedure</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Role</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Side</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Patient ID</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Grade</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Hospital</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedEntries.map((entry, index) => (
-                    <tr key={index} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-3 text-sm text-slate-900 font-medium">{entry.procedure}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          entry.role === 'P' || entry.role === 'PS' ? 'bg-green-100 text-green-700' :
-                          entry.role === 'SJ' ? 'bg-purple-100 text-purple-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          {entry.role}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{entry.side || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600 font-mono">{entry.patientId || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{entry.grade || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{entry.hospital}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Tab Navigation */}
+          {entries.length > 0 && (
+            <div className="flex gap-2 mb-6">
+              <TabButton tab="logbook" label="Logbook" icon={<List size={16} />} />
+              <TabButton tab="esr-grid" label="ESR Grid" icon={<Grid size={16} />} />
+              <TabButton tab="procedure-stats" label="Procedure Stats" icon={<PieChart size={16} />} />
             </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-100">
-                <p className="text-xs text-slate-500">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredLogbookEntries.length)} of {filteredLogbookEntries.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-sm text-slate-600">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
+          )}
+
+          {/* Logbook Tab */}
+          {activeTab === 'logbook' && entries.length > 0 && (
+            <div className="space-y-6">
+              {/* Filters */}
+              <GlassCard className="p-4">
+                <div className="flex flex-wrap gap-4">
+                  {/* Search */}
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                      Search
+                    </label>
+                    <div className="relative">
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search procedures, hospitals..."
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Role Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                      Role
+                    </label>
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
+                    >
+                      <option value="all">All Roles</option>
+                      {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                        <option key={key} value={key}>{key} - {label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Side Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                      Side
+                    </label>
+                    <select
+                      value={sideFilter}
+                      onChange={(e) => setSideFilter(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
+                    >
+                      <option value="all">All Sides</option>
+                      <option value="L">Left (L)</option>
+                      <option value="R">Right (R)</option>
+                      <option value="B/L">Bilateral (B/L)</option>
+                    </select>
+                  </div>
+
+                  {/* Grade Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                      Grade
+                    </label>
+                    <select
+                      value={gradeFilter}
+                      onChange={(e) => setGradeFilter(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all"
+                    >
+                      <option value="all">All Grades</option>
+                      {uniqueGrades.map(grade => (
+                        <option key={grade} value={grade}>{grade}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
-            )}
-          </GlassCard>
-        </div>
-      )}
+              </GlassCard>
 
-      {/* ESR Grid Tab */}
-      {activeTab === 'esr-grid' && entries.length > 0 && (
-        <div className="space-y-6">
-          {/* Time Period Filter for ESR Grid */}
-          <GlassCard className="p-4">
-            <div className="flex flex-wrap gap-2">
-              {(['ALL_TIME', 'LAST_YEAR', 'LAST_6_MONTHS', 'LAST_MONTH'] as TimePeriod[]).map(period => (
-                <button
-                  key={period}
-                  onClick={() => setTimePeriod(period)}
-                  className={`py-2 px-4 rounded-xl text-sm font-bold transition-all ${
-                    timePeriod === period
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {period === 'LAST_MONTH' ? 'Last Month' :
-                   period === 'LAST_6_MONTHS' ? 'Last 6 Months' : 
-                   period === 'LAST_YEAR' ? 'Last Year' : 'All Time'}
-                </button>
-              ))}
-            </div>
-          </GlassCard>
-
-          {/* ESR Grid Table */}
-          <GlassCard className="overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">RCOphth ESR Logbook Summary Grid</h2>
-              <p className="text-sm text-slate-500">Cases by category, grade, and role</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200">
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 sticky left-0 bg-slate-100">Category</th>
-                    <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2">Role</th>
-                    {TRAINING_GRADES.map(grade => (
-                      <th key={grade} className="text-center text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 min-w-[50px]">{grade}</th>
-                    ))}
-                    <th className="text-center text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 bg-indigo-50">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(ESR_CATEGORIES).map((category, catIndex) => (
-                    ESR_ROLES.map((role, roleIndex) => (
-                      <tr 
-                        key={`${category}-${role}`} 
-                        className={`border-b border-slate-100 ${roleIndex === ESR_ROLES.length - 1 ? 'border-b-2 border-slate-200' : ''}`}
-                      >
-                        {roleIndex === 0 && (
-                          <td 
-                            rowSpan={ESR_ROLES.length} 
-                            className="px-3 py-2 text-slate-900 font-medium align-top sticky left-0 bg-white border-r border-slate-100"
-                          >
-                            {category}
-                          </td>
-                        )}
-                        <td className="px-3 py-1.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            role === 'P' || role === 'PS' ? 'bg-green-100 text-green-700' :
-                            role === 'SJ' ? 'bg-purple-100 text-purple-700' :
-                            'bg-amber-100 text-amber-700'
-                          }`}>
-                            {role}
-                          </span>
-                        </td>
-                        {TRAINING_GRADES.map(grade => {
-                          const count = esrGridData[category]?.[role]?.[grade] || 0;
-                          return (
-                            <td key={grade} className="text-center px-3 py-1.5 text-slate-600">
-                              {count > 0 ? count : '-'}
-                            </td>
-                          );
-                        })}
-                        <td className="text-center px-3 py-1.5 font-bold text-indigo-600 bg-indigo-50">
-                          {getRowTotal(category, role) || '-'}
-                        </td>
+              {/* Table */}
+              <GlassCard className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100">
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Procedure</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Role</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Side</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Patient ID</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Grade</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Hospital</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Date</th>
                       </tr>
-                    ))
-                  ))}
-                  {/* Column Totals */}
-                  <tr className="bg-indigo-50 border-t-2 border-indigo-200">
-                    <td colSpan={2} className="px-3 py-2 text-slate-900 font-bold sticky left-0 bg-indigo-50">Total</td>
-                    {TRAINING_GRADES.map(grade => (
-                      <td key={grade} className="text-center px-3 py-2 font-bold text-indigo-600">
-                        {getColumnTotal(grade) || '-'}
-                      </td>
-                    ))}
-                    <td className="text-center px-3 py-2 font-bold text-indigo-700 bg-indigo-100">
-                      {TRAINING_GRADES.reduce((sum, grade) => sum + getColumnTotal(grade), 0) || '-'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {paginatedEntries.map((entry, index) => (
+                        <tr key={index} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-slate-900 font-medium">{entry.procedure}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${entry.role === 'P' || entry.role === 'PS' ? 'bg-green-100 text-green-700' :
+                              entry.role === 'SJ' ? 'bg-purple-100 text-purple-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                              {entry.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{entry.side || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600 font-mono">{entry.patientId || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{entry.grade || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{entry.hospital}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-100">
+                    <p className="text-xs text-slate-500">
+                      Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredLogbookEntries.length)} of {filteredLogbookEntries.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span className="text-sm text-slate-600">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </GlassCard>
             </div>
-          </GlassCard>
-        </div>
-      )}
+          )}
 
-      {/* Procedure Stats Tab */}
-      {activeTab === 'procedure-stats' && entries.length > 0 && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Procedure Filter */}
-            <GlassCard className="p-6">
-              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">
-                Procedure
-              </label>
-              <select
-                value={procedureFilter}
-                onChange={(e) => setProcedureFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all mb-3"
-              >
-                <option value="all">All Procedures</option>
-                {uniqueProcedures.map(proc => (
-                  <option key={proc} value={proc}>{proc}</option>
-                ))}
-              </select>
-            </GlassCard>
-
-            {/* Time Period */}
-            <GlassCard className="p-6">
-              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">
-                Time Period
-              </label>
-              <div className="flex flex-col gap-2">
-                {(['LAST_MONTH', 'LAST_6_MONTHS', 'LAST_YEAR', 'ALL_TIME', 'CUSTOM'] as TimePeriod[]).map(period => (
-                  <button
-                    key={period}
-                    onClick={() => setTimePeriod(period)}
-                    className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
-                      timePeriod === period
+          {/* ESR Grid Tab */}
+          {activeTab === 'esr-grid' && entries.length > 0 && (
+            <div className="space-y-6">
+              {/* Time Period Filter for ESR Grid */}
+              <GlassCard className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {(['ALL_TIME', 'LAST_YEAR', 'LAST_6_MONTHS', 'LAST_MONTH'] as TimePeriod[]).map(period => (
+                    <button
+                      key={period}
+                      onClick={() => setTimePeriod(period)}
+                      className={`py-2 px-4 rounded-xl text-sm font-bold transition-all ${timePeriod === period
                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
+                        }`}
+                    >
+                      {period === 'LAST_MONTH' ? 'Last Month' :
+                        period === 'LAST_6_MONTHS' ? 'Last 6 Months' :
+                          period === 'LAST_YEAR' ? 'Last Year' : 'All Time'}
+                    </button>
+                  ))}
+                </div>
+              </GlassCard>
+
+              {/* ESR Grid Table */}
+              <GlassCard className="overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-100">
+                  <h2 className="text-lg font-bold text-slate-900">RCOphth ESR Logbook Summary Grid</h2>
+                  <p className="text-sm text-slate-500">Cases by category, grade, and role</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200">
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 sticky left-0 bg-slate-100">Category</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2">Role</th>
+                        {TRAINING_GRADES.map(grade => (
+                          <th key={grade} className="text-center text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 min-w-[50px]">{grade}</th>
+                        ))}
+                        <th className="text-center text-[10px] uppercase tracking-widest text-slate-500 font-bold px-3 py-2 bg-indigo-50">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(ESR_CATEGORIES).map((category, catIndex) => (
+                        ESR_ROLES.map((role, roleIndex) => (
+                          <tr
+                            key={`${category}-${role}`}
+                            className={`border-b border-slate-100 ${roleIndex === ESR_ROLES.length - 1 ? 'border-b-2 border-slate-200' : ''}`}
+                          >
+                            {roleIndex === 0 && (
+                              <td
+                                rowSpan={ESR_ROLES.length}
+                                className="px-3 py-2 text-slate-900 font-medium align-top sticky left-0 bg-white border-r border-slate-100"
+                              >
+                                {category}
+                              </td>
+                            )}
+                            <td className="px-3 py-1.5">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${role === 'P' || role === 'PS' ? 'bg-green-100 text-green-700' :
+                                role === 'SJ' ? 'bg-purple-100 text-purple-700' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>
+                                {role}
+                              </span>
+                            </td>
+                            {TRAINING_GRADES.map(grade => {
+                              const count = esrGridData[category]?.[role]?.[grade] || 0;
+                              return (
+                                <td key={grade} className="text-center px-3 py-1.5 text-slate-600">
+                                  {count > 0 ? count : '-'}
+                                </td>
+                              );
+                            })}
+                            <td className="text-center px-3 py-1.5 font-bold text-indigo-600 bg-indigo-50">
+                              {getRowTotal(category, role) || '-'}
+                            </td>
+                          </tr>
+                        ))
+                      ))}
+                      {/* Column Totals */}
+                      <tr className="bg-indigo-50 border-t-2 border-indigo-200">
+                        <td colSpan={2} className="px-3 py-2 text-slate-900 font-bold sticky left-0 bg-indigo-50">Total</td>
+                        {TRAINING_GRADES.map(grade => (
+                          <td key={grade} className="text-center px-3 py-2 font-bold text-indigo-600">
+                            {getColumnTotal(grade) || '-'}
+                          </td>
+                        ))}
+                        <td className="text-center px-3 py-2 font-bold text-indigo-700 bg-indigo-100">
+                          {TRAINING_GRADES.reduce((sum, grade) => sum + getColumnTotal(grade), 0) || '-'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </GlassCard>
+            </div>
+          )}
+
+          {/* Procedure Stats Tab */}
+          {activeTab === 'procedure-stats' && entries.length > 0 && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Procedure Filter */}
+                <GlassCard className="p-6">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">
+                    Procedure
+                  </label>
+                  <select
+                    value={procedureFilter}
+                    onChange={(e) => setProcedureFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all mb-3"
                   >
-                    {period === 'LAST_MONTH' ? 'Last Month' :
-                     period === 'LAST_6_MONTHS' ? 'Last 6 Months' : 
-                     period === 'LAST_YEAR' ? 'Last Year' :
-                     period === 'ALL_TIME' ? 'All Time' : 'Custom Range'}
-                  </button>
-                ))}
-              </div>
-              
-              {timePeriod === 'CUSTOM' && (
-                <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                    />
-                  </div>
-                </div>
-              )}
-            </GlassCard>
+                    <option value="all">All Procedures</option>
+                    {uniqueProcedures.map(proc => (
+                      <option key={proc} value={proc}>{proc}</option>
+                    ))}
+                  </select>
+                </GlassCard>
 
-            {/* Stats Summary */}
-            <GlassCard className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <BarChart2 size={24} className="text-indigo-600" />
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                    Total Cases
-                  </p>
-                  <p className="text-3xl font-bold text-slate-900">{totalStatsEntries}</p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                {procedureFilter === 'all' ? 'All procedures' : procedureFilter}
-              </p>
-              
-              {totalStatsEntries > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">
-                    Role Breakdown
-                  </p>
-                  {/* P/PS Combined */}
-                  {(() => {
-                    const pCount = (procedureStatsRoleBreakdown['P'] || 0) + (procedureStatsRoleBreakdown['PS'] || 0);
-                    const percentage = totalStatsEntries > 0 ? Math.round((pCount / totalStatsEntries) * 100) : 0;
-                    if (pCount === 0) return null;
-                    return (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
-                            P/PS
-                          </span>
-                          <span className="text-xs text-slate-600">Performed</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">{pCount}</span>
-                          <span className="text-xs text-slate-400">({percentage}%)</span>
-                        </div>
+                {/* Time Period */}
+                <GlassCard className="p-6">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">
+                    Time Period
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {(['LAST_MONTH', 'LAST_6_MONTHS', 'LAST_YEAR', 'ALL_TIME', 'CUSTOM'] as TimePeriod[]).map(period => (
+                      <button
+                        key={period}
+                        onClick={() => setTimePeriod(period)}
+                        className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${timePeriod === period
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
+                      >
+                        {period === 'LAST_MONTH' ? 'Last Month' :
+                          period === 'LAST_6_MONTHS' ? 'Last 6 Months' :
+                            period === 'LAST_YEAR' ? 'Last Year' :
+                              period === 'ALL_TIME' ? 'All Time' : 'Custom Range'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {timePeriod === 'CUSTOM' && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                        />
                       </div>
-                    );
-                  })()}
-                  {/* SJ */}
-                  {(procedureStatsRoleBreakdown['SJ'] || 0) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700">
-                          SJ
-                        </span>
-                        <span className="text-xs text-slate-600">Supervised Junior</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{procedureStatsRoleBreakdown['SJ']}</span>
-                        <span className="text-xs text-slate-400">({Math.round(((procedureStatsRoleBreakdown['SJ'] || 0) / totalStatsEntries) * 100)}%)</span>
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                        />
                       </div>
                     </div>
                   )}
-                  {/* A */}
-                  {(procedureStatsRoleBreakdown['A'] || 0) > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
-                          A
-                        </span>
-                        <span className="text-xs text-slate-600">Assisted</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{procedureStatsRoleBreakdown['A']}</span>
-                        <span className="text-xs text-slate-400">({Math.round(((procedureStatsRoleBreakdown['A'] || 0) / totalStatsEntries) * 100)}%)</span>
-                      </div>
+                </GlassCard>
+
+                {/* Stats Summary */}
+                <GlassCard className="p-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <BarChart2 size={24} className="text-indigo-600" />
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                        Total Cases
+                      </p>
+                      <p className="text-3xl font-bold text-slate-900">{totalStatsEntries}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {procedureFilter === 'all' ? 'All procedures' : procedureFilter}
+                  </p>
+
+                  {totalStatsEntries > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">
+                        Role Breakdown
+                      </p>
+                      {/* P/PS Combined */}
+                      {(() => {
+                        const pCount = (procedureStatsRoleBreakdown['P'] || 0) + (procedureStatsRoleBreakdown['PS'] || 0);
+                        const percentage = totalStatsEntries > 0 ? Math.round((pCount / totalStatsEntries) * 100) : 0;
+                        if (pCount === 0) return null;
+                        return (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
+                                P/PS
+                              </span>
+                              <span className="text-xs text-slate-600">Performed</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-slate-900">{pCount}</span>
+                              <span className="text-xs text-slate-400">({percentage}%)</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {/* SJ */}
+                      {(procedureStatsRoleBreakdown['SJ'] || 0) > 0 && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700">
+                              SJ
+                            </span>
+                            <span className="text-xs text-slate-600">Supervised Junior</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900">{procedureStatsRoleBreakdown['SJ']}</span>
+                            <span className="text-xs text-slate-400">({Math.round(((procedureStatsRoleBreakdown['SJ'] || 0) / totalStatsEntries) * 100)}%)</span>
+                          </div>
+                        </div>
+                      )}
+                      {/* A */}
+                      {(procedureStatsRoleBreakdown['A'] || 0) > 0 && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
+                              A
+                            </span>
+                            <span className="text-xs text-slate-600">Assisted</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900">{procedureStatsRoleBreakdown['A']}</span>
+                            <span className="text-xs text-slate-400">({Math.round(((procedureStatsRoleBreakdown['A'] || 0) / totalStatsEntries) * 100)}%)</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
-            </GlassCard>
-          </div>
-
-          {/* Chart */}
-          {procedureStatsData.length > 0 && (
-            <GlassCard className="p-8">
-              <div className="mb-6">
-                <h2 className="text-lg font-bold text-slate-900 mb-1">Cases by Month</h2>
-                <p className="text-sm text-slate-500">
-                  {procedureFilter === 'all' ? 'All procedures' : procedureFilter} over selected period
-                </p>
+                </GlassCard>
               </div>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={procedureStatsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="#64748b"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    stroke="#64748b"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      padding: '8px 12px'
-                    }}
-                  />
-                  <Bar 
-                    dataKey="count" 
-                    fill="#4f46e5" 
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+
+              {/* Chart */}
+              {procedureStatsData.length > 0 && (
+                <GlassCard className="p-8">
+                  <div className="mb-6">
+                    <h2 className="text-lg font-bold text-slate-900 mb-1">Cases by Month</h2>
+                    <p className="text-sm text-slate-500">
+                      {procedureFilter === 'all' ? 'All procedures' : procedureFilter} over selected period
+                    </p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={procedureStatsData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="month"
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                      />
+                      <YAxis
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          padding: '8px 12px'
+                        }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        fill="#4f46e5"
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </GlassCard>
+              )}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {entries.length === 0 && !isProcessing && (
+            <GlassCard className="p-8 text-center">
+              <Eye size={48} className="mx-auto mb-4 text-slate-300" />
+              <p className="text-slate-500">Upload a PDF from EyeLogbook.co.uk to get started</p>
             </GlassCard>
           )}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {entries.length === 0 && !isProcessing && (
-        <GlassCard className="p-8 text-center">
-          <Eye size={48} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-500">Upload a PDF from EyeLogbook.co.uk to get started</p>
-        </GlassCard>
-      )}
         </>
       )}
 
@@ -1428,7 +1422,7 @@ const EyeLogbook: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-4">
               {/* Patient ID */}
               <div>
@@ -1506,13 +1500,12 @@ const EyeLogbook: React.FC = () => {
                     return (
                       <label
                         key={comp}
-                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
-                          isChecked
-                            ? 'bg-indigo-50 border border-indigo-200'
-                            : isDisabled
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${isChecked
+                          ? 'bg-indigo-50 border border-indigo-200'
+                          : isDisabled
                             ? 'opacity-50 cursor-not-allowed'
                             : 'hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -1611,7 +1604,7 @@ const EyeLogbook: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>

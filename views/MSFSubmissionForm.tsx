@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, Users, Mail, Plus, Trash2, Send, 
+import {
+  ArrowLeft, Users, Mail, Plus, Trash2, Send,
   Clock, CheckCircle2, AlertCircle, X, ChevronRight,
   ExternalLink, ShieldCheck, Info, BarChart2
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { MSFRespondent, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
 interface MSFSubmissionFormProps {
@@ -16,11 +17,11 @@ interface MSFSubmissionFormProps {
 }
 
 const ROLES = [
-  'Consultant', 
-  'Trainee/Fellow', 
-  'Senior nurse, theatre', 
-  'Senior nurse, OPD', 
-  'Outpatient staff', 
+  'Consultant',
+  'Trainee/Fellow',
+  'Senior nurse, theatre',
+  'Senior nurse, OPD',
+  'Outpatient staff',
   'Medical secretary'
 ] as const;
 
@@ -35,16 +36,16 @@ const ROLE_MINIMUMS: Record<MSFRole, number> = {
   'Medical secretary': 1
 };
 
-export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({ 
-  evidence, 
-  onBack, 
+export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
+  evidence,
+  onBack,
   onSave,
   onViewResponse
 }) => {
   const [respondents, setRespondents] = useState<MSFRespondent[]>(() => {
     if (evidence?.msfRespondents) return [...evidence.msfRespondents];
     return Array.from({ length: 11 }, () => ({
-      id: Math.random().toString(36).substr(2, 9),
+      id: uuidv4(),
       name: '',
       email: '',
       role: 'Consultant',
@@ -78,7 +79,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
   const addRow = () => {
     if (status === EvidenceStatus.SignedOff || respondents.length >= 30) return;
     setRespondents(prev => [...prev, {
-      id: Math.random().toString(36).substr(2, 9),
+      id: uuidv4(),
       name: '',
       email: '',
       role: 'Consultant',
@@ -95,7 +96,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
   };
 
   const sendInvite = (id: string) => {
-    setRespondents(prev => prev.map(r => 
+    setRespondents(prev => prev.map(r =>
       r.id === id ? { ...r, inviteSent: true, status: 'Awaiting response' } : r
     ));
     if (status === EvidenceStatus.Draft) {
@@ -104,7 +105,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
   };
 
   const remindRespondent = (id: string) => {
-    setRespondents(prev => prev.map(r => 
+    setRespondents(prev => prev.map(r =>
       r.id === id ? { ...r, lastReminded: new Date().toLocaleTimeString() } : r
     ));
   };
@@ -113,7 +114,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     const validRespondents = respondents.filter(r => r.name && r.email && !r.inviteSent);
     if (validRespondents.length === 0) return;
 
-    setRespondents(prev => prev.map(r => 
+    setRespondents(prev => prev.map(r =>
       (r.name && r.email && !r.inviteSent) ? { ...r, inviteSent: true } : r
     ));
     setStatus(EvidenceStatus.Submitted);
@@ -150,11 +151,10 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-white/90">MSF Submission</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest">Multi-Source Feedback</p>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : 
-                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 
-                'bg-indigo-100 text-indigo-700'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' :
+                  status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
+                    'bg-indigo-100 text-indigo-700'
+                }`}>
                 {status}
               </span>
             </div>
@@ -162,7 +162,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
         </div>
 
         {status === EvidenceStatus.Submitted && (
-          <button 
+          <button
             onClick={handleCloseMSF}
             className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
           >
@@ -188,14 +188,14 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
         <div className="lg:col-span-4 space-y-6">
           <GlassCard className="p-6 space-y-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Progress Overview</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5 block">Record Title</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   disabled={isLocked}
-                  value={title} 
+                  value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500/50 transition-all"
                 />
@@ -207,7 +207,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                   <span className="text-sm font-bold text-indigo-700">{completedCount} / 11</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-indigo-500 transition-all duration-1000"
                     style={{ width: `${Math.min((completedCount / 11) * 100, 100)}%` }}
                   ></div>
@@ -248,7 +248,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
             </div>
 
             {!isLocked && (
-              <button 
+              <button
                 onClick={bulkSend}
                 disabled={respondents.filter(r => r.name && r.email && !r.inviteSent).length === 0}
                 className="w-full py-4 rounded-xl bg-indigo-600 text-white text-xs font-black tracking-widest shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -258,7 +258,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
             )}
 
             {isLocked && (
-              <button 
+              <button
                 onClick={onBack}
                 className="w-full py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all"
               >
@@ -293,7 +293,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
               <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white/70">MSF Respondents</h3>
               <span className="text-[10px] font-black tracking-widest text-slate-400">{respondents.length} / 30</span>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -309,8 +309,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                   {respondents.map((r) => (
                     <tr key={r.id} className="group hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors">
                       <td className="px-4 py-3">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           disabled={r.inviteSent || isLocked}
                           value={r.name}
                           onChange={(e) => handleUpdateRespondent(r.id, 'name', e.target.value)}
@@ -319,8 +319,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <input 
-                          type="email" 
+                        <input
+                          type="email"
                           disabled={r.inviteSent || isLocked}
                           value={r.email}
                           onChange={(e) => handleUpdateRespondent(r.id, 'email', e.target.value)}
@@ -329,7 +329,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <select 
+                        <select
                           disabled={r.inviteSent || isLocked}
                           value={r.role}
                           onChange={(e) => handleUpdateRespondent(r.id, 'role', e.target.value)}
@@ -339,9 +339,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                         </select>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          r.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${r.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
                           {r.status === 'Completed' ? <CheckCircle2 size={10} /> : <Clock size={10} />}
                           {r.status === 'Completed' ? 'Completed' : (r.inviteSent ? 'Awaiting' : 'Draft')}
                         </span>
@@ -350,7 +349,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                         <div className="flex items-center justify-end gap-1">
                           {!r.inviteSent && !isLocked ? (
                             <>
-                              <button 
+                              <button
                                 onClick={() => sendInvite(r.id)}
                                 disabled={!r.name || !r.email}
                                 className="p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors disabled:opacity-20"
@@ -358,7 +357,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                               >
                                 <Send size={14} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => removeRow(r.id)}
                                 className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                                 title="Remove Row"
@@ -369,7 +368,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                           ) : (
                             <>
                               {r.status === 'Awaiting response' && !isLocked && (
-                                <button 
+                                <button
                                   onClick={() => remindRespondent(r.id)}
                                   className="text-[10px] font-black tracking-widest text-indigo-600 hover:bg-indigo-500/10 px-2 py-1 rounded transition-all"
                                   title={r.lastReminded ? `Reminded at ${r.lastReminded}` : 'Send Reminder'}
@@ -378,7 +377,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
                                 </button>
                               )}
                               {r.status === 'Awaiting response' && !isLocked && (
-                                <button 
+                                <button
                                   onClick={() => onViewResponse(r.id)}
                                   className="p-1.5 text-teal-600 hover:bg-teal-500/10 rounded-lg transition-colors"
                                   title="Simulate Response"
@@ -401,7 +400,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
 
             {!isLocked && respondents.length < 30 && (
               <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.01]">
-                <button 
+                <button
                   onClick={addRow}
                   className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-white/10 text-slate-400 text-xs font-bold uppercase tracking-widest hover:bg-white dark:hover:bg-white/5 transition-all flex items-center justify-center gap-2"
                 >

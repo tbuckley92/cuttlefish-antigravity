@@ -16,77 +16,32 @@ interface Particle {
 interface SignOffDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (gmc: string, signature: string) => void;
+  onConfirm: (gmc: string, name: string, email: string, signature: string) => void;
   formInfo: {
     type: string;
     traineeName: string;
     date: string;
     supervisorName: string;
+    supervisorEmail?: string; // Pre-populate if available
   };
 }
 
 export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, onConfirm, formInfo }) => {
   const [gmc, setGmc] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isCanvasDirty, setIsCanvasDirty] = useState(false);
+  const [supervisorName, setSupervisorName] = useState(formInfo.supervisorName || '');
+  const [supervisorEmail, setSupervisorEmail] = useState(formInfo.supervisorEmail || '');
   const [particles, setParticles] = useState<Particle[]>([]);
   const particleTimerRef = useRef<number | null>(null);
 
+  // Sync state with formInfo props when dialog opens or props change
   useEffect(() => {
-    if (isOpen && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.strokeStyle = '#312e81'; // Indigo-900
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-      }
+    if (isOpen) {
+      setSupervisorName(formInfo.supervisorName || '');
+      setSupervisorEmail(formInfo.supervisorEmail || '');
     }
-  }, [isOpen]);
+  }, [isOpen, formInfo.supervisorName, formInfo.supervisorEmail]);
 
   if (!isOpen) return null;
-
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDrawing(true);
-    setIsCanvasDirty(true);
-    const pos = getPos(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    ctx?.beginPath();
-    ctx?.moveTo(pos.x, pos.y);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const pos = getPos(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    ctx?.lineTo(pos.x, pos.y);
-    ctx?.stroke();
-  };
-
-  const stopDrawing = () => setIsDrawing(false);
-
-  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
-    };
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      setIsCanvasDirty(false);
-    }
-  };
 
   const triggerBurst = () => {
     // Check for reduced motion preference
@@ -129,16 +84,14 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
   };
 
   const handleConfirm = () => {
-    if (gmc.trim() || isCanvasDirty) {
-      triggerBurst();
-      // Delay closing the dialog so the emoji burst animation can play
-      setTimeout(() => {
-        onConfirm(gmc, isCanvasDirty ? 'drawn-signature' : 'gmc-only');
-      }, 800);
-    }
+    triggerBurst();
+    // Delay closing the dialog so the emoji burst animation can play
+    setTimeout(() => {
+      onConfirm(gmc, supervisorName, supervisorEmail, 'gmc-only');
+    }, 800);
   };
 
-  const canSubmit = gmc.trim().length > 0 || isCanvasDirty;
+  const canSubmit = gmc.trim().length > 0 && supervisorName.trim().length > 0 && supervisorEmail.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -187,36 +140,29 @@ export const SignOffDialog: React.FC<SignOffDialogProps> = ({ isOpen, onClose, o
               </div>
             </div>
 
-            <div className="flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-slate-100 dark:bg-white/5"></div>
-              <span className="text-[9px] font-black text-slate-300 dark:text-white/20 tracking-[0.2em] uppercase">And / Or</span>
-              <div className="h-px flex-1 bg-slate-100 dark:bg-white/5"></div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Name</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={supervisorName}
+                  onChange={(e) => setSupervisorName(e.target.value)}
+                  placeholder="Enter Full Name"
+                  className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/50"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block flex justify-between">
-                Signature
-                <button onClick={clearCanvas} className="text-indigo-500 hover:text-indigo-600 transition-colors">Clear</button>
-              </label>
-              <div className="relative group">
-                <canvas
-                  ref={canvasRef}
-                  width={400}
-                  height={120}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                  className="w-full h-[120px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl cursor-crosshair touch-none"
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Email</label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={supervisorEmail}
+                  onChange={(e) => setSupervisorEmail(e.target.value)}
+                  placeholder="Enter Email Address"
+                  className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/50"
                 />
-                {!isCanvasDirty && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity">
-                    <p className="text-xs text-slate-500 italic">Draw signature here</p>
-                  </div>
-                )}
               </div>
             </div>
 

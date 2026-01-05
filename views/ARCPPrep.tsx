@@ -7,6 +7,7 @@ import {
   ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
   UploadCloud, Calendar, Save, Eye
 } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
 import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile } from '../types';
 
 interface ARCPPrepProps {
@@ -29,7 +30,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack,
     [allEvidence]
   );
 
-  const [prepId] = useState(existingPrepRecord?.id || Math.random().toString(36).substr(2, 9));
+  const [prepId] = useState(existingPrepRecord?.id || uuidv4());
   const [lastSaved, setLastSaved] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 

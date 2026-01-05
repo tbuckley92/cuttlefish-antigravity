@@ -65,12 +65,6 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       // Exclude ARCP Prep items from the main Evidence table
       if (item.type === EvidenceType.ARCPPrep) return false;
 
-      // In EPA linking mode, only show EPA Operating List items
-      if (selectionMode && epaLinkingMode) {
-        // Only allow EPA Operating List type to be linked from EPA forms
-        return item.type === EvidenceType.EPAOperatingList;
-      }
-
       // In selection mode, exclude same-type evidence (e.g., EPAs can't link to EPAs)
       if (selectionMode && excludeType && item.type === excludeType) return false;
 
@@ -88,7 +82,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
       return typeMatch && siaMatch && yearMatch && statusMatch;
     });
-  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType, epaLinkingMode]);
+  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {

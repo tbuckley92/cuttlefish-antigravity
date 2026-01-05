@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, 
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
   Clock, AlertCircle, ClipboardCheck, ChevronRight as ChevronDown,
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { SPECIALTIES, INITIAL_PROFILE } from '../constants';
+
+import { uuidv4 } from '../utils/uuid';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
 interface CRSFormProps {
@@ -20,6 +22,7 @@ interface CRSFormProps {
   initialCrsType?: string; // Pre-select CRS type when launching from EPA
   originView?: any; // View enum type
   originFormParams?: any; // FormParams type
+  traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -442,20 +445,21 @@ const COLOUR_VISION_METHODS = ["Ishihara", "Other pseudoisochromatic", "Other"];
 
 const RATING_OPTIONS = ["Major concerns", "Minor concerns", "Meets expectations"];
 
-const CRSForm: React.FC<CRSFormProps> = ({ 
+const CRSForm: React.FC<CRSFormProps> = ({
   id,
-  sia = "General Ophthalmology", 
-  level = 1, 
+  sia = "General Ophthalmology",
+  level = 1,
   initialAssessorName = "",
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
   initialCrsType,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
   // Use initialCrsType when creating new (no id), otherwise default to "Vision"
   const [selectedCrsType, setSelectedCrsType] = useState(() => {
@@ -643,13 +647,13 @@ const CRSForm: React.FC<CRSFormProps> = ({
       const savedForm = allEvidence.find(e => e.id === id && e.type === EvidenceType.CRS);
       if (savedForm?.crsFormData) {
         const data = savedForm.crsFormData;
-        
+
         // Load basic fields
         if (data.crsType) setSelectedCrsType(data.crsType);
         if (data.caseDescription) setCaseDescription(data.caseDescription);
         if (data.assessorName) setAssessorName(data.assessorName);
         if (data.assessorEmail) setAssessorEmail(data.assessorEmail);
-        
+
         // Load Vision data
         if (data.visionData) {
           const v = data.visionData;
@@ -668,7 +672,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
           if (v.colourVisionOther) setColourVisionOther(v.colourVisionOther);
           if (v.comments) setComments(v.comments);
         }
-        
+
         // Load Retinoscopy data
         if (data.retinoscopyData) {
           const r = data.retinoscopyData;
@@ -676,7 +680,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
           if (r.sectionB) setRetinoscopySectionBRatings(r.sectionB);
           if (r.comments) setRetinoscopyComments(r.comments);
         }
-        
+
         // Load Indirect Ophthalmoscopy data
         if (data.indirectOphthalmoscopyData) {
           const io = data.indirectOphthalmoscopyData;
@@ -684,7 +688,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
           if (io.sectionB) setIndirectOphthalmoscopySectionBRatings(io.sectionB);
           if (io.comments) setIndirectOphthalmoscopyComments(io.comments);
         }
-        
+
         // Load Pupil data
         if (data.pupilData) {
           const p = data.pupilData;
@@ -692,7 +696,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
           if (p.sectionB) setPupilSectionBRatings(p.sectionB);
           if (p.comments) setPupilComments(p.comments);
         }
-        
+
         // Load status and level
         if (savedForm.status) setStatus(savedForm.status);
         if (savedForm.level) setTrainingLevel(savedForm.level.toString());
@@ -714,21 +718,24 @@ const CRSForm: React.FC<CRSFormProps> = ({
     return () => clearInterval(timer);
   }, [isLocked, isStructuredForm, sectionARatings, sectionBRatings, sectionCRatings, visualAcuityMethod, colourVisionMethod, comments, visualAcuityOther, colourVisionOther, retinoscopySectionARatings, retinoscopySectionBRatings, retinoscopyComments, indirectOphthalmoscopySectionARatings, indirectOphthalmoscopySectionBRatings, indirectOphthalmoscopyComments, pupilSectionARatings, pupilSectionBRatings, pupilComments, contactLensesSectionARatings, contactLensesSectionBRatings, contactLensesComments, lens78D90DSectionARatings, lens78D90DSectionBRatings, lens78D90DComments, gonioscopySectionARatings, gonioscopySectionBRatings, gonioscopyComments, directOphthalmoscopySectionARatings, directOphthalmoscopySectionBRatings, directOphthalmoscopyComments, slitLampSectionARatings, slitLampSectionBRatings, slitLampSectionCRatings, slitLampComments, iopSectionARatings, iopSectionBRatings, iopSectionCRatings, iopComments, iopTechnique, iopOtherTechnique, ocularMotilitySectionARatings, ocularMotilitySectionBRatings, ocularMotilitySectionCRatings, ocularMotilityComments, externalEyeSectionARatings, externalEyeSectionBRatings, externalEyeSectionCRatings, externalEyeComments, fieldsSectionARatings, fieldsSectionBRatings, fieldsComments, consultationSkillsSectionARatings, consultationSkillsSectionBRatings, consultationSkillsSectionCRatings, consultationSkillsSectionDRatings, consultationSkillsComments, consultationSkillsSpecialty]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: any = {
       id: formId,
       title: `CRS: ${selectedCrsType} - Level ${trainingLevel}`,
       type: EvidenceType.CRS,
-      sia: sia,
+      sia: selectedCrsType || sia,
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || assessorName,
+      supervisorEmail: email || assessorEmail,
       date: new Date().toISOString().split('T')[0],
       notes: caseDescription,
       crsFormData: {
         crsType: selectedCrsType,
         caseDescription,
-        assessorName,
-        assessorEmail
+        assessorName: name || assessorName,
+        assessorEmail: email || assessorEmail
       }
     };
 
@@ -1148,9 +1155,11 @@ const CRSForm: React.FC<CRSFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = (gmc: string) => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setAssessorName(name);
+    setAssessorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     onSubmitted?.();
   };
@@ -1261,7 +1270,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   const handleMarkAllMeets = () => {
     if (isLocked) return;
     const allMeets = "Meets expectations";
-    
+
     if (isConsultationSkillsForm) {
       // Consultation Skills Section A
       const consultationSkillsSectionAKeys = ["introduction", "rapport", "listeningSkills", "empathy", "respect"];
@@ -1547,29 +1556,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1584,7 +1592,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderSectionB = () => {
     const criteriaKeys = ["appropriateOcclusion", "technique", "refractiveCorrection", "pinhole", "distanceAcuity", "nearAcuity"];
-    
+
     return (
       <div className="space-y-6">
         {/* Method Selection */}
@@ -1620,27 +1628,26 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
         {/* Performance Criteria */}
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1655,7 +1662,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderSectionC = () => {
     const criteriaKeys = ["appropriateOcclusion", "technique", "colourVisionTest", "accurateRecording"];
-    
+
     return (
       <div className="space-y-6">
         {/* Method Selection */}
@@ -1691,27 +1698,26 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
         {/* Performance Criteria */}
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = sectionCRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1775,29 +1781,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Retinoscopy rendering functions
   const renderRetinoscopySectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {RETINOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = retinoscopySectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'retinoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1812,31 +1817,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderRetinoscopySectionB = () => {
     const criteriaKeys = ["patientPositioning", "appropriateCycloplegia", "useOfTrialFrame", "timeTaken", "accuracy", "notation", "appropriatePrescription"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {RETINOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = retinoscopySectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'retinoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1899,29 +1903,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Indirect Ophthalmoscopy rendering functions
   const renderIndirectOphthalmoscopySectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {INDIRECT_OPHTHALMOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = indirectOphthalmoscopySectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'indirectOphthalmoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1936,31 +1939,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderIndirectOphthalmoscopySectionB = () => {
     const criteriaKeys = ["instructionsToPatient", "familiarityWithOphthalmoscope", "correctUseOfIllumination", "appropriateUseOfLenses", "indentationTechnique", "descriptionOfFindings"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {INDIRECT_OPHTHALMOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = indirectOphthalmoscopySectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'indirectOphthalmoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2024,29 +2026,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Pupil rendering functions
   const renderPupilSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {PUPIL_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = pupilSectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'pupil')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2061,31 +2062,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderPupilSectionB = () => {
     const criteriaKeys = ["generalInspection", "appropriateUseOfDistanceTarget", "directPupillaryReaction", "consensualReaction", "swingingFlashlightTest", "accommodativeReaction", "slitLampExamination", "correctReactionsIdentified", "suggestionOfSuitableAetiology", "suggestionsForSuitableFurtherTests"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {PUPIL_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = pupilSectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'pupil')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2149,29 +2149,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Contact Lenses rendering functions
   const renderContactLensesSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {CONTACT_LENSES_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = contactLensesSectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'contactLenses')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2186,31 +2185,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderContactLensesSectionB = () => {
     const criteriaKeys = ["instructionsToPatient", "familiarityWithLenses", "correctUseOfSlitLampIllumination", "appropriateUseOfLenses", "descriptionOfFindings"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {CONTACT_LENSES_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = contactLensesSectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'contactLenses')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2274,29 +2272,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // 78D/90D lens rendering functions
   const renderLens78D90DSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {LENS_78D_90D_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = lens78D90DSectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'lens78D90D')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2311,31 +2308,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderLens78D90DSectionB = () => {
     const criteriaKeys = ["instructionsToPatient", "familiarityWithLenses", "correctUseOfSlitLampIllumination", "appropriateUseOfLenses", "descriptionOfFindings"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {LENS_78D_90D_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = lens78D90DSectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'lens78D90D')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2399,29 +2395,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Gonioscopy rendering functions
   const renderGonioscopySectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {GONIOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = gonioscopySectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'gonioscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2442,14 +2437,14 @@ const CRSForm: React.FC<CRSFormProps> = ({
       ["useOfAppropriateLens", "adjustmentOfSlitLamp", "indentationTechnique"], // Dynamic Assessment
       ["understandingOfGrading", "interpretationAndDocumentation"] // Interpretation
     ];
-    
+
     return (
       <div className="space-y-8">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {GONIOSCOPY_SECTION_B_SUBSECTIONS.map((subsection, subIdx) => {
           const criteriaKeys = subsectionKeys[subIdx];
-          
+
           return (
             <div key={subsection.title} className="space-y-6">
               <div className="border-l-4 border-indigo-500 pl-4">
@@ -2457,27 +2452,26 @@ const CRSForm: React.FC<CRSFormProps> = ({
                   Subsection: {subsection.title}
                 </h4>
               </div>
-              
+
               {subsection.criteria.map((criterion, idx) => {
                 const key = criteriaKeys[idx];
                 const rating = gonioscopySectionBRatings[key] || "";
                 const isFilled = !!rating;
-                
+
                 return (
                   <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
                     <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-                    
+
                     <div className="flex flex-wrap gap-2">
                       {RATING_OPTIONS.map(opt => (
                         <button
                           key={opt}
                           disabled={isLocked}
                           onClick={() => handleRatingChange('B', key, opt, 'gonioscopy')}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                            rating === opt 
-                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                              : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                            }`}
                         >
                           {opt}
                         </button>
@@ -2544,29 +2538,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Direct Ophthalmoscopy rendering functions
   const renderDirectOphthalmoscopySectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {DIRECT_OPHTHALMOSCOPY_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = directOphthalmoscopySectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'directOphthalmoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2581,31 +2574,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderDirectOphthalmoscopySectionB = () => {
     const criteriaKeys = ["instructionsToPatient", "familiarityWithOphthalmoscope", "correctUseOfIllumination", "appropriateUseOfLenses", "descriptionOfFindings"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {DIRECT_OPHTHALMOSCOPY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = directOphthalmoscopySectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'directOphthalmoscopy')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2669,29 +2661,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Slit Lamp rendering functions
   const renderSlitLampSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {SLIT_LAMP_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'slitLamp')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2706,31 +2697,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderSlitLampSectionB = () => {
     const criteriaKeys = ["appropriateIPD", "appropriateEyepieceFocus", "appropriateSlitBeamSizeAndAngle", "useOfFullRangeOfMagnification", "useOfAppropriateFilters"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {SLIT_LAMP_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'slitLamp')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2745,31 +2735,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderSlitLampSectionC = () => {
     const criteriaKeys = ["lidsAndLashes", "conjunctiva", "cornea", "irisStructures", "lens", "aqueousHumour", "anteriorChamberDepth"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {SLIT_LAMP_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = slitLampSectionCRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt, 'slitLamp')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2833,7 +2822,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // IOP rendering functions
   const renderIopSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {IOP_SECTION_A_CRITERIA.map((criterion, idx) => {
@@ -2844,18 +2833,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'iop')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2870,7 +2858,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderIopSectionB = () => {
     const criteriaKeys = ["consentForTest", "applicationOfAnaesthesiaAndFluorescein", "stabilisationOfLidsAndEye", "useOfTonometerAccuratePlacement", "accurateIOPRecording", "interpretationOfResult", "cornealAppearanceAfterExamination", "careOfTonometerHead", "infectionControl"];
-    
+
     return (
       <div className="space-y-6">
         <GlassCard className="p-5 lg:p-6">
@@ -2883,11 +2871,10 @@ const CRSForm: React.FC<CRSFormProps> = ({
                 key={technique}
                 disabled={isLocked}
                 onClick={() => setIopTechnique(technique)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                  iopTechnique === technique 
-                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                    : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${iopTechnique === technique
+                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                  }`}
               >
                 {technique}
               </button>
@@ -2906,7 +2893,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
         </GlassCard>
 
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {IOP_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = iopSectionBRatings[key] || "";
@@ -2915,18 +2902,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'iop')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -2941,11 +2927,11 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderIopSectionC = () => {
     const criteriaKeys = ["knowledgeOfReasonsForCalibration", "appropriateUseOfCalibrationArm", "interpretationOfResults", "appropriateActionTaken"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {IOP_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = iopSectionCRatings[key] || "";
@@ -2954,18 +2940,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt, 'iop')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3029,7 +3014,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Ocular Motility rendering functions
   const renderOcularMotilitySectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {OCULAR_MOTILITY_SECTION_A_CRITERIA.map((criterion, idx) => {
@@ -3040,18 +3025,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'ocularMotility')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3066,11 +3050,11 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderOcularMotilitySectionB = () => {
     const criteriaKeys = ["observationOfAssociatedOcularSignsAndHeadPosition", "useOfFixationTargets", "performanceOfCoverTests", "assessmentOfVersionsDuctionsVergencesAndSaccades", "interpretationOfFindings"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {OCULAR_MOTILITY_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = ocularMotilitySectionBRatings[key] || "";
@@ -3079,18 +3063,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'ocularMotility')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3105,11 +3088,11 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderOcularMotilitySectionC = () => {
     const criteriaKeys = ["explanationOfTest", "appropriatePositioningOfPrismBar", "assessmentOfAngle", "interpretationOfResults"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {OCULAR_MOTILITY_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = ocularMotilitySectionCRatings[key] || "";
@@ -3118,18 +3101,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt, 'ocularMotility')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3193,28 +3175,27 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // External Eye rendering functions
   const renderExternalEyeSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {EXTERNAL_EYE_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = externalEyeSectionARatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'externalEye')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3229,30 +3210,29 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderExternalEyeSectionB = () => {
     const criteriaKeys = ["assessmentOfFaceAndHead", "palpationOfOrbitalMargins", "examinationOfLacrimalSystem", "assessmentOfLidPositionWithAppropriateMeasurements", "examinationOfLashes", "examinationOfMeibomianGlands", "examinationOfConjunctiva", "examinationOfCornea"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {EXTERNAL_EYE_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = externalEyeSectionBRatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'externalEye')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3267,30 +3247,29 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderExternalEyeSectionC = () => {
     const criteriaKeys = ["lidEversion", "useOfExophthalmometer", "otherAncillaryTests"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {EXTERNAL_EYE_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = externalEyeSectionCRatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt, 'externalEye')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3354,28 +3333,27 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Fields rendering functions
   const renderFieldsSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "listeningSkills", "empathy", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {FIELDS_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = fieldsSectionARatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'fields')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3390,30 +3368,29 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderFieldsSectionB = () => {
     const criteriaKeys = ["appropriateOcclusion", "appropriateTechnique", "identificationOfVisualFieldDefect", "understandingOfPossibleCauses", "appropriateRecommendationForFurtherFieldTesting"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {FIELDS_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = fieldsSectionBRatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'fields')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3477,29 +3454,28 @@ const CRSForm: React.FC<CRSFormProps> = ({
   // Consultation Skills rendering functions
   const renderConsultationSkillsSectionA = () => {
     const criteriaKeys = ["introduction", "rapport", "listeningSkills", "empathy", "respect"];
-    
+
     return (
       <div className="space-y-6">
         {CONSULTATION_SKILLS_SECTION_A_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionARatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('A', key, opt, 'consultationSkills')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3514,31 +3490,30 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderConsultationSkillsSectionB = () => {
     const criteriaKeys = ["historyOfPresentingComplaint", "pastOphthalmicHistory", "familyHistory", "pastMedicalHistory", "systemsEnquiry", "drugHistoryAndAllergies", "socialHistory", "otherRelevantEnquiries", "assessmentOfMentalState"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {CONSULTATION_SKILLS_SECTION_B_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionBRatings[key] || "";
           const isFilled = !!rating;
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''} ${isFilled ? 'ring-2 ring-green-500/30' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('B', key, opt, 'consultationSkills')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3553,30 +3528,29 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderConsultationSkillsSectionC = () => {
     const criteriaKeys = ["sensitiveAndResponsiveToPatientAnxieties", "awarenessOfSocialImpact", "interviewSensitiveAndResponsive"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {CONSULTATION_SKILLS_SECTION_C_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionCRatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('C', key, opt, 'consultationSkills')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3591,30 +3565,29 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
   const renderConsultationSkillsSectionD = () => {
     const criteriaKeys = ["modeOfEnquiry", "appropriateControlAndDirection", "efficientUseOfTime", "deliveryOfInformation", "involvementOfPatientInDecisions", "terminationOfInterview"];
-    
+
     return (
       <div className="space-y-6">
         <div className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">Performance Criteria</div>
-        
+
         {CONSULTATION_SKILLS_SECTION_D_CRITERIA.map((criterion, idx) => {
           const key = criteriaKeys[idx];
           const rating = consultationSkillsSectionDRatings[key] || "";
-          
+
           return (
             <GlassCard key={key} className={`p-5 lg:p-6 transition-all duration-300 ${isLocked ? 'bg-slate-50/50' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-4">{criterion}</p>
-              
+
               <div className="flex flex-wrap gap-2">
                 {RATING_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     disabled={isLocked}
                     onClick={() => handleRatingChange('D', key, opt, 'consultationSkills')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                      rating === opt 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${rating === opt
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:bg-slate-100'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -3679,317 +3652,317 @@ const CRSForm: React.FC<CRSFormProps> = ({
     if (isConsultationSkillsForm) {
       if (sectionIdx === 0) {
         // Consultation Skills Section A
-        return consultationSkillsSectionARatings["introduction"] && 
-               consultationSkillsSectionARatings["rapport"] && 
-               consultationSkillsSectionARatings["listeningSkills"] && 
-               consultationSkillsSectionARatings["empathy"] && 
-               consultationSkillsSectionARatings["respect"];
+        return consultationSkillsSectionARatings["introduction"] &&
+          consultationSkillsSectionARatings["rapport"] &&
+          consultationSkillsSectionARatings["listeningSkills"] &&
+          consultationSkillsSectionARatings["empathy"] &&
+          consultationSkillsSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Consultation Skills Section B
-        return consultationSkillsSectionBRatings["historyOfPresentingComplaint"] && 
-               consultationSkillsSectionBRatings["pastOphthalmicHistory"] && 
-               consultationSkillsSectionBRatings["familyHistory"] && 
-               consultationSkillsSectionBRatings["pastMedicalHistory"] && 
-               consultationSkillsSectionBRatings["systemsEnquiry"] && 
-               consultationSkillsSectionBRatings["drugHistoryAndAllergies"] && 
-               consultationSkillsSectionBRatings["socialHistory"] && 
-               consultationSkillsSectionBRatings["otherRelevantEnquiries"] && 
-               consultationSkillsSectionBRatings["assessmentOfMentalState"];
+        return consultationSkillsSectionBRatings["historyOfPresentingComplaint"] &&
+          consultationSkillsSectionBRatings["pastOphthalmicHistory"] &&
+          consultationSkillsSectionBRatings["familyHistory"] &&
+          consultationSkillsSectionBRatings["pastMedicalHistory"] &&
+          consultationSkillsSectionBRatings["systemsEnquiry"] &&
+          consultationSkillsSectionBRatings["drugHistoryAndAllergies"] &&
+          consultationSkillsSectionBRatings["socialHistory"] &&
+          consultationSkillsSectionBRatings["otherRelevantEnquiries"] &&
+          consultationSkillsSectionBRatings["assessmentOfMentalState"];
       } else if (sectionIdx === 2) {
         // Consultation Skills Section C
-        return consultationSkillsSectionCRatings["sensitiveAndResponsiveToPatientAnxieties"] && 
-               consultationSkillsSectionCRatings["awarenessOfSocialImpact"] && 
-               consultationSkillsSectionCRatings["interviewSensitiveAndResponsive"];
+        return consultationSkillsSectionCRatings["sensitiveAndResponsiveToPatientAnxieties"] &&
+          consultationSkillsSectionCRatings["awarenessOfSocialImpact"] &&
+          consultationSkillsSectionCRatings["interviewSensitiveAndResponsive"];
       } else if (sectionIdx === 3) {
         // Consultation Skills Section D
-        return consultationSkillsSectionDRatings["modeOfEnquiry"] && 
-               consultationSkillsSectionDRatings["appropriateControlAndDirection"] && 
-               consultationSkillsSectionDRatings["efficientUseOfTime"] && 
-               consultationSkillsSectionDRatings["deliveryOfInformation"] && 
-               consultationSkillsSectionDRatings["involvementOfPatientInDecisions"] && 
-               consultationSkillsSectionDRatings["terminationOfInterview"];
+        return consultationSkillsSectionDRatings["modeOfEnquiry"] &&
+          consultationSkillsSectionDRatings["appropriateControlAndDirection"] &&
+          consultationSkillsSectionDRatings["efficientUseOfTime"] &&
+          consultationSkillsSectionDRatings["deliveryOfInformation"] &&
+          consultationSkillsSectionDRatings["involvementOfPatientInDecisions"] &&
+          consultationSkillsSectionDRatings["terminationOfInterview"];
       } else {
         // Consultation Skills Section E
-        return consultationSkillsComments.especiallyGood.trim() !== "" && 
-               consultationSkillsComments.suggestionsForImprovement.trim() !== "" && 
-               consultationSkillsComments.agreedActionPlan.trim() !== "";
+        return consultationSkillsComments.especiallyGood.trim() !== "" &&
+          consultationSkillsComments.suggestionsForImprovement.trim() !== "" &&
+          consultationSkillsComments.agreedActionPlan.trim() !== "";
       }
     } else if (isFieldsForm) {
       if (sectionIdx === 0) {
         // Fields Section A
-        return fieldsSectionARatings["introduction"] && 
-               fieldsSectionARatings["rapport"] && 
-               fieldsSectionARatings["listeningSkills"] && 
-               fieldsSectionARatings["empathy"] && 
-               fieldsSectionARatings["respect"];
+        return fieldsSectionARatings["introduction"] &&
+          fieldsSectionARatings["rapport"] &&
+          fieldsSectionARatings["listeningSkills"] &&
+          fieldsSectionARatings["empathy"] &&
+          fieldsSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Fields Section B
-        return fieldsSectionBRatings["appropriateOcclusion"] && 
-               fieldsSectionBRatings["appropriateTechnique"] && 
-               fieldsSectionBRatings["identificationOfVisualFieldDefect"] && 
-               fieldsSectionBRatings["understandingOfPossibleCauses"] && 
-               fieldsSectionBRatings["appropriateRecommendationForFurtherFieldTesting"];
+        return fieldsSectionBRatings["appropriateOcclusion"] &&
+          fieldsSectionBRatings["appropriateTechnique"] &&
+          fieldsSectionBRatings["identificationOfVisualFieldDefect"] &&
+          fieldsSectionBRatings["understandingOfPossibleCauses"] &&
+          fieldsSectionBRatings["appropriateRecommendationForFurtherFieldTesting"];
       } else {
         // Fields Section C
-        return fieldsComments.especiallyGood.trim() !== "" && 
-               fieldsComments.suggestionsForImprovement.trim() !== "" && 
-               fieldsComments.agreedActionPlan.trim() !== "";
+        return fieldsComments.especiallyGood.trim() !== "" &&
+          fieldsComments.suggestionsForImprovement.trim() !== "" &&
+          fieldsComments.agreedActionPlan.trim() !== "";
       }
     } else if (isExternalEyeForm) {
       if (sectionIdx === 0) {
         // External Eye Section A
-        return externalEyeSectionARatings["introduction"] && 
-               externalEyeSectionARatings["rapport"] && 
-               externalEyeSectionARatings["respect"];
+        return externalEyeSectionARatings["introduction"] &&
+          externalEyeSectionARatings["rapport"] &&
+          externalEyeSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // External Eye Section B
-        return externalEyeSectionBRatings["assessmentOfFaceAndHead"] && 
-               externalEyeSectionBRatings["palpationOfOrbitalMargins"] && 
-               externalEyeSectionBRatings["examinationOfLacrimalSystem"] && 
-               externalEyeSectionBRatings["assessmentOfLidPositionWithAppropriateMeasurements"] && 
-               externalEyeSectionBRatings["examinationOfLashes"] && 
-               externalEyeSectionBRatings["examinationOfMeibomianGlands"] && 
-               externalEyeSectionBRatings["examinationOfConjunctiva"] && 
-               externalEyeSectionBRatings["examinationOfCornea"];
+        return externalEyeSectionBRatings["assessmentOfFaceAndHead"] &&
+          externalEyeSectionBRatings["palpationOfOrbitalMargins"] &&
+          externalEyeSectionBRatings["examinationOfLacrimalSystem"] &&
+          externalEyeSectionBRatings["assessmentOfLidPositionWithAppropriateMeasurements"] &&
+          externalEyeSectionBRatings["examinationOfLashes"] &&
+          externalEyeSectionBRatings["examinationOfMeibomianGlands"] &&
+          externalEyeSectionBRatings["examinationOfConjunctiva"] &&
+          externalEyeSectionBRatings["examinationOfCornea"];
       } else if (sectionIdx === 2) {
         // External Eye Section C
-        return externalEyeSectionCRatings["lidEversion"] && 
-               externalEyeSectionCRatings["useOfExophthalmometer"] && 
-               externalEyeSectionCRatings["otherAncillaryTests"];
+        return externalEyeSectionCRatings["lidEversion"] &&
+          externalEyeSectionCRatings["useOfExophthalmometer"] &&
+          externalEyeSectionCRatings["otherAncillaryTests"];
       } else {
         // External Eye Section D
-        return externalEyeComments.especiallyGood.trim() !== "" && 
-               externalEyeComments.suggestionsForImprovement.trim() !== "" && 
-               externalEyeComments.agreedActionPlan.trim() !== "";
+        return externalEyeComments.especiallyGood.trim() !== "" &&
+          externalEyeComments.suggestionsForImprovement.trim() !== "" &&
+          externalEyeComments.agreedActionPlan.trim() !== "";
       }
     } else if (isOcularMotilityForm) {
       if (sectionIdx === 0) {
         // Ocular Motility Section A
-        return ocularMotilitySectionARatings["introduction"] && 
-               ocularMotilitySectionARatings["rapport"] && 
-               ocularMotilitySectionARatings["respect"];
+        return ocularMotilitySectionARatings["introduction"] &&
+          ocularMotilitySectionARatings["rapport"] &&
+          ocularMotilitySectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Ocular Motility Section B
-        return ocularMotilitySectionBRatings["observationOfAssociatedOcularSignsAndHeadPosition"] && 
-               ocularMotilitySectionBRatings["useOfFixationTargets"] && 
-               ocularMotilitySectionBRatings["performanceOfCoverTests"] && 
-               ocularMotilitySectionBRatings["assessmentOfVersionsDuctionsVergencesAndSaccades"] && 
-               ocularMotilitySectionBRatings["interpretationOfFindings"];
+        return ocularMotilitySectionBRatings["observationOfAssociatedOcularSignsAndHeadPosition"] &&
+          ocularMotilitySectionBRatings["useOfFixationTargets"] &&
+          ocularMotilitySectionBRatings["performanceOfCoverTests"] &&
+          ocularMotilitySectionBRatings["assessmentOfVersionsDuctionsVergencesAndSaccades"] &&
+          ocularMotilitySectionBRatings["interpretationOfFindings"];
       } else if (sectionIdx === 2) {
         // Ocular Motility Section C
-        return ocularMotilitySectionCRatings["explanationOfTest"] && 
-               ocularMotilitySectionCRatings["appropriatePositioningOfPrismBar"] && 
-               ocularMotilitySectionCRatings["assessmentOfAngle"] && 
-               ocularMotilitySectionCRatings["interpretationOfResults"];
+        return ocularMotilitySectionCRatings["explanationOfTest"] &&
+          ocularMotilitySectionCRatings["appropriatePositioningOfPrismBar"] &&
+          ocularMotilitySectionCRatings["assessmentOfAngle"] &&
+          ocularMotilitySectionCRatings["interpretationOfResults"];
       } else {
         // Ocular Motility Section D
-        return ocularMotilityComments.especiallyGood.trim() !== "" && 
-               ocularMotilityComments.suggestionsForImprovement.trim() !== "" && 
-               ocularMotilityComments.agreedActionPlan.trim() !== "";
+        return ocularMotilityComments.especiallyGood.trim() !== "" &&
+          ocularMotilityComments.suggestionsForImprovement.trim() !== "" &&
+          ocularMotilityComments.agreedActionPlan.trim() !== "";
       }
     } else if (isIOPForm) {
       if (sectionIdx === 0) {
         // IOP Section A
-        return iopSectionARatings["introduction"] && 
-               iopSectionARatings["rapport"] && 
-               iopSectionARatings["respect"];
+        return iopSectionARatings["introduction"] &&
+          iopSectionARatings["rapport"] &&
+          iopSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // IOP Section B
-        return iopSectionBRatings["consentForTest"] && 
-               iopSectionBRatings["applicationOfAnaesthesiaAndFluorescein"] && 
-               iopSectionBRatings["stabilisationOfLidsAndEye"] && 
-               iopSectionBRatings["useOfTonometerAccuratePlacement"] && 
-               iopSectionBRatings["accurateIOPRecording"] && 
-               iopSectionBRatings["interpretationOfResult"] && 
-               iopSectionBRatings["cornealAppearanceAfterExamination"] && 
-               iopSectionBRatings["careOfTonometerHead"] && 
-               iopSectionBRatings["infectionControl"];
+        return iopSectionBRatings["consentForTest"] &&
+          iopSectionBRatings["applicationOfAnaesthesiaAndFluorescein"] &&
+          iopSectionBRatings["stabilisationOfLidsAndEye"] &&
+          iopSectionBRatings["useOfTonometerAccuratePlacement"] &&
+          iopSectionBRatings["accurateIOPRecording"] &&
+          iopSectionBRatings["interpretationOfResult"] &&
+          iopSectionBRatings["cornealAppearanceAfterExamination"] &&
+          iopSectionBRatings["careOfTonometerHead"] &&
+          iopSectionBRatings["infectionControl"];
       } else if (sectionIdx === 2) {
         // IOP Section C
-        return iopSectionCRatings["knowledgeOfReasonsForCalibration"] && 
-               iopSectionCRatings["appropriateUseOfCalibrationArm"] && 
-               iopSectionCRatings["interpretationOfResults"] && 
-               iopSectionCRatings["appropriateActionTaken"];
+        return iopSectionCRatings["knowledgeOfReasonsForCalibration"] &&
+          iopSectionCRatings["appropriateUseOfCalibrationArm"] &&
+          iopSectionCRatings["interpretationOfResults"] &&
+          iopSectionCRatings["appropriateActionTaken"];
       } else {
         // IOP Section D
-        return iopComments.especiallyGood.trim() !== "" && 
-               iopComments.suggestionsForImprovement.trim() !== "" && 
-               iopComments.agreedActionPlan.trim() !== "";
+        return iopComments.especiallyGood.trim() !== "" &&
+          iopComments.suggestionsForImprovement.trim() !== "" &&
+          iopComments.agreedActionPlan.trim() !== "";
       }
     } else if (isSlitLampForm) {
       if (sectionIdx === 0) {
         // Slit Lamp Section A
-        return slitLampSectionARatings["introduction"] && 
-               slitLampSectionARatings["rapport"] && 
-               slitLampSectionARatings["respect"];
+        return slitLampSectionARatings["introduction"] &&
+          slitLampSectionARatings["rapport"] &&
+          slitLampSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Slit Lamp Section B
-        return slitLampSectionBRatings["appropriateIPD"] && 
-               slitLampSectionBRatings["appropriateEyepieceFocus"] && 
-               slitLampSectionBRatings["appropriateSlitBeamSizeAndAngle"] && 
-               slitLampSectionBRatings["useOfFullRangeOfMagnification"] && 
-               slitLampSectionBRatings["useOfAppropriateFilters"];
+        return slitLampSectionBRatings["appropriateIPD"] &&
+          slitLampSectionBRatings["appropriateEyepieceFocus"] &&
+          slitLampSectionBRatings["appropriateSlitBeamSizeAndAngle"] &&
+          slitLampSectionBRatings["useOfFullRangeOfMagnification"] &&
+          slitLampSectionBRatings["useOfAppropriateFilters"];
       } else if (sectionIdx === 2) {
         // Slit Lamp Section C
-        return slitLampSectionCRatings["lidsAndLashes"] && 
-               slitLampSectionCRatings["conjunctiva"] && 
-               slitLampSectionCRatings["cornea"] && 
-               slitLampSectionCRatings["irisStructures"] && 
-               slitLampSectionCRatings["lens"] && 
-               slitLampSectionCRatings["aqueousHumour"] && 
-               slitLampSectionCRatings["anteriorChamberDepth"];
+        return slitLampSectionCRatings["lidsAndLashes"] &&
+          slitLampSectionCRatings["conjunctiva"] &&
+          slitLampSectionCRatings["cornea"] &&
+          slitLampSectionCRatings["irisStructures"] &&
+          slitLampSectionCRatings["lens"] &&
+          slitLampSectionCRatings["aqueousHumour"] &&
+          slitLampSectionCRatings["anteriorChamberDepth"];
       } else {
         // Slit Lamp Section D
-        return slitLampComments.especiallyGood.trim() !== "" && 
-               slitLampComments.suggestionsForImprovement.trim() !== "" && 
-               slitLampComments.agreedActionPlan.trim() !== "";
+        return slitLampComments.especiallyGood.trim() !== "" &&
+          slitLampComments.suggestionsForImprovement.trim() !== "" &&
+          slitLampComments.agreedActionPlan.trim() !== "";
       }
     } else if (isDirectOphthalmoscopyForm) {
       if (sectionIdx === 0) {
         // Direct Ophthalmoscopy Section A
-        return directOphthalmoscopySectionARatings["introduction"] && 
-               directOphthalmoscopySectionARatings["rapport"] && 
-               directOphthalmoscopySectionARatings["respect"];
+        return directOphthalmoscopySectionARatings["introduction"] &&
+          directOphthalmoscopySectionARatings["rapport"] &&
+          directOphthalmoscopySectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Direct Ophthalmoscopy Section B
-        return directOphthalmoscopySectionBRatings["instructionsToPatient"] && 
-               directOphthalmoscopySectionBRatings["familiarityWithOphthalmoscope"] && 
-               directOphthalmoscopySectionBRatings["correctUseOfIllumination"] && 
-               directOphthalmoscopySectionBRatings["appropriateUseOfLenses"] && 
-               directOphthalmoscopySectionBRatings["descriptionOfFindings"];
+        return directOphthalmoscopySectionBRatings["instructionsToPatient"] &&
+          directOphthalmoscopySectionBRatings["familiarityWithOphthalmoscope"] &&
+          directOphthalmoscopySectionBRatings["correctUseOfIllumination"] &&
+          directOphthalmoscopySectionBRatings["appropriateUseOfLenses"] &&
+          directOphthalmoscopySectionBRatings["descriptionOfFindings"];
       } else {
         // Direct Ophthalmoscopy Section C
-        return directOphthalmoscopyComments.especiallyGood.trim() !== "" && 
-               directOphthalmoscopyComments.suggestionsForImprovement.trim() !== "" && 
-               directOphthalmoscopyComments.agreedActionPlan.trim() !== "";
+        return directOphthalmoscopyComments.especiallyGood.trim() !== "" &&
+          directOphthalmoscopyComments.suggestionsForImprovement.trim() !== "" &&
+          directOphthalmoscopyComments.agreedActionPlan.trim() !== "";
       }
     } else if (isGonioscopyForm) {
       if (sectionIdx === 0) {
         // Gonioscopy Section A
-        return gonioscopySectionARatings["introduction"] && 
-               gonioscopySectionARatings["rapport"] && 
-               gonioscopySectionARatings["respect"];
+        return gonioscopySectionARatings["introduction"] &&
+          gonioscopySectionARatings["rapport"] &&
+          gonioscopySectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Gonioscopy Section B (all 12 criteria)
-        return gonioscopySectionBRatings["roomSetup"] && 
-               gonioscopySectionBRatings["anteriorChamberDepth"] && 
-               gonioscopySectionBRatings["lensChoice"] && 
-               gonioscopySectionBRatings["applicationAndPlacement"] && 
-               gonioscopySectionBRatings["identificationOfStructures"] && 
-               gonioscopySectionBRatings["examination360"] && 
-               gonioscopySectionBRatings["careOfPatientAndLens"] && 
-               gonioscopySectionBRatings["useOfAppropriateLens"] && 
-               gonioscopySectionBRatings["adjustmentOfSlitLamp"] && 
-               gonioscopySectionBRatings["indentationTechnique"] && 
-               gonioscopySectionBRatings["understandingOfGrading"] && 
-               gonioscopySectionBRatings["interpretationAndDocumentation"];
+        return gonioscopySectionBRatings["roomSetup"] &&
+          gonioscopySectionBRatings["anteriorChamberDepth"] &&
+          gonioscopySectionBRatings["lensChoice"] &&
+          gonioscopySectionBRatings["applicationAndPlacement"] &&
+          gonioscopySectionBRatings["identificationOfStructures"] &&
+          gonioscopySectionBRatings["examination360"] &&
+          gonioscopySectionBRatings["careOfPatientAndLens"] &&
+          gonioscopySectionBRatings["useOfAppropriateLens"] &&
+          gonioscopySectionBRatings["adjustmentOfSlitLamp"] &&
+          gonioscopySectionBRatings["indentationTechnique"] &&
+          gonioscopySectionBRatings["understandingOfGrading"] &&
+          gonioscopySectionBRatings["interpretationAndDocumentation"];
       } else {
         // Gonioscopy Section C
-        return gonioscopyComments.especiallyGood.trim() !== "" && 
-               gonioscopyComments.suggestionsForImprovement.trim() !== "" && 
-               gonioscopyComments.agreedActionPlan.trim() !== "";
+        return gonioscopyComments.especiallyGood.trim() !== "" &&
+          gonioscopyComments.suggestionsForImprovement.trim() !== "" &&
+          gonioscopyComments.agreedActionPlan.trim() !== "";
       }
     } else if (isLens78D90DForm) {
       if (sectionIdx === 0) {
         // 78D/90D lens Section A
-        return lens78D90DSectionARatings["introduction"] && 
-               lens78D90DSectionARatings["rapport"] && 
-               lens78D90DSectionARatings["respect"];
+        return lens78D90DSectionARatings["introduction"] &&
+          lens78D90DSectionARatings["rapport"] &&
+          lens78D90DSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // 78D/90D lens Section B
-        return lens78D90DSectionBRatings["instructionsToPatient"] && 
-               lens78D90DSectionBRatings["familiarityWithLenses"] && 
-               lens78D90DSectionBRatings["correctUseOfSlitLampIllumination"] && 
-               lens78D90DSectionBRatings["appropriateUseOfLenses"] && 
-               lens78D90DSectionBRatings["descriptionOfFindings"];
+        return lens78D90DSectionBRatings["instructionsToPatient"] &&
+          lens78D90DSectionBRatings["familiarityWithLenses"] &&
+          lens78D90DSectionBRatings["correctUseOfSlitLampIllumination"] &&
+          lens78D90DSectionBRatings["appropriateUseOfLenses"] &&
+          lens78D90DSectionBRatings["descriptionOfFindings"];
       } else {
         // 78D/90D lens Section C
-        return lens78D90DComments.especiallyGood.trim() !== "" && 
-               lens78D90DComments.suggestionsForImprovement.trim() !== "" && 
-               lens78D90DComments.agreedActionPlan.trim() !== "";
+        return lens78D90DComments.especiallyGood.trim() !== "" &&
+          lens78D90DComments.suggestionsForImprovement.trim() !== "" &&
+          lens78D90DComments.agreedActionPlan.trim() !== "";
       }
     } else if (isContactLensesForm) {
       if (sectionIdx === 0) {
         // Contact Lenses Section A
-        return contactLensesSectionARatings["introduction"] && 
-               contactLensesSectionARatings["rapport"] && 
-               contactLensesSectionARatings["respect"];
+        return contactLensesSectionARatings["introduction"] &&
+          contactLensesSectionARatings["rapport"] &&
+          contactLensesSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Contact Lenses Section B
-        return contactLensesSectionBRatings["instructionsToPatient"] && 
-               contactLensesSectionBRatings["familiarityWithLenses"] && 
-               contactLensesSectionBRatings["correctUseOfSlitLampIllumination"] && 
-               contactLensesSectionBRatings["appropriateUseOfLenses"] && 
-               contactLensesSectionBRatings["descriptionOfFindings"];
+        return contactLensesSectionBRatings["instructionsToPatient"] &&
+          contactLensesSectionBRatings["familiarityWithLenses"] &&
+          contactLensesSectionBRatings["correctUseOfSlitLampIllumination"] &&
+          contactLensesSectionBRatings["appropriateUseOfLenses"] &&
+          contactLensesSectionBRatings["descriptionOfFindings"];
       } else {
         // Contact Lenses Section C
-        return contactLensesComments.especiallyGood.trim() !== "" && 
-               contactLensesComments.suggestionsForImprovement.trim() !== "" && 
-               contactLensesComments.agreedActionPlan.trim() !== "";
+        return contactLensesComments.especiallyGood.trim() !== "" &&
+          contactLensesComments.suggestionsForImprovement.trim() !== "" &&
+          contactLensesComments.agreedActionPlan.trim() !== "";
       }
     } else if (isPupilForm) {
       if (sectionIdx === 0) {
         // Pupil Section A
-        return pupilSectionARatings["introduction"] && 
-               pupilSectionARatings["rapport"] && 
-               pupilSectionARatings["respect"];
+        return pupilSectionARatings["introduction"] &&
+          pupilSectionARatings["rapport"] &&
+          pupilSectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Pupil Section B
-        return pupilSectionBRatings["generalInspection"] && 
-               pupilSectionBRatings["appropriateUseOfDistanceTarget"] && 
-               pupilSectionBRatings["directPupillaryReaction"] && 
-               pupilSectionBRatings["consensualReaction"] && 
-               pupilSectionBRatings["swingingFlashlightTest"] && 
-               pupilSectionBRatings["accommodativeReaction"] && 
-               pupilSectionBRatings["slitLampExamination"] && 
-               pupilSectionBRatings["correctReactionsIdentified"] && 
-               pupilSectionBRatings["suggestionOfSuitableAetiology"] && 
-               pupilSectionBRatings["suggestionsForSuitableFurtherTests"];
+        return pupilSectionBRatings["generalInspection"] &&
+          pupilSectionBRatings["appropriateUseOfDistanceTarget"] &&
+          pupilSectionBRatings["directPupillaryReaction"] &&
+          pupilSectionBRatings["consensualReaction"] &&
+          pupilSectionBRatings["swingingFlashlightTest"] &&
+          pupilSectionBRatings["accommodativeReaction"] &&
+          pupilSectionBRatings["slitLampExamination"] &&
+          pupilSectionBRatings["correctReactionsIdentified"] &&
+          pupilSectionBRatings["suggestionOfSuitableAetiology"] &&
+          pupilSectionBRatings["suggestionsForSuitableFurtherTests"];
       } else {
         // Pupil Section C
-        return pupilComments.especiallyGood.trim() !== "" && 
-               pupilComments.suggestionsForImprovement.trim() !== "" && 
-               pupilComments.agreedActionPlan.trim() !== "";
+        return pupilComments.especiallyGood.trim() !== "" &&
+          pupilComments.suggestionsForImprovement.trim() !== "" &&
+          pupilComments.agreedActionPlan.trim() !== "";
       }
     } else if (isIndirectOphthalmoscopyForm) {
       if (sectionIdx === 0) {
         // Indirect Ophthalmoscopy Section A
-        return indirectOphthalmoscopySectionARatings["introduction"] && 
-               indirectOphthalmoscopySectionARatings["rapport"] && 
-               indirectOphthalmoscopySectionARatings["respect"];
+        return indirectOphthalmoscopySectionARatings["introduction"] &&
+          indirectOphthalmoscopySectionARatings["rapport"] &&
+          indirectOphthalmoscopySectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Indirect Ophthalmoscopy Section B
-        return indirectOphthalmoscopySectionBRatings["instructionsToPatient"] && 
-               indirectOphthalmoscopySectionBRatings["familiarityWithOphthalmoscope"] && 
-               indirectOphthalmoscopySectionBRatings["correctUseOfIllumination"] && 
-               indirectOphthalmoscopySectionBRatings["appropriateUseOfLenses"] && 
-               indirectOphthalmoscopySectionBRatings["indentationTechnique"] && 
-               indirectOphthalmoscopySectionBRatings["descriptionOfFindings"];
+        return indirectOphthalmoscopySectionBRatings["instructionsToPatient"] &&
+          indirectOphthalmoscopySectionBRatings["familiarityWithOphthalmoscope"] &&
+          indirectOphthalmoscopySectionBRatings["correctUseOfIllumination"] &&
+          indirectOphthalmoscopySectionBRatings["appropriateUseOfLenses"] &&
+          indirectOphthalmoscopySectionBRatings["indentationTechnique"] &&
+          indirectOphthalmoscopySectionBRatings["descriptionOfFindings"];
       } else {
         // Indirect Ophthalmoscopy Section C
-        return indirectOphthalmoscopyComments.especiallyGood.trim() !== "" && 
-               indirectOphthalmoscopyComments.suggestionsForImprovement.trim() !== "" && 
-               indirectOphthalmoscopyComments.agreedActionPlan.trim() !== "";
+        return indirectOphthalmoscopyComments.especiallyGood.trim() !== "" &&
+          indirectOphthalmoscopyComments.suggestionsForImprovement.trim() !== "" &&
+          indirectOphthalmoscopyComments.agreedActionPlan.trim() !== "";
       }
     } else if (isRetinoscopyForm) {
       if (sectionIdx === 0) {
         // Retinoscopy Section A
-        return retinoscopySectionARatings["introduction"] && 
-               retinoscopySectionARatings["rapport"] && 
-               retinoscopySectionARatings["respect"];
+        return retinoscopySectionARatings["introduction"] &&
+          retinoscopySectionARatings["rapport"] &&
+          retinoscopySectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Retinoscopy Section B
-        return retinoscopySectionBRatings["patientPositioning"] && 
-               retinoscopySectionBRatings["appropriateCycloplegia"] && 
-               retinoscopySectionBRatings["useOfTrialFrame"] && 
-               retinoscopySectionBRatings["timeTaken"] && 
-               retinoscopySectionBRatings["accuracy"] && 
-               retinoscopySectionBRatings["notation"] && 
-               retinoscopySectionBRatings["appropriatePrescription"];
+        return retinoscopySectionBRatings["patientPositioning"] &&
+          retinoscopySectionBRatings["appropriateCycloplegia"] &&
+          retinoscopySectionBRatings["useOfTrialFrame"] &&
+          retinoscopySectionBRatings["timeTaken"] &&
+          retinoscopySectionBRatings["accuracy"] &&
+          retinoscopySectionBRatings["notation"] &&
+          retinoscopySectionBRatings["appropriatePrescription"];
       } else {
         // Retinoscopy Section C
-        return retinoscopyComments.especiallyGood.trim() !== "" && 
-               retinoscopyComments.agreedActionPlan.trim() !== "";
+        return retinoscopyComments.especiallyGood.trim() !== "" &&
+          retinoscopyComments.agreedActionPlan.trim() !== "";
       }
     } else if (isVisionForm) {
       if (sectionIdx === 0) {
@@ -3997,27 +3970,27 @@ const CRSForm: React.FC<CRSFormProps> = ({
         return sectionARatings["introduction"] && sectionARatings["rapport"] && sectionARatings["respect"];
       } else if (sectionIdx === 1) {
         // Vision Section B
-        return visualAcuityMethod && 
-               sectionBRatings["appropriateOcclusion"] && 
-               sectionBRatings["technique"] && 
-               sectionBRatings["refractiveCorrection"] && 
-               sectionBRatings["pinhole"] && 
-               sectionBRatings["distanceAcuity"] && 
-               sectionBRatings["nearAcuity"] &&
-               (visualAcuityMethod !== "Other" || visualAcuityOther.trim() !== "");
+        return visualAcuityMethod &&
+          sectionBRatings["appropriateOcclusion"] &&
+          sectionBRatings["technique"] &&
+          sectionBRatings["refractiveCorrection"] &&
+          sectionBRatings["pinhole"] &&
+          sectionBRatings["distanceAcuity"] &&
+          sectionBRatings["nearAcuity"] &&
+          (visualAcuityMethod !== "Other" || visualAcuityOther.trim() !== "");
       } else if (sectionIdx === 2) {
         // Vision Section C
-        return colourVisionMethod && 
-               sectionCRatings["appropriateOcclusion"] && 
-               sectionCRatings["technique"] && 
-               sectionCRatings["colourVisionTest"] && 
-               sectionCRatings["accurateRecording"] &&
-               (colourVisionMethod !== "Other" || colourVisionOther.trim() !== "");
+        return colourVisionMethod &&
+          sectionCRatings["appropriateOcclusion"] &&
+          sectionCRatings["technique"] &&
+          sectionCRatings["colourVisionTest"] &&
+          sectionCRatings["accurateRecording"] &&
+          (colourVisionMethod !== "Other" || colourVisionOther.trim() !== "");
       } else {
         // Vision Comments section
-        return comments.especiallyGood.trim() !== "" && 
-               comments.suggestionsForImprovement.trim() !== "" && 
-               comments.agreedActionPlan.trim() !== "";
+        return comments.especiallyGood.trim() !== "" &&
+          comments.suggestionsForImprovement.trim() !== "" &&
+          comments.agreedActionPlan.trim() !== "";
       }
     }
     return false;
@@ -4041,19 +4014,20 @@ const CRSForm: React.FC<CRSFormProps> = ({
     return [];
   };
 
-  const completeness = isStructuredForm 
+  const completeness = isStructuredForm
     ? Math.round((getCurrentSections().filter((_, i) => isSectionComplete(i)).length / getCurrentSections().length) * 100)
     : 0;
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-6 lg:h-[calc(100vh-100px)] lg:overflow-hidden animate-in slide-in-from-right-8 duration-300">
-      <SignOffDialog 
+      <SignOffDialog
         isOpen={isSignOffOpen}
         onClose={() => setIsSignOffOpen(false)}
         onConfirm={handleSignOffConfirm}
         formInfo={{
           type: `CRS - ${selectedCrsType}`,
-          traineeName: INITIAL_PROFILE.name,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: assessorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: assessorName || "Assessor"
         }}
@@ -4077,33 +4051,33 @@ const CRSForm: React.FC<CRSFormProps> = ({
           </div>
           <div className="space-y-6">
             <MetadataField label="CRS Type">
-              <select 
-                value={selectedCrsType} 
-                onChange={(e) => setSelectedCrsType(e.target.value)} 
-                disabled={isLocked} 
+              <select
+                value={selectedCrsType}
+                onChange={(e) => setSelectedCrsType(e.target.value)}
+                disabled={isLocked}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
               >
                 {CRS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </MetadataField>
-            
+
             <MetadataField label="Level">
-              <select 
-                value={trainingLevel} 
-                onChange={(e) => setTrainingLevel(e.target.value)} 
-                disabled={isLocked} 
+              <select
+                value={trainingLevel}
+                onChange={(e) => setTrainingLevel(e.target.value)}
+                disabled={isLocked}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
               >
-                {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
               </select>
             </MetadataField>
 
             {isConsultationSkillsForm && (
               <MetadataField label="Specialty">
-                <select 
-                  value={consultationSkillsSpecialty} 
-                  onChange={(e) => setConsultationSkillsSpecialty(e.target.value)} 
-                  disabled={isLocked} 
+                <select
+                  value={consultationSkillsSpecialty}
+                  onChange={(e) => setConsultationSkillsSpecialty(e.target.value)}
+                  disabled={isLocked}
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-colors"
                 >
                   {CONSULTATION_SKILLS_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -4143,15 +4117,14 @@ const CRSForm: React.FC<CRSFormProps> = ({
                 </div>
                 <div className={`grid gap-2 ${isRetinoscopyForm || isIndirectOphthalmoscopyForm || isPupilForm || isContactLensesForm || isLens78D90DForm || isGonioscopyForm || isDirectOphthalmoscopyForm || isSlitLampForm || isIOPForm || isOcularMotilityForm || isExternalEyeForm || isConsultationSkillsForm ? (isSlitLampForm || isIOPForm || isOcularMotilityForm || isExternalEyeForm || isConsultationSkillsForm ? 'grid-cols-5' : 'grid-cols-3') : 'grid-cols-4'}`}>
                   {getCurrentSections().map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`h-1 rounded-full transition-colors ${
-                        isSectionComplete(i) 
-                          ? 'bg-green-500' 
-                          : activeSection === i 
-                            ? 'bg-indigo-500' 
-                            : 'bg-slate-200 dark:bg-white/10'
-                      }`}
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
+                        ? 'bg-green-500'
+                        : activeSection === i
+                          ? 'bg-indigo-500'
+                          : 'bg-slate-200 dark:bg-white/10'
+                        }`}
                     ></div>
                   ))}
                 </div>
@@ -4190,7 +4163,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
             <ArrowLeft size={14} /> Back
           </button>
           <GlassCard className="p-4">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer"
               onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
             >
@@ -4207,35 +4180,35 @@ const CRSForm: React.FC<CRSFormProps> = ({
                 <ChevronDown size={16} className="text-slate-400" />
               </div>
             </div>
-            
+
             {isMetadataExpanded && (
               <div className="pt-4 mt-3 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
                 <MetadataField label="CRS Type">
-                  <select 
-                    value={selectedCrsType} 
-                    onChange={(e) => setSelectedCrsType(e.target.value)} 
-                    disabled={isLocked} 
+                  <select
+                    value={selectedCrsType}
+                    onChange={(e) => setSelectedCrsType(e.target.value)}
+                    disabled={isLocked}
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                   >
                     {CRS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </MetadataField>
                 <MetadataField label="Level">
-                  <select 
-                    value={trainingLevel} 
-                    onChange={(e) => setTrainingLevel(e.target.value)} 
-                    disabled={isLocked} 
+                  <select
+                    value={trainingLevel}
+                    onChange={(e) => setTrainingLevel(e.target.value)}
+                    disabled={isLocked}
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                   >
-                    {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                    {[1, 2, 3, 4].map(l => <option key={l} value={l}>Level {l}</option>)}
                   </select>
                 </MetadataField>
                 {isConsultationSkillsForm && (
                   <MetadataField label="Specialty">
-                    <select 
-                      value={consultationSkillsSpecialty} 
-                      onChange={(e) => setConsultationSkillsSpecialty(e.target.value)} 
-                      disabled={isLocked} 
+                    <select
+                      value={consultationSkillsSpecialty}
+                      onChange={(e) => setConsultationSkillsSpecialty(e.target.value)}
+                      disabled={isLocked}
                       className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                     >
                       {CONSULTATION_SKILLS_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -4295,7 +4268,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4315,7 +4288,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4334,7 +4307,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4353,7 +4326,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4372,7 +4345,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4391,7 +4364,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4410,7 +4383,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4429,7 +4402,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4448,7 +4421,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4468,7 +4441,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4488,7 +4461,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4508,7 +4481,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4528,7 +4501,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4547,7 +4520,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               <>
                 {!isLocked && (
                   <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                       onClick={handleMarkAllMeets}
                       className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
                     >
@@ -4582,11 +4555,11 @@ const CRSForm: React.FC<CRSFormProps> = ({
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
-          
+
           {/* Row 1: Navigation (For structured forms) */}
           {isStructuredForm && (
             <div className="flex justify-between items-center w-full">
-              <button 
+              <button
                 disabled={activeSection === 0}
                 onClick={() => setActiveSection(s => s - 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -4595,19 +4568,18 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </button>
               <div className="flex gap-1.5">
                 {getCurrentSections().map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                      activeSection === i 
-                        ? 'bg-indigo-500' 
-                        : isSectionComplete(i)
-                          ? 'bg-green-500'
-                          : 'bg-slate-300 dark:bg-white/10'
-                    }`}
+                  <div
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${activeSection === i
+                      ? 'bg-indigo-500'
+                      : isSectionComplete(i)
+                        ? 'bg-green-500'
+                        : 'bg-slate-300 dark:bg-white/10'
+                      }`}
                   ></div>
                 ))}
               </div>
-              <button 
+              <button
                 disabled={activeSection === getCurrentSections().length - 1}
                 onClick={() => setActiveSection(s => s + 1)}
                 className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
@@ -4624,24 +4596,24 @@ const CRSForm: React.FC<CRSFormProps> = ({
                 Draft saved {lastSaved}
               </span>
             )}
-            
+
             {!isLocked && (
               <>
-                <button 
+                <button
                   onClick={handleSaveDraft}
                   className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 text-[10px] lg:text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
                 >
                   <Save size={16} /> <span>SAVE DRAFT</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleEmailForm}
                   className="h-10 px-4 rounded-xl bg-indigo-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex items-center gap-2"
                 >
                   <Mail size={16} /> <span>EMAIL FORM</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
@@ -4649,7 +4621,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
                 </button>
               </>
             )}
-            
+
             {isLocked && (
               <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
             )}

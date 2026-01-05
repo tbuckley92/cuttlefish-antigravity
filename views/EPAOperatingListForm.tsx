@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { ChevronLeft, CheckCircle2, Save, Info, Mail, ShieldCheck } from '../components/Icons';
+import { Trash2, AlertCircle, Save, CheckCircle2, ChevronDown, ChevronUp, Plus, X, ChevronLeft, Mail, ShieldCheck } from '../components/Icons';
+import { uuidv4 } from '../utils/uuid';
+import { SignOffDialog } from '../components/SignOffDialog';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
 import { SPECIALTIES } from '../constants';
 
@@ -12,6 +14,7 @@ interface EPAOperatingListFormProps {
     initialStatus?: EvidenceStatus;
     originView?: any;
     originFormParams?: any;
+    traineeName?: string;
     onBack: () => void;
     onSubmitted: () => void;
     onSave: (item: Partial<EvidenceItem>) => void;
@@ -54,6 +57,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
     initialStatus = EvidenceStatus.Draft,
     originView,
     originFormParams,
+    traineeName,
     onBack,
     onSubmitted,
     onSave,
@@ -196,21 +200,26 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         setIsSignOffOpen(true);
     };
 
-    const confirmSignOff = () => {
+    const confirmSignOff = (gmc: string, name: string, email: string, signature: string) => {
+        setSupervisorName(name);
+        setSupervisorEmail(email);
         const formData: Partial<EvidenceItem> = {
-            id: id || Math.random().toString(36).substr(2, 9),
+            id: id || uuidv4(),
             type: EvidenceType.EPAOperatingList,
             title: `EPA Operating List - ${subspecialty}`,
             date,
             status: EvidenceStatus.Submitted,
+            supervisorGmc: gmc,
+            supervisorName: name,
+            supervisorEmail: email,
             epaOperatingListFormData: {
                 subspecialty,
                 ratings,
                 comments,
                 entrustment,
                 aspectsEspeciallyGood,
-                supervisorName,
-                supervisorEmail
+                supervisorName: name,
+                supervisorEmail: email
             }
         };
 
@@ -481,33 +490,18 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                 </div>
             </div>
 
-            {/* Sign-off Dialog */}
-            {isSignOffOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-                    <GlassCard className="w-full max-w-md p-8 bg-white dark:bg-slate-900">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-                            Confirm Submission
-                        </h2>
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
-                            Are you ready to submit this EPA Operating List for sign-off? Once submitted, it cannot be edited.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={confirmSignOff}
-                                className="flex-1 py-3 rounded-xl bg-cyan-600 text-white font-bold text-sm uppercase tracking-widest shadow-xl shadow-cyan-600/30 hover:bg-cyan-500 transition-all"
-                            >
-                                Confirm
-                            </button>
-                            <button
-                                onClick={() => setIsSignOffOpen(false)}
-                                className="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 font-bold text-sm uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </GlassCard>
-                </div>
-            )}
+            <SignOffDialog
+                isOpen={isSignOffOpen}
+                onClose={() => setIsSignOffOpen(false)}
+                onConfirm={confirmSignOff}
+                formInfo={{
+                    type: "EPA Operating List",
+                    traineeName: traineeName || 'Trainee',
+                    date: date,
+                    supervisorName: supervisorName || "Supervisor",
+                    supervisorEmail: supervisorEmail
+                }}
+            />
         </div>
     );
 };

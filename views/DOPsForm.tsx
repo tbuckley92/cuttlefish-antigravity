@@ -8,6 +8,7 @@ import {
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { INITIAL_PROFILE } from '../constants';
+import { uuidv4 } from '../utils/uuid';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
 interface DOPsFormProps {
@@ -18,6 +19,7 @@ interface DOPsFormProps {
   initialAssessorEmail?: string;
   initialStatus?: EvidenceStatus;
   initialDopsType?: string;
+  traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => void;
@@ -187,12 +189,13 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   initialAssessorEmail = "",
   initialStatus = EvidenceStatus.Draft,
   initialDopsType,
+  traineeName,
   onBack,
   onSubmitted,
   onSave,
   allEvidence = []
 }) => {
-  const [formId] = useState(id || Math.random().toString(36).substr(2, 9));
+  const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
   // Use initialDopsType when creating new (no id), otherwise default to "Custom"
   const [selectedDopsType, setSelectedDopsType] = useState(() => {
@@ -301,7 +304,7 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
     }
   }, [id, allEvidence]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status) => {
+  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: any = {
       id: formId,
       title: `DOPS: ${selectedDopsType} - ${specialty} - Level ${trainingLevel}`,
@@ -309,6 +312,9 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
       sia: specialty,
       level: parseInt(trainingLevel) || 1,
       status: newStatus,
+      supervisorGmc: gmc,
+      supervisorName: name || supervisorName,
+      supervisorEmail: email || supervisorEmail,
       date: new Date().toISOString().split('T')[0],
       notes: descriptionOfProcedure, // General notes field
       dopsFormData: {
@@ -358,9 +364,11 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = () => {
+  const handleSignOffConfirm = (gmc: string, name: string, email: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff);
+    setSupervisorName(name);
+    setSupervisorEmail(email);
+    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -681,7 +689,8 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
         onConfirm={handleSignOffConfirm}
         formInfo={{
           type: "DOPS",
-          traineeName: INITIAL_PROFILE.name,
+          traineeName: traineeName || 'Trainee',
+          supervisorEmail: supervisorEmail,
           date: new Date().toLocaleDateString(),
           supervisorName: supervisorName || "Supervisor"
         }}
