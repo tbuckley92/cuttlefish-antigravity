@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { uuidv4 } from '../utils/uuid';
-import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft, CheckCircle2 } from '../components/Icons';
+import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft, CheckCircle2, MessageSquare, Zap } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { generateEvidencePDF, generateComplicationLogPDF, ComplicationPDFData } from '../utils/pdfGenerator';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
 import { uploadEvidenceFile } from '../utils/storageUtils';
 import { EvidenceType, EvidenceStatus, EyeLogbookEntry, EyeLogbookComplication } from '../types';
@@ -20,6 +21,8 @@ interface EyeLogbookProps {
 }
 // Updated data model for all procedures
 interface LogbookEntry {
+  id?: string;
+  evidenceId?: string;
   procedure: string;
   side: string;           // L, R, B/L
   date: string;           // YYYY-MM-DD
@@ -27,6 +30,14 @@ interface LogbookEntry {
   role: string;           // P, PS, SJ, A
   hospital: string;       // Hospital name
   grade: string;          // ST1, ST2, ST3, ST4, ST5, ST6, ST7, etc.
+  comments?: string;
+  // New complication fields
+  hasComplication?: boolean;
+  complicationCause?: string;
+  complicationAction?: string;
+  isLinkedToLog?: boolean;
+  // Keep legacy for backward compatibility if needed, or remove if fully migrated
+  complication?: any;
 }
 
 // Complication types for cataract surgery
@@ -83,6 +94,7 @@ interface ComplicationCase {
   otherDetails?: Record<string, string>;  // Map of "Other" complication to details
   cause: string;          // Cause of complication (free text)
   actionTaken: string;    // Action taken to avoid repeat (free text)
+  grade?: string;         // Trainee grade at time of procedure
 }
 
 // Role labels for display
@@ -172,6 +184,21 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
   const [formCause, setFormCause] = useState('');
   const [formActionTaken, setFormActionTaken] = useState('');
 
+  // Editing state
+  const [editingEntry, setEditingEntry] = useState<LogbookEntry | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Comment state
+  const [commentEntry, setCommentEntry] = useState<LogbookEntry | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+
+  // Complication link state
+  const [complicationEntry, setComplicationEntry] = useState<LogbookEntry | null>(null);
+  const [isComplicationModalOpen, setIsComplicationModalOpen] = useState(false);
+  const [addToComplicationLog, setAddToComplicationLog] = useState(true);
+  const [entryComplications, setEntryComplications] = useState<ComplicationType[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load entries from Supabase on mount
@@ -226,38 +253,57 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
         // Convert to local format
         const loadedEntries: LogbookEntry[] = (entriesData || []).map((e: any) => ({
+          id: e.id,
+          evidenceId: e.evidence_id,
           procedure: e.procedure,
           side: e.side || '',
           date: e.procedure_date,
           patientId: e.patient_id,
           role: e.role || '',
           hospital: e.hospital || '',
-          grade: e.trainee_grade || ''
+          grade: e.trainee_grade || '',
+          comments: e.comments,
+          // Map new complication columns
+          hasComplication: e.has_complication,
+          complicationCause: e.complication_cause,
+          complicationAction: e.complication_action,
+          isLinkedToLog: e.added_to_log,
+          // Legacy mapping (can be deprecated later)
+          complication: e.complication
         }));
         setEntries(loadedEntries);
 
-        // Load complications
+        // Load Complications
         const { data: compData, error: compError } = await supabase
           .from('eyelogbook_complication')
-          .select('*')
+          .select(`
+          *,
+          eyelogbook (
+            trainee_grade
+          )
+        `)
           .eq('trainee_id', userId)
           .order('procedure_date', { ascending: false });
 
-        if (compError) throw compError;
-
-        const loadedCases: ComplicationCase[] = (compData || []).map((c: any) => ({
-          id: c.id,
-          patientId: c.patient_id,
-          date: c.procedure_date,
-          laterality: c.laterality as LateralityType,
-          operation: c.operation as OperationType,
-          complications: c.complications || [],
-          otherDetails: c.other_details,
-          cause: c.cause || '',
-          actionTaken: c.action_taken || ''
-        }));
-        setComplicationCases(loadedCases);
-
+        if (compError) {
+          console.error('Error loading complications:', compError);
+        } else if (compData) {
+          // Map to local model
+          const mappedCases: ComplicationCase[] = compData.map(c => ({
+            id: c.id,
+            patientId: c.patient_id,
+            date: c.procedure_date,
+            laterality: (c.laterality as LateralityType),
+            operation: (c.operation as OperationType),
+            complications: c.complications as ComplicationType[],
+            otherDetails: c.other_details,
+            cause: c.cause || '',
+            actionTaken: c.action_taken || '',
+            // Extract grade from joined eyelogbook relation
+            grade: c.eyelogbook?.trainee_grade || ''
+          }));
+          setComplicationCases(mappedCases);
+        }
       } catch (err) {
         console.error('Error loading from Supabase:', err);
         // Fall back to localStorage
@@ -316,6 +362,253 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       localStorage.removeItem('eyePortfolio_eyelogbook_complications');
     }
   }, [complicationCases]);
+
+  // --- Handlers for Editing ---
+  const handleEditClick = (entry: LogbookEntry) => {
+    setEditingEntry({ ...entry });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return;
+
+    // Update local state first for immediate feedback
+    setEntries(prev => prev.map(e => (e.id === editingEntry.id && e.id) || (e === editingEntry) ? editingEntry : e));
+
+    // Update Supabase
+    if (isSupabaseConfigured && supabase && userId && editingEntry.id) {
+      try {
+        const { error } = await supabase
+          .from('eyelogbook')
+          .update({
+            procedure: editingEntry.procedure,
+            side: editingEntry.side,
+            procedure_date: editingEntry.date,
+            patient_id: editingEntry.patientId,
+            role: editingEntry.role,
+            hospital: editingEntry.hospital,
+            trainee_grade: editingEntry.grade
+          })
+          .eq('id', editingEntry.id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error updating entry:', err);
+        alert('Failed to save changes to database');
+      }
+    }
+
+    setIsEditModalOpen(false);
+    setEditingEntry(null);
+  };
+
+  // --- Handlers for Comments ---
+  const handleCommentClick = (entry: LogbookEntry) => {
+    setCommentEntry(entry);
+    setCommentText(entry.comments || '');
+    setIsCommentModalOpen(true);
+  };
+
+  const handleSaveComment = async () => {
+    if (!commentEntry) return;
+
+    const updatedEntry = { ...commentEntry, comments: commentText };
+    setEntries(prev => prev.map(e => e === commentEntry ? updatedEntry : e));
+
+    if (isSupabaseConfigured && supabase && userId && commentEntry.id) {
+      try {
+        const { error } = await supabase
+          .from('eyelogbook')
+          .update({ comments: commentText })
+          .eq('id', commentEntry.id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error saving comment:', err);
+      }
+    }
+    setIsCommentModalOpen(false);
+    setCommentEntry(null);
+  };
+
+  // --- Handlers for Complication Linking ---
+  const handleComplicationClick = (entry: LogbookEntry) => {
+    setComplicationEntry(entry);
+    // Parse existing complications from JSON/array if present
+    let existingComplications: ComplicationType[] = [];
+    if (entry.complication) {
+      if (entry.complication.complications && Array.isArray(entry.complication.complications)) {
+        existingComplications = entry.complication.complications;
+      } else if (entry.complication.type) {
+        existingComplications = [entry.complication.type];
+      }
+    }
+    setEntryComplications(existingComplications);
+
+    // Initialize form fields from the new columns if available, or fall back to defaults
+    setFormPatientId(entry.patientId);
+    setFormDate(entry.date);
+    setFormLaterality(entry.side as LateralityType || 'R');
+    setFormOperation(entry.procedure as OperationType || 'Phacoemulsification with IOL');
+    setFormCause(entry.complicationCause || '');
+    setFormActionTaken(entry.complicationAction || '');
+    setAddToComplicationLog(!!entry.isLinkedToLog); // Initialize toggle based on DB state
+
+    setIsComplicationModalOpen(true);
+  };
+
+  const toggleEntryComplication = (complication: ComplicationType) => {
+    setEntryComplications(prev =>
+      prev.includes(complication)
+        ? prev.filter(c => c !== complication)
+        : [...prev, complication]
+    );
+  };
+
+  const handleSaveComplicationEntry = async () => {
+    if (!complicationEntry) return;
+
+    // 1. Prepare updates for eyelogbook table
+    // We update the local state to match the DB schema changes
+    const hasComplication = entryComplications.length > 0;
+
+    // Determine the main complication type for the legacy 'type' field if needed, or just rely on 'complications' array
+    // For backward compat, we keep the JSON structure but also use the new columns
+    const complicationData = {
+      complications: entryComplications,
+      linkedToLog: addToComplicationLog
+    };
+
+    const updatedEntry: LogbookEntry = {
+      ...complicationEntry,
+      complication: complicationData,
+      hasComplication: hasComplication,
+      complicationCause: formCause,
+      complicationAction: formActionTaken,
+      isLinkedToLog: addToComplicationLog
+    };
+
+    setEntries(prev => prev.map(e => e === complicationEntry ? updatedEntry : e));
+
+    if (isSupabaseConfigured && supabase && userId && complicationEntry.id) {
+      try {
+        // Update entry in eyelogbook table with new columns
+        const { error } = await supabase
+          .from('eyelogbook')
+          .update({
+            complication: complicationData, // Keep JSON for now
+            has_complication: hasComplication,
+            complication_cause: formCause,
+            complication_action: formActionTaken,
+            added_to_log: addToComplicationLog
+          })
+          .eq('id', complicationEntry.id);
+        if (error) throw error;
+
+        // 2. Handle synchronization with eyelogbook_complication table
+        if (addToComplicationLog) {
+          // Check if already exists to avoid duplicates or errors (though unique constraint might handle it)
+          // We'll perform an UPSERT based on eyelogbook_entry_id if possible, or just insert
+
+          // First check if a link already exists
+          const { data: existingLink } = await supabase
+            .from('eyelogbook_complication')
+            .select('id')
+            .eq('eyelogbook_entry_id', complicationEntry.id)
+            .single();
+
+          const dbRecord = {
+            trainee_id: userId,
+            eyelogbook_entry_id: complicationEntry.id,
+            patient_id: complicationEntry.patientId,
+            procedure_date: complicationEntry.date,
+            laterality: (complicationEntry.side as LateralityType) || 'R',
+            operation: (complicationEntry.procedure as OperationType) || 'Phacoemulsification',
+            complications: entryComplications,
+            cause: formCause || null,
+            action_taken: formActionTaken || null
+          };
+
+          if (existingLink) {
+            // Update existing linked complication
+            const { error: updateLogError } = await supabase
+              .from('eyelogbook_complication')
+              .update(dbRecord)
+              .eq('id', existingLink.id);
+            if (updateLogError) throw updateLogError;
+          } else {
+            // Create new linked complication
+            const { error: insertLogError } = await supabase
+              .from('eyelogbook_complication')
+              .insert(dbRecord);
+            if (insertLogError) throw insertLogError;
+          }
+
+          // Refresh complication list to show the new/updated entry in the log tab
+          // We can just add/update local state instead of refetching
+          const caseId = existingLink ? existingLink.id : uuidv4(); // Note: uuid won't match DB if new insert, but good enough for UI until refresh
+          const newCase: ComplicationCase = {
+            id: caseId,
+            patientId: complicationEntry.patientId,
+            date: complicationEntry.date,
+            laterality: (complicationEntry.side as LateralityType) || 'R',
+            operation: (complicationEntry.procedure as OperationType) || 'Phacoemulsification',
+            complications: entryComplications,
+            cause: formCause,
+            actionTaken: formActionTaken
+          };
+
+          setComplicationCases(prev => {
+            // Remove existing if present (by ID or link?) - simplified: remove if ID match (likely not), or just prepend
+            // Better: filter out any that link to this entry if we tracked it, but we track by ID.
+            // For now, let's just prepend. A full refresh would be safer but slower.
+            return [newCase, ...prev.filter(c => c.id !== caseId)];
+          });
+        } else {
+          // If toggle is OFF, should we remove the linked entry? 
+          // Implementation Plan query said: "If unchecked: Delete...?"
+          // Prudence suggests we should remove it to keep state in sync with "Added to Log" = false
+          const { error: deleteError } = await supabase
+            .from('eyelogbook_complication')
+            .delete()
+            .eq('eyelogbook_entry_id', complicationEntry.id);
+
+          if (deleteError) {
+            console.error('Error removing linked complication:', deleteError);
+          } else {
+            // Remove from local state too
+            setComplicationCases(prev => prev.filter(c => c.id /* We don't have the ID easily here without fetching, unless we store valid IDs */));
+            // Trigger a reload of complications to be safe/easy
+            const { data: compData } = await supabase
+              .from('eyelogbook_complication')
+              .select('*')
+              .eq('trainee_id', userId)
+              .order('procedure_date', { ascending: false });
+
+            if (compData) {
+              const mapped: ComplicationCase[] = compData.map(c => ({
+                id: c.id,
+                patientId: c.patient_id,
+                date: c.procedure_date,
+                laterality: c.laterality,
+                operation: c.operation,
+                complications: c.complications,
+                cause: c.cause,
+                actionTaken: c.action_taken,
+                otherDetails: c.other_details
+              }));
+              setComplicationCases(mapped);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error saving complication:', err);
+        alert('Failed to save complication data.');
+      }
+    }
+
+    setIsComplicationModalOpen(false);
+    setComplicationEntry(null);
+  };
 
   // Parse YYYY-MM-DD date format to Date object
   const parseDate = (dateStr: string): Date | null => {
@@ -995,6 +1288,85 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
     </button>
   );
 
+  const handleExportComplicationLog = () => {
+    if (complicationCases.length === 0) {
+      alert('No complications to export.');
+      return;
+    }
+
+    // Create a basic profile for PDF export context
+    const dummyProfile = {
+      name: 'Trainee', // Ideally fetch from user profile
+      grade: complicationCases[0]?.grade || 'ST1',
+      // ... other fields
+    } as any;
+
+    // Use sorted cases for PDF
+    const blob = generateComplicationLogPDF(sortedComplicationCases, dummyProfile);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `complication-log-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ==============================================================================
+  // PCR ANALYTICS LOGIC
+  // ==============================================================================
+
+  const statsData = useMemo(() => {
+    // 1. Filter for Phaco procedures
+    const phacoProcedures = entries
+      .filter(entry =>
+        entry.procedure.toLowerCase().includes('phaco') ||
+        entry.procedure.toLowerCase().includes('cataract')
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 2. Calculate Stats
+    let cumulativePCR = 0;
+    const stepSize = 3;
+    let lastSteppedRate = 0;
+
+    return phacoProcedures.map((entry, index) => {
+      // Check for PCR
+      // Check both new columns and legacy JSON
+      const hasPCR =
+        (entry.hasComplication && entry.complicationCause?.toLowerCase().includes('pc rupture')) ||
+        (entry.complication?.complications?.some((c: string) => c.toLowerCase().includes('pc rupture')));
+
+      const isPCR = hasPCR ? 1 : 0;
+      cumulativePCR += isPCR;
+
+      const currentCumulativeRate = (cumulativePCR / (index + 1)) * 100;
+
+      // Update stepped rate every 3 cases (sampled Cumulative Rate)
+      if ((index + 1) % stepSize === 0) {
+        lastSteppedRate = currentCumulativeRate;
+      }
+
+      return {
+        id: entry.id,
+        date: entry.date,
+        caseNumber: index + 1,
+        cumulativeRate: currentCumulativeRate,
+        rollingRate: lastSteppedRate, // Re-using key but logic is now Stepped Cumulative
+        isPCR: isPCR
+      };
+    });
+  }, [entries]);
+
+  const currentPCRRate = statsData.length > 0 ? statsData[statsData.length - 1].cumulativeRate : 0;
+  const currentRollingRate = statsData.length > 0 ? statsData[statsData.length - 1].rollingRate : 0;
+  const totalPhacos = statsData.length;
+
+  // Adjusted Y-Axis Max: Max rolling rate + 3% to handle beginner spikes comfortably
+  const maxRollingRate = Math.max(...statsData.map(d => d.rollingRate), 0);
+  const yAxisMax = Math.ceil(maxRollingRate + 3);
+
   return (
     <div className="max-w-7xl mx-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
@@ -1031,6 +1403,85 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       {/* Complication Log View */}
       {showComplicationLog ? (
         <div className="space-y-6">
+
+          {totalPhacos > 0 && (
+            <div className="mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Key Metrics Cards */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Total Phaco Procedures</p>
+                  <div className="text-3xl font-bold text-slate-900">{totalPhacos}</div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cumulative (Step 3)</p>
+                  <div className={`text-3xl font-bold ${currentPCRRate > 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {currentPCRRate.toFixed(2)}%
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Target: &lt; 2.0%</p>
+                </div>
+
+              </div>
+
+              {/* Graph */}
+              <GlassCard className="p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-6">PCR Rate Over Time</h3>
+                <div className="h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={statsData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCum" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis
+                        dataKey="caseNumber"
+                        stroke="#94a3b8"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        label={{ value: 'Case Number', position: 'insideBottom', offset: -5, fontSize: 10, fill: '#94a3b8' }}
+                      />
+                      <YAxis
+                        stroke="#94a3b8"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(val) => `${val}%`}
+                        domain={[0, yAxisMax]}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        labelStyle={{ color: '#64748b', fontSize: '12px', marginBottom: '4px' }}
+                        formatter={(value: number) => [`${value.toFixed(2)}%`]}
+                        labelFormatter={(label) => `Case #${label}`}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="cumulativeRate"
+                        name="Cumulative Rate"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorCum)"
+                      />
+                      <Area
+                        type="step"
+                        dataKey="rollingRate"
+                        name="Cumulative (Step 3)"
+                        stroke="#cbd5e1"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        fill="none"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </GlassCard>
+            </div>
+          )}
+          {/* ... */}
           {/* Complication Log Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1046,90 +1497,105 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
                 <p className="text-sm text-slate-500">Track and analyze complications from cataract surgery</p>
               </div>
             </div>
-            <button
-              onClick={openAddCaseModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
-            >
-              <Plus size={16} />
-              Add Case to Log
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExportComplicationLog}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+              >
+                <UploadCloud size={18} />
+                Export to PDF
+              </button>
+              <button
+                onClick={openAddCaseModal}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+              >
+                <Plus size={18} />
+                Add Case to Log
+              </button>
+            </div>
           </div>
 
-          {/* Complication Cases Table */}
-          {sortedComplicationCases.length > 0 ? (
-            <GlassCard className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Surgery</th>
-                      <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Laterality</th>
-                      <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Date</th>
-                      <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Complication</th>
-                      <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Actions</th>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-left">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Surgery</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Patient ID</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Grade</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Laterality</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Complication</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortedComplicationCases.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">
+                        No complication cases logged yet.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sortedComplicationCases.map((caseItem) => (
-                      <tr key={caseItem.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 text-sm text-slate-900 font-medium">{caseItem.operation}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                            {caseItem.laterality}
+                  ) : (
+                    sortedComplicationCases.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold text-slate-700">{c.operation}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600 font-mono">{c.patientId}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-bold">
+                            {c.grade || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{new Date(caseItem.date).toLocaleDateString('en-GB')}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {(caseItem.complications || []).map((comp, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                              >
-                                {comp === 'Other' ? (caseItem.otherDetails?.['Other'] || 'Other') : comp}
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${c.laterality === 'R' ? 'bg-blue-100 text-blue-700' :
+                            c.laterality === 'L' ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-purple-100 text-purple-700'
+                            }`}>
+                            {c.laterality}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{new Date(c.date).toLocaleDateString('en-GB')}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {c.complications.map((comp, i) => (
+                              <span key={i} className="px-2 py-1 bg-amber-50 border border-amber-100 text-amber-700 rounded-lg text-xs font-medium">
+                                {comp}
                               </span>
                             ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => setViewingCaseId(caseItem.id)}
-                              className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors text-indigo-600"
-                              title="View details"
+                              onClick={() => setViewingCaseId(c.id)}
+                              className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="View Details"
                             >
                               <Eye size={16} />
                             </button>
                             <button
-                              onClick={() => openEditCaseModal(caseItem)}
-                              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
-                              title="Edit"
+                              onClick={() => openEditCaseModal(c)}
+                              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                             >
                               <Edit2 size={16} />
                             </button>
                             <button
-                              onClick={() => deleteComplicationCase(caseItem.id)}
-                              className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-500"
-                              title="Delete"
+                              onClick={() => deleteComplicationCase(c.id)}
+                              className="p-1 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                             >
                               <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          ) : (
-            <GlassCard className="p-8 text-center">
-              <AlertTriangle size={48} className="mx-auto mb-4 text-amber-300" />
-              <p className="text-slate-500">No complications logged yet</p>
-              <p className="text-sm text-slate-400 mt-1">Click "Add Case to Log" to record a complication</p>
-            </GlassCard>
-          )}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
+
       ) : (
         <>
           {/* Upload Section */}
@@ -1290,12 +1756,26 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
                         <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Grade</th>
                         <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Hospital</th>
                         <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3">Date</th>
+                        <th className="text-left text-[10px] uppercase tracking-widest text-slate-500 font-bold px-4 py-3 w-20">Info</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedEntries.map((entry, index) => (
                         <tr key={index} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3 text-sm text-slate-900 font-medium">{entry.procedure}</td>
+                          <td className="px-4 py-3 text-sm text-slate-900 font-medium">
+                            <div className="flex items-center gap-2">
+                              {entry.id && (
+                                <button
+                                  onClick={() => handleEditClick(entry)}
+                                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                  title="Edit Procedure"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
+                              {entry.procedure}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${entry.role === 'P' || entry.role === 'PS' ? 'bg-green-100 text-green-700' :
                               entry.role === 'SJ' ? 'bg-purple-100 text-purple-700' :
@@ -1309,6 +1789,30 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
                           <td className="px-4 py-3 text-sm text-slate-600">{entry.grade || '-'}</td>
                           <td className="px-4 py-3 text-sm text-slate-600">{entry.hospital}</td>
                           <td className="px-4 py-3 text-sm text-slate-600">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleCommentClick(entry)}
+                                className={`p-1.5 rounded transition-all ${entry.comments
+                                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                  : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'
+                                  }`}
+                                title={entry.comments || "Add Comment"}
+                              >
+                                <MessageSquare size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleComplicationClick(entry)}
+                                className={`p-1.5 rounded transition-all ${(entry.complication?.complications?.length > 0 || entry.complication?.type)
+                                  ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                  : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'
+                                  }`}
+                                title="Complications"
+                              >
+                                <Zap size={16} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1639,282 +2143,554 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
             </GlassCard>
           )}
         </>
-      )}
+      )
+      }
 
       {/* Add/Edit Complication Case Modal */}
-      {isAddingCase && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">
-                  {editingCaseId ? 'Edit Complication Case' : 'Add Complication Case'}
-                </h2>
-                <button
-                  onClick={closeAddEditModal}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Patient ID */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Patient ID *
-                </label>
-                <input
-                  type="text"
-                  value={formPatientId}
-                  onChange={(e) => setFormPatientId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                  placeholder="Enter patient ID"
-                />
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                />
-              </div>
-
-              {/* Laterality */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Laterality *
-                </label>
-                <select
-                  value={formLaterality}
-                  onChange={(e) => setFormLaterality(e.target.value as LateralityType)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  {LATERALITY_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Operation */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Operation *
-                </label>
-                <select
-                  value={formOperation}
-                  onChange={(e) => setFormOperation(e.target.value as OperationType)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
-                >
-                  {OPERATION_TYPES.map(op => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Complication */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">
-                    Complication * (Select up to 3)
-                  </label>
-                  <span className="text-xs text-slate-500">
-                    {formComplications.length} of 3 selected
-                  </span>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 max-h-60 overflow-y-auto">
-                  {COMPLICATION_TYPES.map(comp => {
-                    const isChecked = formComplications.includes(comp);
-                    const isDisabled = !isChecked && formComplications.length >= 3;
-                    return (
-                      <label
-                        key={comp}
-                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${isChecked
-                          ? 'bg-indigo-50 border border-indigo-200'
-                          : isDisabled
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:bg-slate-100'
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleComplication(comp)}
-                          disabled={isDisabled}
-                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-slate-700">{comp}</span>
-                      </label>
-                    );
-                  })}
+      {
+        isAddingCase && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {editingCaseId ? 'Edit Complication Case' : 'Add Complication Case'}
+                  </h2>
+                  <button
+                    onClick={closeAddEditModal}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
 
-              {/* Other Details (conditional - for each selected "Other") */}
-              {formComplications.includes('Other') && (
+              <div className="p-6 space-y-4">
+                {/* Patient ID */}
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                    Other Details *
+                    Patient ID *
                   </label>
-                  <textarea
-                    value={formOtherDetails['Other'] || ''}
-                    onChange={(e) => updateOtherDetails('Other', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
-                    rows={2}
-                    placeholder="Describe the complication"
+                  <input
+                    type="text"
+                    value={formPatientId}
+                    onChange={(e) => setFormPatientId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                    placeholder="Enter patient ID"
                   />
                 </div>
-              )}
 
-              {/* Cause of Complication */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Cause of Complication
-                </label>
-                <textarea
-                  value={formCause}
-                  onChange={(e) => setFormCause(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
-                  rows={3}
-                  placeholder="What caused this complication?"
-                />
-              </div>
-
-              {/* Action Taken */}
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
-                  Action Taken to Avoid Repeat
-                </label>
-                <textarea
-                  value={formActionTaken}
-                  onChange={(e) => setFormActionTaken(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
-                  rows={3}
-                  placeholder="What steps will be taken to prevent this in future?"
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-              <button
-                onClick={closeAddEditModal}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveComplicationCase}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
-              >
-                {editingCaseId ? 'Save Changes' : 'Add Case'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Complication Case Modal */}
-      {viewingCase && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                    <AlertTriangle size={20} className="text-amber-600" />
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900">Complication Details</h2>
+                {/* Date */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                  />
                 </div>
+
+                {/* Laterality */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                    Laterality *
+                  </label>
+                  <select
+                    value={formLaterality}
+                    onChange={(e) => setFormLaterality(e.target.value as LateralityType)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                  >
+                    {LATERALITY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Operation */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                    Operation *
+                  </label>
+                  <select
+                    value={formOperation}
+                    onChange={(e) => setFormOperation(e.target.value as OperationType)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all"
+                  >
+                    {OPERATION_TYPES.map(op => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Complication */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">
+                      Complication * (Select up to 3)
+                    </label>
+                    <span className="text-xs text-slate-500">
+                      {formComplications.length} of 3 selected
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 max-h-60 overflow-y-auto">
+                    {COMPLICATION_TYPES.map(comp => {
+                      const isChecked = formComplications.includes(comp);
+                      const isDisabled = !isChecked && formComplications.length >= 3;
+                      return (
+                        <label
+                          key={comp}
+                          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${isChecked
+                            ? 'bg-indigo-50 border border-indigo-200'
+                            : isDisabled
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:bg-slate-100'
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleComplication(comp)}
+                            disabled={isDisabled}
+                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-slate-700">{comp}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Other Details (conditional - for each selected "Other") */}
+                {formComplications.includes('Other') && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                      Other Details *
+                    </label>
+                    <textarea
+                      value={formOtherDetails['Other'] || ''}
+                      onChange={(e) => updateOtherDetails('Other', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
+                      rows={2}
+                      placeholder="Describe the complication"
+                    />
+                  </div>
+                )}
+
+                {/* Cause of Complication */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                    Cause of Complication
+                  </label>
+                  <textarea
+                    value={formCause}
+                    onChange={(e) => setFormCause(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
+                    rows={3}
+                    placeholder="What caused this complication?"
+                  />
+                </div>
+
+                {/* Action Taken */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">
+                    Action Taken to Avoid Repeat
+                  </label>
+                  <textarea
+                    value={formActionTaken}
+                    onChange={(e) => setFormActionTaken(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500/50 transition-all resize-none"
+                    rows={3}
+                    placeholder="What steps will be taken to prevent this in future?"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
                 <button
-                  onClick={() => setViewingCaseId(null)}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
+                  onClick={closeAddEditModal}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all"
                 >
-                  <X size={20} />
+                  Cancel
+                </button>
+                <button
+                  onClick={saveComplicationCase}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+                >
+                  {editingCaseId ? 'Save Changes' : 'Add Case'}
                 </button>
               </div>
             </div>
+          </div>
+        )
+      }
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Patient ID</p>
-                  <p className="text-sm font-medium text-slate-900">{viewingCase.patientId}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Date</p>
-                  <p className="text-sm font-medium text-slate-900">{new Date(viewingCase.date).toLocaleDateString('en-GB')}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Laterality</p>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                    {viewingCase.laterality === 'L' ? 'Left' : viewingCase.laterality === 'R' ? 'Right' : 'Bilateral'}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Operation</p>
-                  <p className="text-sm font-medium text-slate-900">{viewingCase.operation}</p>
+      {/* View Complication Case Modal */}
+      {
+        viewingCase && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle size={20} className="text-amber-600" />
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-900">Complication Details</h2>
+                  </div>
+                  <button
+                    onClick={() => setViewingCaseId(null)}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Complication{viewingCase.complications.length > 1 ? 's' : ''}</p>
-                <div className="flex flex-wrap gap-2">
-                  {(viewingCase.complications || []).map((comp, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-block px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                    >
-                      {comp === 'Other' ? (viewingCase.otherDetails?.['Other'] || 'Other') : comp}
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Patient ID</p>
+                    <p className="text-sm font-medium text-slate-900">{viewingCase.patientId}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Date</p>
+                    <p className="text-sm font-medium text-slate-900">{new Date(viewingCase.date).toLocaleDateString('en-GB')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Laterality</p>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                      {viewingCase.laterality === 'L' ? 'Left' : viewingCase.laterality === 'R' ? 'Right' : 'Bilateral'}
                     </span>
-                  ))}
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Operation</p>
+                    <p className="text-sm font-medium text-slate-900">{viewingCase.operation}</p>
+                  </div>
                 </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Complication{viewingCase.complications.length > 1 ? 's' : ''}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(viewingCase.complications || []).map((comp, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-block px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                      >
+                        {comp === 'Other' ? (viewingCase.otherDetails?.['Other'] || 'Other') : comp}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {viewingCase.cause && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Cause of Complication</p>
+                    <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3">{viewingCase.cause}</p>
+                  </div>
+                )}
+
+                {viewingCase.actionTaken && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Action Taken to Avoid Repeat</p>
+                    <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3">{viewingCase.actionTaken}</p>
+                  </div>
+                )}
               </div>
 
-              {viewingCase.cause && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Cause of Complication</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3">{viewingCase.cause}</p>
-                </div>
-              )}
-
-              {viewingCase.actionTaken && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Action Taken to Avoid Repeat</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3">{viewingCase.actionTaken}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setViewingCaseId(null);
-                  openEditCaseModal(viewingCase);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all"
-              >
-                <Edit2 size={16} />
-                Edit
-              </button>
-              <button
-                onClick={() => setViewingCaseId(null)}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
-              >
-                Close
-              </button>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setViewingCaseId(null);
+                    openEditCaseModal(viewingCase);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all"
+                >
+                  <Edit2 size={16} />
+                  Edit
+                </button>
+                <button
+                  onClick={() => setViewingCaseId(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Edit Entry Modal */}
+      {
+        isEditModalOpen && editingEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Edit2 size={18} className="text-indigo-600" />
+                  Edit Procedure
+                </h3>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="p-1 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Date</label>
+                    <input
+                      type="date"
+                      value={editingEntry.date}
+                      onChange={e => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Side</label>
+                    <select
+                      value={editingEntry.side}
+                      onChange={e => setEditingEntry({ ...editingEntry, side: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    >
+                      {LATERALITY_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Procedure</label>
+                  <input
+                    type="text"
+                    value={editingEntry.procedure}
+                    onChange={e => setEditingEntry({ ...editingEntry, procedure: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Role</label>
+                    <select
+                      value={editingEntry.role}
+                      onChange={e => setEditingEntry({ ...editingEntry, role: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    >
+                      {Object.keys(ROLE_LABELS).map(key => (
+                        <option key={key} value={key}>{key}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Grade</label>
+                    <select
+                      value={editingEntry.grade}
+                      onChange={e => setEditingEntry({ ...editingEntry, grade: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                    >
+                      {TRAINING_GRADES.map(grade => (
+                        <option key={grade} value={grade}>{grade}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Hospital</label>
+                  <input
+                    type="text"
+                    value={editingEntry.hospital}
+                    onChange={e => setEditingEntry({ ...editingEntry, hospital: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Patient ID</label>
+                  <input
+                    type="text"
+                    value={editingEntry.patientId}
+                    onChange={e => setEditingEntry({ ...editingEntry, patientId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+              </div>
+
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEntry}
+                  className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Comment Modal */}
+      {
+        isCommentModalOpen && commentEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <MessageSquare size={18} className="text-blue-600" />
+                  Comments
+                </h3>
+                <button
+                  onClick={() => setIsCommentModalOpen(false)}
+                  className="p-1 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="mb-4">
+                  <p className="text-sm text-slate-500 mb-1">Procedure: <span className="font-medium text-slate-900">{commentEntry.procedure}</span></p>
+                  <p className="text-sm text-slate-500">Date: <span className="font-medium text-slate-900">{new Date(commentEntry.date).toLocaleDateString('en-GB')}</span></p>
+                </div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Comments</label>
+                <textarea
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 min-h-[120px]"
+                  placeholder="Add notes about this procedure..."
+                />
+              </div>
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+                <button
+                  onClick={() => setIsCommentModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveComment}
+                  className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all"
+                >
+                  Save Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Complication Link Modal */}
+      {
+        isComplicationModalOpen && complicationEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Zap size={18} className="text-amber-500" />
+                  Manage Complications
+                </h3>
+                <button
+                  onClick={() => setIsComplicationModalOpen(false)}
+                  className="p-1 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-6">
+                {/* Complication Selector */}
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Select Complications</label>
+                  <div className="flex flex-wrap gap-2">
+                    {COMPLICATION_TYPES.map(comp => (
+                      <button
+                        key={comp}
+                        onClick={() => toggleEntryComplication(comp)}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${entryComplications.includes(comp)
+                          ? 'bg-amber-100 border-amber-200 text-amber-800 shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-amber-200 hover:text-amber-600'
+                          }`}
+                      >
+                        {comp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Additional Details (only if complications selected) */}
+                {entryComplications.length > 0 && (
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cause</label>
+                      <textarea
+                        value={formCause}
+                        onChange={e => setFormCause(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-amber-500 min-h-[60px]"
+                        placeholder="What caused the complication?"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Action Taken</label>
+                      <textarea
+                        value={formActionTaken}
+                        onChange={e => setFormActionTaken(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-amber-500 min-h-[60px]"
+                        placeholder="What was done to resolve/prevent it?"
+                      />
+                    </div>
+
+                    {/* Add to Complication Log Toggle */}
+                    <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-amber-900 text-sm">Add to Complication Log</h4>
+                        <p className="text-xs text-amber-700/80">Also create a formal entry in your Complication Log linked to this procedure.</p>
+                      </div>
+                      <button
+                        onClick={() => setAddToComplicationLog(!addToComplicationLog)}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${addToComplicationLog ? 'bg-amber-500' : 'bg-slate-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${addToComplicationLog ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+                <button
+                  onClick={() => setIsComplicationModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveComplicationEntry}
+                  className="px-4 py-2 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all"
+                >
+                  Save Updates
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )
+      }
+
     </div>
-  );
-};
+  )
+}
 
 export default EyeLogbook;

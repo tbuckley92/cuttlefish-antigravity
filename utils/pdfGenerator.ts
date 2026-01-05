@@ -13,7 +13,7 @@ const COLORS = {
   // Primary colors
   indigo: { r: 99, g: 102, b: 241 },      // #6366f1 - Primary accent
   indigoLight: { r: 238, g: 242, b: 255 }, // #eef2ff - Light indigo bg
-  
+
   // Slate grays
   slate900: { r: 15, g: 23, b: 42 },      // #0f172a - Darkest text
   slate700: { r: 51, g: 65, b: 85 },      // #334155 - Dark text
@@ -21,7 +21,7 @@ const COLORS = {
   slate300: { r: 203, g: 213, b: 225 },   // #cbd5e1 - Borders
   slate100: { r: 241, g: 245, b: 249 },   // #f1f5f9 - Light bg
   slate50: { r: 248, g: 250, b: 252 },    // #f8fafc - Lightest bg
-  
+
   // Status colors
   green: { r: 34, g: 197, b: 94 },        // #22c55e - SignedOff
   greenLight: { r: 220, g: 252, b: 231 }, // #dcfce7 - Green bg
@@ -29,7 +29,7 @@ const COLORS = {
   blueLight: { r: 219, g: 234, b: 254 },  // #dbeafe - Blue bg
   amber: { r: 245, g: 158, b: 11 },       // #f59e0b - Draft
   amberLight: { r: 254, g: 243, b: 199 }, // #fef3c7 - Amber bg
-  
+
   // Form type colors
   epa: { r: 20, g: 184, b: 166 },         // #14b8a6 - Teal
   gsat: { r: 99, g: 102, b: 241 },        // #6366f1 - Indigo
@@ -37,7 +37,7 @@ const COLORS = {
   osats: { r: 249, g: 115, b: 22 },       // #f97316 - Orange
   cbd: { r: 16, g: 185, b: 129 },         // #10b981 - Emerald
   crs: { r: 59, g: 130, b: 246 },         // #3b82f6 - Blue
-  
+
   white: { r: 255, g: 255, b: 255 },
 };
 
@@ -194,11 +194,11 @@ let pageContext: PageContext | null = null;
 const addPageHeader = (doc: jsPDF, ctx: PageContext) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const color = getFormTypeColor(ctx.formType);
-  
+
   // Top accent bar
   doc.setFillColor(color.r, color.g, color.b);
   doc.rect(0, 0, pageWidth, 4, 'F');
-  
+
   // Header text
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -211,12 +211,12 @@ const addPageHeader = (doc: jsPDF, ctx: PageContext) => {
 const addPageFooter = (doc: jsPDF, pageNum: number) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  
+
   // Footer line
   doc.setDrawColor(COLORS.slate300.r, COLORS.slate300.g, COLORS.slate300.b);
   doc.setLineWidth(0.5);
   doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
-  
+
   // Footer text
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -239,45 +239,45 @@ const checkPageBreak = (doc: jsPDF, yPos: number, requiredSpace: number = 40): n
 
 // Add styled section header with background
 const addStyledSectionHeader = (
-  doc: jsPDF, 
-  title: string, 
-  yPos: number, 
+  doc: jsPDF,
+  title: string,
+  yPos: number,
   color: { r: number; g: number; b: number } = COLORS.indigo
 ): number => {
   yPos = checkPageBreak(doc, yPos, 25);
-  
+
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
   // Background bar
   doc.setFillColor(color.r, color.g, color.b);
   doc.roundedRect(14, yPos - 4, pageWidth - 28, 10, 2, 2, 'F');
-  
+
   // Header text
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(title, 18, yPos + 3);
-  
+
   // Reset text color
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
-  
+
   return yPos + 14;
 };
 
 // Add subsection header (no background)
 const addSubsectionHeader = (doc: jsPDF, title: string, yPos: number): number => {
   yPos = checkPageBreak(doc, yPos, 20);
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
   doc.text(title, 14, yPos);
-  
+
   // Underline
   doc.setDrawColor(COLORS.slate300.r, COLORS.slate300.g, COLORS.slate300.b);
   doc.setLineWidth(0.3);
   doc.line(14, yPos + 2, 80, yPos + 2);
-  
+
   return yPos + 10;
 };
 
@@ -286,17 +286,17 @@ const addStatusBadge = (doc: jsPDF, status: EvidenceStatus, x: number, y: number
   const colors = getStatusColor(status);
   const statusText = status.toString().toUpperCase();
   const textWidth = doc.getTextWidth(statusText);
-  
+
   // Badge background
   doc.setFillColor(colors.bg.r, colors.bg.g, colors.bg.b);
   doc.roundedRect(x, y - 4, textWidth + 8, 7, 2, 2, 'F');
-  
+
   // Badge text
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(colors.text.r, colors.text.g, colors.text.b);
   doc.text(statusText, x + 4, y + 1);
-  
+
   // Reset
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
 };
@@ -306,17 +306,17 @@ const addTypeBadge = (doc: jsPDF, type: EvidenceType, x: number, y: number): voi
   const color = getFormTypeColor(type);
   const typeText = type.toString();
   const textWidth = doc.getTextWidth(typeText);
-  
+
   // Badge background
   doc.setFillColor(color.r, color.g, color.b);
   doc.roundedRect(x, y - 4, textWidth + 8, 7, 2, 2, 'F');
-  
+
   // Badge text
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(typeText, x + 4, y + 1);
-  
+
   // Reset
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
 };
@@ -325,65 +325,65 @@ const addTypeBadge = (doc: jsPDF, type: EvidenceType, x: number, y: number): voi
 const addStyledTextField = (doc: jsPDF, label: string, value: string, yPos: number): number => {
   if (!value) return yPos;
   yPos = checkPageBreak(doc, yPos, 20);
-  
+
   // Label
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
   doc.text(label.toUpperCase(), 14, yPos);
   yPos += 5;
-  
+
   // Value
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
   const lines = doc.splitTextToSize(value, 180);
   doc.text(lines, 14, yPos);
-  
+
   return yPos + lines.length * 5 + 6;
 };
 
 // Add info row (label: value on same line)
 const addInfoRow = (doc: jsPDF, label: string, value: string, yPos: number): number => {
   if (!value) return yPos;
-  
+
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
   doc.text(`${label}:`, 14, yPos);
-  
+
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
   doc.text(value, 50, yPos);
-  
+
   return yPos + 6;
 };
 
 // Render linked evidence table with styling
 const renderLinkedEvidenceTable = (
-  doc: jsPDF, 
-  yPos: number, 
-  reqKey: string, 
-  evidenceIds: string[], 
+  doc: jsPDF,
+  yPos: number,
+  reqKey: string,
+  evidenceIds: string[],
   allEvidence: EvidenceItem[],
   headerColor: { r: number; g: number; b: number }
 ): number => {
   if (evidenceIds.length === 0) return yPos;
-  
+
   yPos = checkPageBreak(doc, yPos, 35);
-  
+
   // Requirement key label
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
   doc.text(reqKey, 14, yPos);
   yPos += 5;
-  
+
   // Get evidence items
   const evidenceItems = evidenceIds
     .map(id => allEvidence.find(e => e.id === id))
     .filter((e): e is EvidenceItem => e !== undefined);
-  
+
   if (evidenceItems.length === 0) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
@@ -391,7 +391,7 @@ const renderLinkedEvidenceTable = (
     doc.text('(Evidence items not found)', 14, yPos);
     return yPos + 8;
   }
-  
+
   // Create table data
   const tableData = evidenceItems.map(ev => [
     ev.title.substring(0, 55) + (ev.title.length > 55 ? '...' : ''),
@@ -399,17 +399,17 @@ const renderLinkedEvidenceTable = (
     ev.date || 'N/A',
     ev.status
   ]);
-  
+
   autoTable(doc, {
     startY: yPos,
     head: [['Title', 'Type', 'Date', 'Status']],
     body: tableData,
-    styles: { 
-      fontSize: 8, 
+    styles: {
+      fontSize: 8,
       cellPadding: 3,
       textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
     },
-    headStyles: { 
+    headStyles: {
       fillColor: [headerColor.r, headerColor.g, headerColor.b],
       textColor: [255, 255, 255],
       fontStyle: 'bold'
@@ -425,7 +425,7 @@ const renderLinkedEvidenceTable = (
       3: { cellWidth: 35 }
     }
   });
-  
+
   return (doc as any).lastAutoTable.finalY + 10;
 };
 
@@ -436,19 +436,19 @@ const renderLinkedEvidenceTable = (
 export const generateEvidencePDF = (item: EvidenceItem, profile: UserProfile, allEvidence: EvidenceItem[] = []): Blob => {
   const doc = new jsPDF();
   const formColor = getFormTypeColor(item.type);
-  
+
   // Set page context for headers/footers
   pageContext = {
     profile,
     formType: item.type,
     formTitle: item.title
   };
-  
+
   // Page 1 header
   addPageHeader(doc, pageContext);
-  
+
   let yPos = 25;
-  
+
   // Title section
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
@@ -456,19 +456,19 @@ export const generateEvidencePDF = (item: EvidenceItem, profile: UserProfile, al
   const titleLines = doc.splitTextToSize(item.title, 160);
   doc.text(titleLines, 14, yPos);
   yPos += titleLines.length * 8 + 4;
-  
+
   // Type and status badges
   addTypeBadge(doc, item.type, 14, yPos);
   const typeWidth = doc.getTextWidth(item.type.toString()) + 12;
   addStatusBadge(doc, item.status, 14 + typeWidth, yPos);
   yPos += 12;
-  
+
   // Divider
   doc.setDrawColor(COLORS.slate300.r, COLORS.slate300.g, COLORS.slate300.b);
   doc.setLineWidth(0.5);
   doc.line(14, yPos, doc.internal.pageSize.getWidth() - 14, yPos);
   yPos += 8;
-  
+
   // Info section
   yPos = addInfoRow(doc, 'Trainee', profile.name, yPos);
   yPos = addInfoRow(doc, 'Grade', profile.grade, yPos);
@@ -521,9 +521,9 @@ export const generateEvidencePDF = (item: EvidenceItem, profile: UserProfile, al
 // ============================================================================
 
 const generateEPAPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
-  startY: number, 
+  doc: jsPDF,
+  item: EvidenceItem,
+  startY: number,
   allEvidence: EvidenceItem[],
   formColor: { r: number; g: number; b: number }
 ) => {
@@ -568,7 +568,7 @@ const generateEPAPDF = (
 
   // Section A: Learning Outcomes
   yPos = addStyledSectionHeader(doc, 'A. Learning Outcomes', yPos, formColor);
-  
+
   if (learningOutcomes.length > 0) {
     learningOutcomes.forEach((outcome, idx) => {
       yPos = checkPageBreak(doc, yPos, 15);
@@ -618,12 +618,12 @@ const generateEPAPDF = (
           startY: yPos,
           head: [['#', 'Requirement', 'Grade', 'Comments']],
           body: tableData,
-          styles: { 
-            fontSize: 8, 
+          styles: {
+            fontSize: 8,
             cellPadding: 3,
             textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
           },
-          headStyles: { 
+          headStyles: {
             fillColor: [formColor.r, formColor.g, formColor.b],
             textColor: [255, 255, 255],
             fontStyle: 'bold'
@@ -658,7 +658,7 @@ const generateEPAPDF = (
   // Linked Evidence
   if (formData.linkedEvidence && Object.keys(formData.linkedEvidence).length > 0) {
     yPos = addStyledSectionHeader(doc, 'Linked Evidence', yPos, COLORS.slate500);
-    
+
     Object.entries(formData.linkedEvidence).forEach(([reqKey, evidenceIds]) => {
       if (evidenceIds.length > 0) {
         yPos = renderLinkedEvidenceTable(doc, yPos, reqKey, evidenceIds, allEvidence, formColor);
@@ -672,8 +672,8 @@ const generateEPAPDF = (
 // ============================================================================
 
 const generateGSATPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
+  doc: jsPDF,
+  item: EvidenceItem,
   startY: number,
   allEvidence: EvidenceItem[],
   formColor: { r: number; g: number; b: number }
@@ -700,9 +700,9 @@ const generateGSATPDF = (
   domains.forEach((domain) => {
     yPos = addStyledSectionHeader(doc, domain, yPos, formColor);
 
-    const requirements = CURRICULUM_DATA.filter(r => 
-      r.domain === "Non-patient Management" && 
-      r.level === (item.level || 1) && 
+    const requirements = CURRICULUM_DATA.filter(r =>
+      r.domain === "Non-patient Management" &&
+      r.level === (item.level || 1) &&
       r.formType === "GSAT" &&
       r.specialty === domain
     );
@@ -718,12 +718,12 @@ const generateGSATPDF = (
         startY: yPos,
         head: [['#', 'Requirement', 'Trainee Reflection']],
         body: tableData,
-        styles: { 
-          fontSize: 8, 
+        styles: {
+          fontSize: 8,
           cellPadding: 3,
           textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [formColor.r, formColor.g, formColor.b],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
@@ -752,7 +752,7 @@ const generateGSATPDF = (
   // Linked Evidence
   if (formData.linkedEvidence && Object.keys(formData.linkedEvidence).length > 0) {
     yPos = addStyledSectionHeader(doc, 'Linked Evidence', yPos, COLORS.slate500);
-    
+
     Object.entries(formData.linkedEvidence).forEach(([reqKey, evidenceIds]) => {
       if (evidenceIds.length > 0) {
         yPos = renderLinkedEvidenceTable(doc, yPos, reqKey, evidenceIds, allEvidence, formColor);
@@ -766,8 +766,8 @@ const generateGSATPDF = (
 // ============================================================================
 
 const generateDOPsPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
+  doc: jsPDF,
+  item: EvidenceItem,
   startY: number,
   formColor: { r: number; g: number; b: number }
 ) => {
@@ -792,7 +792,7 @@ const generateDOPsPDF = (
   // Section A: Procedure Description
   if (formData.sectionA) {
     yPos = addStyledSectionHeader(doc, 'A. Procedure Description', yPos, formColor);
-    
+
     if (formData.sectionA.descriptionOfProcedure) {
       yPos = addStyledTextField(doc, 'Description', formData.sectionA.descriptionOfProcedure, yPos);
     }
@@ -822,12 +822,12 @@ const generateDOPsPDF = (
       startY: yPos,
       head: [['Competency', 'Rating', 'Comments']],
       body: tableData,
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         cellPadding: 3,
         textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [formColor.r, formColor.g, formColor.b],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -860,12 +860,12 @@ const generateDOPsPDF = (
       startY: yPos,
       head: [['Competency', 'Rating', 'Comments']],
       body: tableData,
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         cellPadding: 3,
         textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [formColor.r, formColor.g, formColor.b],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -905,8 +905,8 @@ const generateDOPsPDF = (
 // ============================================================================
 
 const generateOSATsPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
+  doc: jsPDF,
+  item: EvidenceItem,
   startY: number,
   formColor: { r: number; g: number; b: number }
 ) => {
@@ -931,7 +931,7 @@ const generateOSATsPDF = (
   // Section A: Case Description
   if (formData.sectionA) {
     yPos = addStyledSectionHeader(doc, 'A. Case Description', yPos, formColor);
-    
+
     if (formData.sectionA.caseDescription) {
       yPos = addStyledTextField(doc, 'Description', formData.sectionA.caseDescription, yPos);
     }
@@ -961,12 +961,12 @@ const generateOSATsPDF = (
       startY: yPos,
       head: [['Competency', 'Rating', 'Comments']],
       body: tableData,
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         cellPadding: 3,
         textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [formColor.r, formColor.g, formColor.b],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -999,12 +999,12 @@ const generateOSATsPDF = (
       startY: yPos,
       head: [['Competency', 'Rating', 'Comments']],
       body: tableData,
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         cellPadding: 3,
         textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [formColor.r, formColor.g, formColor.b],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -1044,8 +1044,8 @@ const generateOSATsPDF = (
 // ============================================================================
 
 const generateCBDPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
+  doc: jsPDF,
+  item: EvidenceItem,
   startY: number,
   formColor: { r: number; g: number; b: number }
 ) => {
@@ -1069,7 +1069,7 @@ const generateCBDPDF = (
   // Section A: Clinical Scenario
   if (formData.sectionA) {
     yPos = addStyledSectionHeader(doc, 'A. Clinical Scenario', yPos, formColor);
-    
+
     if (formData.sectionA.clinicalScenario) {
       yPos = addStyledTextField(doc, 'Scenario', formData.sectionA.clinicalScenario, yPos);
     }
@@ -1092,12 +1092,12 @@ const generateCBDPDF = (
       startY: yPos,
       head: [['Competency', 'Rating', 'Comments']],
       body: tableData,
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         cellPadding: 3,
         textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [formColor.r, formColor.g, formColor.b],
         textColor: [255, 255, 255],
         fontStyle: 'bold'
@@ -1137,8 +1137,8 @@ const generateCBDPDF = (
 // ============================================================================
 
 const generateCRSPDF = (
-  doc: jsPDF, 
-  item: EvidenceItem, 
+  doc: jsPDF,
+  item: EvidenceItem,
   startY: number,
   formColor: { r: number; g: number; b: number }
 ) => {
@@ -1167,10 +1167,10 @@ const generateCRSPDF = (
   // Vision-specific data
   if (formData.visionData) {
     const v = formData.visionData;
-    
+
     if (v.sectionA) {
       yPos = addStyledSectionHeader(doc, 'Attitude and Manner', yPos, formColor);
-      
+
       const attitudeData = [
         ['Introduction to patient/carer', v.sectionA.introduction || 'N/A'],
         ['Establishes rapport', v.sectionA.rapport || 'N/A'],
@@ -1181,12 +1181,12 @@ const generateCRSPDF = (
         startY: yPos,
         head: [['Criterion', 'Rating']],
         body: attitudeData,
-        styles: { 
-          fontSize: 9, 
+        styles: {
+          fontSize: 9,
           cellPadding: 4,
           textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [formColor.r, formColor.g, formColor.b],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
@@ -1202,7 +1202,7 @@ const generateCRSPDF = (
 
     if (v.sectionB) {
       yPos = addStyledSectionHeader(doc, 'Visual Acuity', yPos, formColor);
-      
+
       if (v.sectionB.method) {
         yPos = addInfoRow(doc, 'Method', `${v.sectionB.method}${v.sectionB.otherMethod ? ` (${v.sectionB.otherMethod})` : ''}`, yPos);
       }
@@ -1220,12 +1220,12 @@ const generateCRSPDF = (
         startY: yPos,
         head: [['Criterion', 'Rating']],
         body: vaData,
-        styles: { 
-          fontSize: 9, 
+        styles: {
+          fontSize: 9,
           cellPadding: 4,
           textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [formColor.r, formColor.g, formColor.b],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
@@ -1241,7 +1241,7 @@ const generateCRSPDF = (
 
     if (v.comments) {
       yPos = addStyledSectionHeader(doc, 'Comments & Recommendations', yPos, formColor);
-      
+
       if (v.comments.especiallyGood) {
         yPos = addStyledTextField(doc, 'Especially Good', v.comments.especiallyGood, yPos);
       }
@@ -1257,10 +1257,10 @@ const generateCRSPDF = (
   // Retinoscopy-specific data  
   if (formData.retinoscopyData) {
     const r = formData.retinoscopyData;
-    
+
     if (r.sectionA) {
       yPos = addStyledSectionHeader(doc, 'Attitude and Manner', yPos, formColor);
-      
+
       const attitudeData = [
         ['Introduction to patient/carer', r.sectionA.introduction || 'N/A'],
         ['Establishes rapport', r.sectionA.rapport || 'N/A'],
@@ -1271,12 +1271,12 @@ const generateCRSPDF = (
         startY: yPos,
         head: [['Criterion', 'Rating']],
         body: attitudeData,
-        styles: { 
-          fontSize: 9, 
+        styles: {
+          fontSize: 9,
           cellPadding: 4,
           textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [formColor.r, formColor.g, formColor.b],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
@@ -1307,12 +1307,12 @@ const generateCRSPDF = (
         startY: yPos,
         head: [['Criterion', 'Rating']],
         body: retData,
-        styles: { 
-          fontSize: 9, 
+        styles: {
+          fontSize: 9,
           cellPadding: 4,
           textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
         },
-        headStyles: { 
+        headStyles: {
           fillColor: [formColor.r, formColor.g, formColor.b],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
@@ -1328,7 +1328,7 @@ const generateCRSPDF = (
 
     if (r.comments) {
       yPos = addStyledSectionHeader(doc, 'Comments & Recommendations', yPos, formColor);
-      
+
       if (r.comments.especiallyGood) {
         yPos = addStyledTextField(doc, 'Especially Good', r.comments.especiallyGood, yPos);
       }
@@ -1356,50 +1356,50 @@ const generateCRSPDF = (
 
 export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProfile): Blob => {
   const doc = new jsPDF();
-  
+
   // Cover Page
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
   // Gradient-like header
   doc.setFillColor(COLORS.indigo.r, COLORS.indigo.g, COLORS.indigo.b);
   doc.rect(0, 0, pageWidth, 60, 'F');
-  
+
   // Title
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('Evidence Portfolio', pageWidth / 2, 35, { align: 'center' });
-  
+
   // Subtitle
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text('Ophthalmology Training Record', pageWidth / 2, 48, { align: 'center' });
-  
+
   let yPos = 80;
-  
+
   // Trainee info card
   doc.setFillColor(COLORS.slate50.r, COLORS.slate50.g, COLORS.slate50.b);
   doc.roundedRect(30, yPos, pageWidth - 60, 50, 4, 4, 'F');
-  
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.slate900.r, COLORS.slate900.g, COLORS.slate900.b);
   doc.text(profile.name, pageWidth / 2, yPos + 18, { align: 'center' });
-  
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
   doc.text(profile.grade, pageWidth / 2, yPos + 30, { align: 'center' });
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPos + 42, { align: 'center' });
-  
+
   yPos += 70;
-  
+
   // Stats
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(COLORS.indigo.r, COLORS.indigo.g, COLORS.indigo.b);
   doc.text(items.length.toString(), pageWidth / 2, yPos, { align: 'center' });
-  
+
   doc.setFontSize(10);
   doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
   doc.text('Evidence Items', pageWidth / 2, yPos + 10, { align: 'center' });
@@ -1407,7 +1407,7 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
   // Table of Contents
   doc.addPage();
   yPos = 25;
-  
+
   doc.setFillColor(COLORS.indigo.r, COLORS.indigo.g, COLORS.indigo.b);
   doc.roundedRect(14, yPos - 4, pageWidth - 28, 12, 2, 2, 'F');
   doc.setFontSize(12);
@@ -1428,12 +1428,12 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
     startY: yPos,
     head: [['#', 'Type', 'Title', 'Date', 'Status']],
     body: tocData,
-    styles: { 
-      fontSize: 8, 
+    styles: {
+      fontSize: 8,
       cellPadding: 3,
       textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b]
     },
-    headStyles: { 
+    headStyles: {
       fillColor: [COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b],
       textColor: [255, 255, 255],
       fontStyle: 'bold'
@@ -1448,18 +1448,18 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
   items.forEach((item, idx) => {
     doc.addPage();
     const formColor = getFormTypeColor(item.type);
-    
+
     // Set page context
     pageContext = {
       profile,
       formType: item.type,
       formTitle: item.title
     };
-    
+
     addPageHeader(doc, pageContext);
-    
+
     yPos = 25;
-    
+
     // Item number and title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -1467,19 +1467,19 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
     const titleLines = doc.splitTextToSize(`${idx + 1}. ${item.title}`, 160);
     doc.text(titleLines, 14, yPos);
     yPos += titleLines.length * 7 + 4;
-    
+
     // Badges
     addTypeBadge(doc, item.type, 14, yPos);
     const typeWidth = doc.getTextWidth(item.type.toString()) + 12;
     addStatusBadge(doc, item.status, 14 + typeWidth, yPos);
     yPos += 12;
-    
+
     // Divider
     doc.setDrawColor(COLORS.slate300.r, COLORS.slate300.g, COLORS.slate300.b);
     doc.setLineWidth(0.5);
     doc.line(14, yPos, pageWidth - 14, yPos);
     yPos += 8;
-    
+
     // Info
     yPos = addInfoRow(doc, 'Date', item.date, yPos);
     if (item.sia) yPos = addInfoRow(doc, 'SIA', item.sia, yPos);
@@ -1523,5 +1523,123 @@ export const generateBulkEvidencePDF = (items: EvidenceItem[], profile: UserProf
   }
 
   pageContext = null;
+  return doc.output('blob');
+};
+// ============================================================================
+// COMPLICATION LOG PDF GENERATOR
+// ============================================================================
+
+export interface ComplicationPDFData {
+  id: string;
+  patientId: string;
+  date: string;
+  laterality: string;
+  operation: string;
+  complications: string[];
+  cause: string;
+  actionTaken: string;
+  grade?: string; // Fetched from linked entry
+}
+
+export const generateComplicationLogPDF = (cases: ComplicationPDFData[], profile: UserProfile): Blob => {
+  const doc = new jsPDF();
+
+  // Page 1 header
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Top accent bar
+  doc.setFillColor(COLORS.amber.r, COLORS.amber.g, COLORS.amber.b);
+  doc.rect(0, 0, pageWidth, 4, 'F');
+
+  // Header text
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
+  doc.text(profile.name, 14, 12);
+  doc.text('Complication Log', pageWidth - 14, 12, { align: 'right' });
+
+  let yPos = 25;
+
+  // Title
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(COLORS.slate900.r, COLORS.slate900.g, COLORS.slate900.b);
+  doc.text('Cataract Complication Log', 14, yPos);
+  yPos += 10;
+
+  // Trainee Info
+  yPos = addInfoRow(doc, 'Trainee', profile.name, yPos);
+  yPos = addInfoRow(doc, 'Current Grade', profile.grade, yPos);
+  yPos = addInfoRow(doc, 'Generated', new Date().toLocaleDateString(), yPos);
+  yPos += 10;
+
+  // Summary Stats
+  const totalCases = cases.length;
+  const pcRuptureCount = cases.filter(c => c.complications.includes('PC rupture')).length;
+  const pcRuptureRate = totalCases > 0 ? ((pcRuptureCount / totalCases) * 100).toFixed(1) : '0.0';
+
+  yPos = addStyledSectionHeader(doc, 'Summary Statistics', yPos, COLORS.amber);
+  yPos = addInfoRow(doc, 'Total Complications Recorded', totalCases.toString(), yPos);
+  yPos = addInfoRow(doc, 'PC Rupture Count', pcRuptureCount.toString(), yPos);
+
+  yPos += 10;
+
+  // Table
+  if (cases.length > 0) {
+    const tableData = cases.map(c => [
+      c.date ? new Date(c.date).toLocaleDateString() : 'N/A',
+      c.patientId || 'N/A',
+      c.grade || 'N/A',
+      c.laterality || '',
+      c.operation || '',
+      c.complications.join(', '),
+      c.cause || '',
+      c.actionTaken || ''
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Date', 'Pt ID', 'Grade', 'Side', 'Operation', 'Complication', 'Cause', 'Action']],
+      body: tableData,
+      styles: {
+        fontSize: 7,
+        cellPadding: 2,
+        textColor: [COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b],
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: [COLORS.amber.r, COLORS.amber.g, COLORS.amber.b],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [COLORS.slate50.r, COLORS.slate50.g, COLORS.slate50.b]
+      },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 18 }, // Date
+        1: { cellWidth: 20 }, // Pt ID
+        2: { cellWidth: 15 }, // Grade
+        3: { cellWidth: 10 }, // Side
+        4: { cellWidth: 25 }, // Op
+        5: { cellWidth: 30 }, // Comp
+        6: { cellWidth: 35 }, // Cause
+        7: { cellWidth: 'auto' } // Action
+      }
+    });
+  } else {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
+    doc.text('No complication entries found.', 14, yPos);
+  }
+
+  // Add footers to all pages
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    addPageFooter(doc, i);
+  }
+
   return doc.output('blob');
 };

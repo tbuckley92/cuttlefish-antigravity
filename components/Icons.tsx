@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronDown, ChevronUp, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
-  FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle
+  FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
+  MessageSquare, Zap
 } from 'lucide-react';
 
 export {
@@ -17,5 +18,6 @@ export {
   ChevronLeft, ChevronDown, ChevronUp, MoreHorizontal, AlertCircle, Sun, Moon, X,
   Award, BookOpen, Users, Activity, Heart, UploadCloud, Save,
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
-  FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle
+  FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
+  MessageSquare, Zap
 };
