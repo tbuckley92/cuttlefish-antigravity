@@ -34,6 +34,8 @@ import { Auth } from './views/Auth';
 import { ProfileSetup } from './views/ProfileSetup';
 import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
 import { uuidv4 } from './utils/uuid';
+import { uploadEvidenceFile } from './utils/storageUtils';
+
 
 enum View {
   Dashboard = 'dashboard',
@@ -1418,13 +1420,26 @@ const App: React.FC = () => {
               // Helper to generate notes
               const levels = Array.from(data.selectedBoxes).map((k: string) => k.split('-')[1]).sort().join(', ');
 
+
+              let fileUrl = data.fileBase64;
+
+              // Attempt upload to Supabase Storage if configured and user is authenticated
+              if (isSupabaseConfigured && session?.user && data.file) {
+                try {
+                  fileUrl = await uploadEvidenceFile(session.user.id, data.file);
+                } catch (err) {
+                  console.error("Failed to upload file to storage, falling back to Base64", err);
+                  // Fallback: fileUrl remains base64 (if available) or undefined
+                }
+              }
+
               const evidenceItem: EvidenceItem = {
                 id: newEvidenceId,
                 type: data.type,
                 title: data.title,
                 date: new Date().toISOString().split('T')[0],
                 status: EvidenceStatus.SignedOff, // Auto-signed off for legacy
-                fileUrl: data.fileBase64, // Use base64 as URL for now
+                fileUrl: fileUrl, // Storage path or Base64 fallback
                 fileName: data.file?.name,
                 notes: `Legacy Upload. Levels: ${levels}`,
               } as EvidenceItem;

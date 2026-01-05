@@ -9,6 +9,9 @@ import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
 import { generateEvidencePDF } from '../utils/pdfGenerator';
 import { createEvidenceZip } from '../utils/zipGenerator';
+import { isSupabaseConfigured } from '../utils/supabaseClient';
+import { getEvidenceFileUrl } from '../utils/storageUtils';
+
 
 interface MyEvidenceProps {
   allEvidence: EvidenceItem[];
@@ -114,7 +117,14 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     // For Curriculum Catch Up and FourteenFish, open the uploaded file directly
     if ((item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) && item.fileUrl) {
       try {
-        window.open(item.fileUrl, '_blank');
+        let urlToOpen = item.fileUrl;
+
+        // If Supabase is configured and it's not a base64/data URL, assume it's a storage path
+        if (isSupabaseConfigured && !item.fileUrl.startsWith('data:') && !item.fileUrl.startsWith('http')) {
+          urlToOpen = await getEvidenceFileUrl(item.fileUrl);
+        }
+
+        window.open(urlToOpen, '_blank');
         return;
       } catch (error) {
         alert('Error opening file. Please try again.');
