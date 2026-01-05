@@ -144,6 +144,41 @@ export interface PortfolioProgressItem {
   updated_at?: string;
 }
 
+export interface EyeLogbookEntry {
+  id: string;
+  trainee_id: string;
+  trainee_deanery: string;
+  evidence_id?: string;
+  procedure: string;
+  side: string;
+  procedure_date: string;
+  patient_id: string;
+  role: string;
+  hospital: string;
+  trainee_grade: string;
+  comments?: string;
+  surgical_images?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EyeLogbookComplication {
+  id: string;
+  trainee_id: string;
+  trainee_deanery: string;
+  eyelogbook_entry_id?: string;
+  patient_id: string;
+  procedure_date: string;
+  laterality: string;
+  operation: string;
+  complications: string[];
+  other_details?: Record<string, string>;
+  cause?: string;
+  action_taken?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface EvidenceItem {
   id: string;
   type: EvidenceType;

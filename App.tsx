@@ -1941,7 +1941,7 @@ const App: React.FC = () => {
           />
         ) : null;
       case View.EyeLogbook:
-        return <EyeLogbook />;
+        return <EyeLogbook userId={session?.user?.id} deanery={profile.deanery} />;
       case View.RefractiveAudit:
         return (
           <RefractiveAudit

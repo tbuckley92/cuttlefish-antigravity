@@ -1,14 +1,23 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { uuidv4 } from '../utils/uuid';
-import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft } from '../components/Icons';
+import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft, CheckCircle2 } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
+import { uploadEvidenceFile } from '../utils/storageUtils';
+import { EvidenceType, EvidenceStatus, EyeLogbookEntry, EyeLogbookComplication } from '../types';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
+// Props interface
+interface EyeLogbookProps {
+  userId?: string;
+  deanery?: string;
+  onEvidenceCreated?: (evidenceId: string) => void;
+}
 // Updated data model for all procedures
 interface LogbookEntry {
   procedure: string;
@@ -108,20 +117,13 @@ type TabType = 'logbook' | 'esr-grid' | 'procedure-stats';
 
 const ITEMS_PER_PAGE = 20;
 
-const EyeLogbook: React.FC = () => {
+const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCreated }) => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [entries, setEntries] = useState<LogbookEntry[]>(() => {
-    const savedEntries = localStorage.getItem('eyePortfolio_eyelogbook_entries');
-    if (savedEntries) {
-      try {
-        return JSON.parse(savedEntries);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [entries, setEntries] = useState<LogbookEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>(() => {
     const saved = localStorage.getItem('eyePortfolio_eyelogbook_timePeriod');
     return (saved as TimePeriod) || 'ALL_TIME';
@@ -155,31 +157,7 @@ const EyeLogbook: React.FC = () => {
 
   // Complication Log state
   const [showComplicationLog, setShowComplicationLog] = useState(false);
-  const [complicationCases, setComplicationCases] = useState<ComplicationCase[]>(() => {
-    const saved = localStorage.getItem('eyePortfolio_eyelogbook_complications');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Migrate old format (single complication) to new format (array)
-        return parsed.map((caseItem: any) => {
-          if (caseItem.complication && !caseItem.complications) {
-            // Old format - migrate to new format
-            return {
-              ...caseItem,
-              complications: [caseItem.complication],
-              otherDetails: caseItem.complication === 'Other' && caseItem.otherDetails
-                ? { 'Other': caseItem.otherDetails }
-                : undefined
-            };
-          }
-          return caseItem;
-        });
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [complicationCases, setComplicationCases] = useState<ComplicationCase[]>([]);
   const [isAddingCase, setIsAddingCase] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [viewingCaseId, setViewingCaseId] = useState<string | null>(null);
@@ -196,12 +174,113 @@ const EyeLogbook: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Persist entries to localStorage whenever they change
+  // Load entries from Supabase on mount
+  useEffect(() => {
+    const loadFromSupabase = async () => {
+      if (!isSupabaseConfigured || !supabase || !userId) {
+        // Fall back to localStorage
+        const savedEntries = localStorage.getItem('eyePortfolio_eyelogbook_entries');
+        if (savedEntries) {
+          try {
+            setEntries(JSON.parse(savedEntries));
+          } catch {
+            setEntries([]);
+          }
+        }
+        // Load complications from localStorage
+        const savedComplications = localStorage.getItem('eyePortfolio_eyelogbook_complications');
+        if (savedComplications) {
+          try {
+            const parsed = JSON.parse(savedComplications);
+            // Migrate old format
+            const migrated = parsed.map((caseItem: any) => {
+              if (caseItem.complication && !caseItem.complications) {
+                return {
+                  ...caseItem,
+                  complications: [caseItem.complication],
+                  otherDetails: caseItem.complication === 'Other' && caseItem.otherDetails
+                    ? { 'Other': caseItem.otherDetails }
+                    : undefined
+                };
+              }
+              return caseItem;
+            });
+            setComplicationCases(migrated);
+          } catch {
+            setComplicationCases([]);
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Load eyelogbook entries
+        const { data: entriesData, error: entriesError } = await supabase
+          .from('eyelogbook')
+          .select('*')
+          .eq('trainee_id', userId)
+          .order('procedure_date', { ascending: false });
+
+        if (entriesError) throw entriesError;
+
+        // Convert to local format
+        const loadedEntries: LogbookEntry[] = (entriesData || []).map((e: any) => ({
+          procedure: e.procedure,
+          side: e.side || '',
+          date: e.procedure_date,
+          patientId: e.patient_id,
+          role: e.role || '',
+          hospital: e.hospital || '',
+          grade: e.trainee_grade || ''
+        }));
+        setEntries(loadedEntries);
+
+        // Load complications
+        const { data: compData, error: compError } = await supabase
+          .from('eyelogbook_complication')
+          .select('*')
+          .eq('trainee_id', userId)
+          .order('procedure_date', { ascending: false });
+
+        if (compError) throw compError;
+
+        const loadedCases: ComplicationCase[] = (compData || []).map((c: any) => ({
+          id: c.id,
+          patientId: c.patient_id,
+          date: c.procedure_date,
+          laterality: c.laterality as LateralityType,
+          operation: c.operation as OperationType,
+          complications: c.complications || [],
+          otherDetails: c.other_details,
+          cause: c.cause || '',
+          actionTaken: c.action_taken || ''
+        }));
+        setComplicationCases(loadedCases);
+
+      } catch (err) {
+        console.error('Error loading from Supabase:', err);
+        // Fall back to localStorage
+        const savedEntries = localStorage.getItem('eyePortfolio_eyelogbook_entries');
+        if (savedEntries) {
+          try {
+            setEntries(JSON.parse(savedEntries));
+          } catch {
+            setEntries([]);
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadFromSupabase();
+  }, [userId]);
+
+  // Persist entries to localStorage as backup
   useEffect(() => {
     if (entries.length > 0) {
       localStorage.setItem('eyePortfolio_eyelogbook_entries', JSON.stringify(entries));
-    } else {
-      localStorage.removeItem('eyePortfolio_eyelogbook_entries');
     }
   }, [entries]);
 
@@ -402,7 +481,101 @@ const EyeLogbook: React.FC = () => {
         }
       }
 
-      setEntries(extractedEntries);
+      // Save to Supabase if configured
+      if (isSupabaseConfigured && supabase && userId) {
+        setIsSaving(true);
+        setSaveStatus('idle');
+
+        try {
+          // 1. Upload PDF to Supabase Storage
+          const storagePath = await uploadEvidenceFile(userId, file);
+
+          // 2. Create evidence record
+          const evidenceId = uuidv4();
+          const { error: evidenceError } = await supabase
+            .from('evidence')
+            .insert({
+              id: evidenceId,
+              trainee_id: userId,
+              type: EvidenceType.Logbook,
+              status: EvidenceStatus.SignedOff,
+              title: `Eye Logbook - ${file.name}`,
+              event_date: new Date().toISOString().split('T')[0],
+              notes: `Uploaded from EyeLogbook.co.uk. ${extractedEntries.length} procedures extracted.`,
+              data: { fileName: file.name, storagePath, entryCount: extractedEntries.length }
+            });
+
+          if (evidenceError) {
+            console.error('Error creating evidence:', evidenceError);
+            throw evidenceError;
+          }
+
+          // 3. Insert entries with deduplication (ON CONFLICT DO NOTHING via upsert)
+          // The unique constraint handles deduplication automatically
+          const entriesToInsert = extractedEntries.map(e => ({
+            trainee_id: userId,
+            evidence_id: evidenceId,
+            procedure: e.procedure,
+            side: e.side,
+            procedure_date: e.date,
+            patient_id: e.patientId,
+            role: e.role,
+            hospital: e.hospital,
+            trainee_grade: e.grade
+          }));
+
+          // Batch insert - Supabase will ignore duplicates due to unique constraint
+          // We use upsert with ignoreDuplicates to skip existing entries
+          const { error: insertError } = await supabase
+            .from('eyelogbook')
+            .upsert(entriesToInsert, {
+              onConflict: 'trainee_id,patient_id,side,procedure,procedure_date',
+              ignoreDuplicates: true
+            });
+
+          if (insertError) {
+            console.error('Error inserting entries:', insertError);
+            throw insertError;
+          }
+
+          // 4. Reload entries from database to get accurate count
+          const { data: reloadedData } = await supabase
+            .from('eyelogbook')
+            .select('*')
+            .eq('trainee_id', userId)
+            .order('procedure_date', { ascending: false });
+
+          if (reloadedData) {
+            const reloadedEntries: LogbookEntry[] = reloadedData.map((e: any) => ({
+              procedure: e.procedure,
+              side: e.side || '',
+              date: e.procedure_date,
+              patientId: e.patient_id,
+              role: e.role || '',
+              hospital: e.hospital || '',
+              grade: e.trainee_grade || ''
+            }));
+            setEntries(reloadedEntries);
+          } else {
+            setEntries(extractedEntries);
+          }
+
+          setSaveStatus('success');
+          onEvidenceCreated?.(evidenceId);
+
+        } catch (err) {
+          console.error('Error saving to Supabase:', err);
+          setSaveStatus('error');
+          // Still set local entries
+          setEntries(extractedEntries);
+        } finally {
+          setIsSaving(false);
+        }
+      } else {
+        // No Supabase - just use local state
+        setEntries(extractedEntries);
+      }
+
       localStorage.setItem('eyePortfolio_eyelogbook_filename', file.name);
       setFileName(file.name);
     } catch (error) {
@@ -685,7 +858,7 @@ const EyeLogbook: React.FC = () => {
     }));
   };
 
-  const saveComplicationCase = () => {
+  const saveComplicationCase = async () => {
     if (!formPatientId || !formDate || formComplications.length === 0) {
       alert('Please fill in all required fields and select at least one complication');
       return;
@@ -711,8 +884,9 @@ const EyeLogbook: React.FC = () => {
       }
     }
 
+    const caseId = editingCaseId || uuidv4();
     const caseData: ComplicationCase = {
-      id: editingCaseId || uuidv4(),
+      id: caseId,
       patientId: formPatientId,
       date: formDate,
       laterality: formLaterality,
@@ -723,19 +897,81 @@ const EyeLogbook: React.FC = () => {
       actionTaken: formActionTaken
     };
 
+    // Save to Supabase if configured
+    if (isSupabaseConfigured && supabase && userId) {
+      try {
+        const dbRecord = {
+          id: caseId,
+          trainee_id: userId,
+          patient_id: formPatientId,
+          procedure_date: formDate,
+          laterality: formLaterality,
+          operation: formOperation,
+          complications: formComplications,
+          other_details: Object.keys(otherDetails).length > 0 ? otherDetails : null,
+          cause: formCause || null,
+          action_taken: formActionTaken || null
+        };
+
+        if (editingCaseId) {
+          // Update existing
+          const { error } = await supabase
+            .from('eyelogbook_complication')
+            .update(dbRecord)
+            .eq('id', editingCaseId);
+          if (error) throw error;
+        } else {
+          // Insert new
+          const { error } = await supabase
+            .from('eyelogbook_complication')
+            .insert(dbRecord);
+          if (error) throw error;
+        }
+      } catch (err) {
+        console.error('Error saving complication to Supabase:', err);
+        alert('Error saving complication. Please try again.');
+        return;
+      }
+    }
+
+    // Update local state
     if (editingCaseId) {
       setComplicationCases(prev => prev.map(c => c.id === editingCaseId ? caseData : c));
     } else {
       setComplicationCases(prev => [...prev, caseData]);
     }
 
+    // Also save to localStorage as backup
+    const updatedCases = editingCaseId
+      ? complicationCases.map(c => c.id === editingCaseId ? caseData : c)
+      : [...complicationCases, caseData];
+    localStorage.setItem('eyePortfolio_eyelogbook_complications', JSON.stringify(updatedCases));
+
     closeAddEditModal();
   };
 
-  const deleteComplicationCase = (id: string) => {
-    if (confirm('Are you sure you want to delete this case?')) {
-      setComplicationCases(prev => prev.filter(c => c.id !== id));
+  const deleteComplicationCase = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this case?')) return;
+
+    // Delete from Supabase if configured
+    if (isSupabaseConfigured && supabase && userId) {
+      try {
+        const { error } = await supabase
+          .from('eyelogbook_complication')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error deleting complication from Supabase:', err);
+        alert('Error deleting complication. Please try again.');
+        return;
+      }
     }
+
+    setComplicationCases(prev => prev.filter(c => c.id !== id));
+    // Update localStorage
+    const updatedCases = complicationCases.filter(c => c.id !== id);
+    localStorage.setItem('eyePortfolio_eyelogbook_complications', JSON.stringify(updatedCases));
   };
 
   const viewingCase = viewingCaseId ? complicationCases.find(c => c.id === viewingCaseId) : null;
