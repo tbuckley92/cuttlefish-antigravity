@@ -23,10 +23,11 @@ import { MSFResponseForm } from './views/MSFResponseForm';
 import { RefractiveAudit } from './views/RefractiveAudit';
 import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
+import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck } from './components/Icons';
 import { Logo } from './components/Logo';
-import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome } from './types';
+import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 import { Footer } from './components/Footer';
 import { Auth } from './views/Auth';
@@ -55,7 +56,8 @@ enum View {
   SupervisorDashboard = 'supervisor-dashboard',
   EyeLogbook = 'eye-logbook',
   RefractiveAudit = 'refractive-audit',
-  MyRefractiveAudit = 'my-refractive-audit'
+  MyRefractiveAudit = 'my-refractive-audit',
+  EPALegacyForm = 'epa-legacy-form'
 }
 
 interface FormParams {
@@ -158,7 +160,10 @@ const App: React.FC = () => {
       }
     }
     return INITIAL_EVIDENCE;
+    return INITIAL_EVIDENCE;
   });
+
+  const [portfolioProgress, setPortfolioProgress] = useState<PortfolioProgressItem[]>([]);
 
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
 
@@ -218,6 +223,19 @@ const App: React.FC = () => {
         const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
         const mappedItems = data.map(mapRowToEvidenceItem);
         setAllEvidence(mappedItems);
+        setAllEvidence(mappedItems);
+      }
+
+      // Fetch Portfolio Progress
+      const { data: progressData, error: progressError } = await supabase
+        .from('portfolio_progress')
+        .select('*')
+        .eq('trainee_id', session.user.id);
+
+      if (progressError) {
+        console.error('Error fetching portfolio progress:', progressError);
+      } else if (progressData) {
+        setPortfolioProgress(progressData);
       }
     };
 
@@ -427,10 +445,7 @@ const App: React.FC = () => {
       // Actually, to avoid "cannot find name uuidv4" error, let's use the full import logic or just copy logic?
       // Better to import it properly. I will modify imports first? 
       // Wait, I can't modify imports easily in the same tool call if they are far away.
-      // I'll assume I'll add the import in a separate block or this same block if top is reachable.
-      // But this is line 365. App.tsx is large.
-      // I will just use `crypto.randomUUID()` with my inline polyfill here, OR cleaner: use the helper.
-      // I'll check if I can add the import.
+      // I'll assume I'll add the import.
       newItemId = uuidv4();
     }
 
@@ -499,7 +514,141 @@ const App: React.FC = () => {
     } else {
       setCurrentView(View.RecordForm);
     }
+    setCurrentView(View.RecordForm);
+  }
+
+
+  const handleUpsertProgress = async (item: Partial<PortfolioProgressItem>) => {
+    if (!session?.user) return;
+
+    // Optimistic update
+    const tempId = item.id || uuidv4();
+    const newItem: PortfolioProgressItem = {
+      ...item,
+      id: tempId,
+      trainee_id: session.user.id,
+      updated_at: new Date().toISOString(),
+    } as PortfolioProgressItem;
+
+    setPortfolioProgress(prev => {
+      const exists = prev.find(p => p.sia === item.sia && p.level === item.level);
+      if (exists) {
+        return prev.map(p => (p.sia === item.sia && p.level === item.level) ? { ...p, ...newItem } : p);
+      }
+      return [...prev, newItem];
+    });
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('portfolio_progress')
+        .upsert({
+          trainee_id: session.user.id,
+          sia: newItem.sia,
+          level: newItem.level,
+          status: newItem.status,
+          evidence_type: newItem.evidence_type,
+          evidence_id: newItem.evidence_id,
+          notes: newItem.notes
+        }, { onConflict: 'trainee_id, sia, level' });
+
+      if (error) {
+        console.error('Error saving portfolio progress:', error);
+      }
+    }
   };
+
+  // Migration effect to populate portfolio_progress from legacy profile data
+  useEffect(() => {
+    const migrateLegacyProgress = async () => {
+      // Check if we have necessary data/connections
+      if (!isSupabaseConfigured || !supabase || !session?.user || !profile) return;
+
+      // We only want to migrate if we have legacy data but portfolioProgress appears incomplete
+      // To be safe and idempotent, we'll check if we have any legacy completions to migrate
+      const hasLegacyCatchUp = Object.keys(profile.curriculumCatchUpCompletions || {}).length > 0;
+      const hasLegacyFish = Object.keys(profile.fourteenFishCompletions || {}).length > 0;
+
+      if (!hasLegacyCatchUp && !hasLegacyFish) return;
+
+      console.log('Checking for legacy progress migration...');
+
+      const updates: any[] = [];
+
+      // Helper to process legacy completions
+      const processCompletions = (
+        completions: Record<string, boolean>,
+        type: EvidenceType.CurriculumCatchUp | EvidenceType.FourteenFish
+      ) => {
+        Object.entries(completions).forEach(([key, completed]) => {
+          if (completed) {
+            const lastDashIndex = key.lastIndexOf('-');
+            if (lastDashIndex === -1) return;
+
+            const siaRaw = key.substring(0, lastDashIndex);
+            const level = parseInt(key.substring(lastDashIndex + 1));
+            const sia = siaRaw === "GSAT" ? "GSAT" : siaRaw;
+
+            if (sia && !isNaN(level)) {
+              // Check if already in portfolioProgress to avoid unnecessary upserts 
+              // (though upsert is safe, reducing network calls is good)
+              const alreadyExists = portfolioProgress.some(
+                p => p.sia === sia && p.level === level && (p.status === EvidenceStatus.SignedOff || p.status === 'Completed')
+              );
+
+              if (!alreadyExists) {
+                updates.push({
+                  trainee_id: session.user.id,
+                  sia: sia,
+                  level,
+                  status: EvidenceStatus.SignedOff,
+                  evidence_type: type,
+                  notes: 'Migrated from legacy profile'
+                });
+              }
+            }
+          }
+        });
+      };
+
+      if (profile.curriculumCatchUpCompletions) {
+        processCompletions(profile.curriculumCatchUpCompletions, EvidenceType.CurriculumCatchUp);
+      }
+
+      if (profile.fourteenFishCompletions) {
+        processCompletions(profile.fourteenFishCompletions, EvidenceType.FourteenFish);
+      }
+
+      if (updates.length > 0) {
+        console.log(`Migrating ${updates.length} legacy progress records...`);
+
+        // Batch upsert
+        const { error } = await supabase
+          .from('portfolio_progress')
+          .upsert(updates, { onConflict: 'trainee_id, sia, level' });
+
+        if (error) {
+          console.error('Migration error:', error);
+        } else {
+          console.log(`Successfully migrated ${updates.length} progress records.`);
+          // Refresh local state to reflect migration immediately
+          const { data: progressData } = await supabase
+            .from('portfolio_progress')
+            .select('*')
+            .eq('trainee_id', session.user.id);
+
+          if (progressData) {
+            setPortfolioProgress(progressData);
+          }
+        }
+      } else {
+        console.log('No legacy progress records needed migration.');
+      }
+    };
+
+    if (profileReady) { // Only run when profile is fully loaded
+      migrateLegacyProgress();
+    }
+  }, [profileReady, session?.user?.id, isSupabaseConfigured, portfolioProgress.length]); // Depend on length so if it starts empty then we migrate
 
   const handleNavigateToEPA = (sia: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
     setReturnTarget(null);
@@ -840,6 +989,21 @@ const App: React.FC = () => {
   const handleDeleteEvidence = async (id: string) => {
     // Optimistic delete from local state
     setAllEvidence(prev => prev.filter(e => e.id !== id));
+
+    // Reset associated portfolio_progress items
+    const associatedProgress = portfolioProgress.filter(p => p.evidence_id === id);
+    if (associatedProgress.length > 0) {
+      associatedProgress.forEach(p => {
+        handleUpsertProgress({
+          sia: p.sia,
+          level: p.level,
+          status: EvidenceStatus.Draft, // Reset to Draft
+          evidence_type: p.evidence_type,
+          evidence_id: undefined, // Clear link 
+          notes: 'Unlinked via deletion'
+        });
+      });
+    }
 
     if (isSupabaseConfigured && supabase && session?.user) {
       const { error } = await supabase
@@ -1235,6 +1399,57 @@ const App: React.FC = () => {
             onUpdateProfile={viewingTraineeId ? undefined : handleUpdateProfile}
             onUpsertEvidence={viewingTraineeId ? undefined : handleUpsertEvidence}
             onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
+            portfolioProgress={viewingTraineeId ? [] : portfolioProgress}
+            onUpsertProgress={viewingTraineeId ? undefined : handleUpsertProgress}
+          />
+        );
+      case View.EPALegacyForm:
+        return (
+          <EPALegacyForm
+            onBack={() => setCurrentView(View.RecordForm)}
+            sias={[
+              ...SPECIALTIES.map(s => ({ id: s, specialty: s, level: 0 } as SIA)),
+              { id: 'GSAT', specialty: 'GSAT', level: 0 } as SIA
+            ]}
+            onSave={async (data) => {
+              // 1. Create Evidence Item
+              const newEvidenceId = uuidv4();
+
+              // Helper to generate notes
+              const levels = Array.from(data.selectedBoxes).map((k: string) => k.split('-')[1]).sort().join(', ');
+
+              const evidenceItem: EvidenceItem = {
+                id: newEvidenceId,
+                type: data.type,
+                title: data.title,
+                date: new Date().toISOString().split('T')[0],
+                status: EvidenceStatus.SignedOff, // Auto-signed off for legacy
+                fileUrl: data.fileBase64, // Use base64 as URL for now
+                fileName: data.file?.name,
+                notes: `Legacy Upload. Levels: ${levels}`,
+              } as EvidenceItem;
+
+              await handleUpsertEvidence(evidenceItem);
+
+              // 2. Update Progress Matrix for each selected box
+              for (const boxKey of data.selectedBoxes) { // boxKey = "SIA-Level" e.g. "Cataract-1"
+                const lastDash = boxKey.lastIndexOf('-');
+                const sia = boxKey.substring(0, lastDash);
+                const level = parseInt(boxKey.substring(lastDash + 1));
+
+                await handleUpsertProgress({
+                  sia: sia,
+                  level: level,
+                  status: EvidenceStatus.SignedOff,
+                  evidence_type: data.type,
+                  evidence_id: newEvidenceId,
+                  notes: 'Linked via Legacy Form'
+                });
+              }
+
+              // 3. Return to Evidence or Dashboard
+              setCurrentView(View.Progress); // Go to Progress to show the green boxes!
+            }}
           />
         );
       case View.AddEvidence:
@@ -1296,6 +1511,8 @@ const App: React.FC = () => {
           if (type === 'EPA') {
             setSelectedFormParams(null);
             setCurrentView(View.EPAForm);
+          } else if (type === 'EPALegacy') {
+            setCurrentView(View.EPALegacyForm);
           }
           else if (type === 'GSAT') {
             // Find existing GSAT for level 1 (default)

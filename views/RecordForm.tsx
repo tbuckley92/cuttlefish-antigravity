@@ -84,6 +84,14 @@ const formTypes = [
     color: 'text-indigo-500',
     bgColor: 'bg-indigo-500/5'
   },
+  {
+    id: 'EPALegacy',
+    label: 'EPA Legacy',
+    subtitle: 'Upload historic evidence documents',
+    icon: <ClipboardCheck size={24} />, // Reusing ClipboardCheck or similar
+    color: 'text-slate-500',
+    bgColor: 'bg-slate-500/5'
+  },
 ];
 
 const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {

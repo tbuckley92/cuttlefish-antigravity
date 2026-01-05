@@ -131,6 +131,19 @@ export interface MSFRespondent {
   lastReminded?: string;
 }
 
+export interface PortfolioProgressItem {
+  id: string;
+  trainee_id: string;
+  sia: string;
+  level: number;
+  status: EvidenceStatus | 'Not Started';
+  evidence_type: EvidenceType | 'Curriculum Catch Up' | 'FourteenFish' | null;
+  evidence_id?: string;
+  notes?: string;
+  completed_at?: string;
+  updated_at?: string;
+}
+
 export interface EvidenceItem {
   id: string;
   type: EvidenceType;
