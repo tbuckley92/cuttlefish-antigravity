@@ -135,6 +135,7 @@ const App: React.FC = () => {
       frcophthPart2Written: false,
       frcophthPart2Viva: false,
       refractionCertificate: false,
+      sias: [],
     }),
     []
   );
@@ -320,7 +321,9 @@ const App: React.FC = () => {
           frcophthPart2Written: data.frcophth_part2_written ?? false,
           frcophthPart2Viva: data.frcophth_part2_viva ?? false,
           refractionCertificate: data.refraction_certificate ?? false,
+          sias: data.sias ?? [],
         });
+        setSias(data.sias ?? []);
 
         // Map base role into the existing UI role switch.
         if (data.base_role === 'SUPERVISOR') {
@@ -383,6 +386,7 @@ const App: React.FC = () => {
       frcophth_part2_written: nextProfile.frcophthPart2Written ?? false,
       frcophth_part2_viva: nextProfile.frcophthPart2Viva ?? false,
       refraction_certificate: nextProfile.refractionCertificate ?? false,
+      sias: nextProfile.sias ?? [],
     };
     if (deanery) payload.deanery = deanery;
 
@@ -639,11 +643,13 @@ const App: React.FC = () => {
   };
 
   const handleRemoveSIA = (id: string) => {
-    setSias(prev => prev.filter(s => s.id !== id));
+    const updatedSias = sias.filter(s => s.id !== id);
+    setSias(updatedSias);
+    handleUpdateProfile({ ...profile, sias: updatedSias });
   };
 
   const handleUpdateSIA = (id: string, updatedData: Partial<SIA>) => {
-    setSias(prev => prev.map(sia => {
+    const updatedSias = sias.map(sia => {
       if (sia.id === id) {
         const newData = { ...sia, ...updatedData };
         if (updatedData.supervisorName !== undefined) {
@@ -654,7 +660,9 @@ const App: React.FC = () => {
         return newData;
       }
       return sia;
-    }));
+    });
+    setSias(updatedSias);
+    handleUpdateProfile({ ...profile, sias: updatedSias });
   };
 
   const handleAddSIA = (specialty: string, level: number, supervisorName?: string, supervisorEmail?: string) => {
@@ -670,7 +678,9 @@ const App: React.FC = () => {
       supervisorEmail,
       supervisorInitials: initials
     };
-    setSias(prev => [...prev, newSia]);
+    const updatedSias = [...sias, newSia];
+    setSias(updatedSias);
+    handleUpdateProfile({ ...profile, sias: updatedSias });
   };
 
   const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number, currentFormParams?: any) => {
@@ -1394,6 +1404,8 @@ const App: React.FC = () => {
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={allEvidence}
+            initialSupervisorName={profile.supervisorName}
+            initialSupervisorEmail={profile.supervisorEmail}
           />
         );
       case View.DOPsForm:

@@ -101,6 +101,7 @@ export interface UserProfile {
   curriculumCatchUpCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
   fourteenFishEvidence?: Record<string, string>; // Map of box keys to image file URLs (key format: "column-level")
   fourteenFishCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
+  sias?: SIA[]; // Active EPAs
 }
 
 export interface SIA {

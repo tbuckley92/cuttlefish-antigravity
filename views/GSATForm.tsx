@@ -29,6 +29,8 @@ interface GSATFormProps {
   onViewLinkedEvidence?: (evidenceId: string) => void;
   linkedEvidenceData: Record<string, string[]>; // "domain-reqIndex" -> evidenceIds
   allEvidence?: EvidenceItem[];
+  initialSupervisorName?: string;
+  initialSupervisorEmail?: string;
 }
 
 const domains = [
@@ -56,7 +58,9 @@ const GSATForm: React.FC<GSATFormProps> = ({
   onRemoveLink,
   onViewLinkedEvidence,
   linkedEvidenceData,
-  allEvidence = []
+  allEvidence = [],
+  initialSupervisorName,
+  initialSupervisorEmail
 }) => {
   const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -70,8 +74,8 @@ const GSATForm: React.FC<GSATFormProps> = ({
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
   // Supervisor info is auto-filled from profile as per PRD
-  const supervisorName = INITIAL_PROFILE.supervisorName;
-  const supervisorEmail = INITIAL_PROFILE.supervisorEmail;
+  const supervisorName = initialSupervisorName || INITIAL_PROFILE.supervisorName;
+  const supervisorEmail = initialSupervisorEmail || INITIAL_PROFILE.supervisorEmail;
 
   const currentDomain = domains[activeSection];
   const domainRequirements = CURRICULUM_DATA.filter(r =>
