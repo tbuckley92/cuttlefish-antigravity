@@ -25,7 +25,7 @@ import { RefractiveAudit } from './views/RefractiveAudit';
 import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData } from './types';
@@ -170,6 +170,8 @@ const App: React.FC = () => {
   const [arcpPrepData, setArcpPrepData] = useState<ARCPPrepData | undefined>(undefined);
 
   const [portfolioProgress, setPortfolioProgress] = useState<PortfolioProgressItem[]>([]);
+
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
 
@@ -380,6 +382,7 @@ const App: React.FC = () => {
           frcophthPart2Viva: data.frcophth_part2_viva ?? false,
           refractionCertificate: data.refraction_certificate ?? false,
           sias: data.sias ?? [],
+          roles: data.roles ?? [],
         });
         setSias(data.sias ?? []);
 
@@ -419,6 +422,59 @@ const App: React.FC = () => {
   const [mandatoryContext, setMandatoryContext] = useState<MandatoryFormContext | null>(null);
   // Ref to hold the ID of evidence created during a mandatory form flow (needed for sync access)
   const mandatoryCreatedIdRef = React.useRef<string | null>(null);
+
+  // State for viewing another trainee's evidence (fetched from DB)
+  const [viewingTraineeEvidence, setViewingTraineeEvidence] = useState<EvidenceItem[]>([]);
+  // State for initial EyeLogbook tab
+  const [initialEyeLogbookTab, setInitialEyeLogbookTab] = useState<string | undefined>(undefined);
+
+  // Fetch viewing trainee evidence when viewingTraineeId changes
+  useEffect(() => {
+    if (!viewingTraineeId || !isSupabaseConfigured || !supabase) {
+      setViewingTraineeEvidence([]);
+      return;
+    }
+
+    const fetchTraineeEvidence = async () => {
+      // Fetch evidence for the viewed trainee
+      // 1. Fetch non-legacy
+      const nonLegacyPromise = supabase
+        .from('evidence')
+        .select('*')
+        .eq('trainee_id', viewingTraineeId)
+        .neq('type', 'Curriculum Catch Up')
+        .neq('type', 'FourteenFish')
+        .order('event_date', { ascending: false });
+
+      // 2. Fetch legacy (lightweight)
+      const legacyPromise = supabase
+        .from('evidence')
+        .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
+        .eq('trainee_id', viewingTraineeId)
+        .in('type', ['Curriculum Catch Up', 'FourteenFish'])
+        .order('event_date', { ascending: false });
+
+      const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
+
+      if (nonLegacyResponse.error) console.error('Error fetching trainee modern evidence:', nonLegacyResponse.error);
+      if (legacyResponse.error) console.error('Error fetching trainee legacy evidence:', legacyResponse.error);
+
+      const combinedData = [
+        ...(nonLegacyResponse.data || []),
+        ...(legacyResponse.data || [])
+      ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+
+      if (combinedData) {
+        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+        // @ts-ignore
+        const mappedItems = combinedData.map(mapRowToEvidenceItem);
+        setViewingTraineeEvidence(mappedItems);
+      }
+    };
+
+    fetchTraineeEvidence();
+  }, [viewingTraineeId]);
+
 
   const handleUpdateProfile = async (nextProfile: UserProfile) => {
     setProfile(nextProfile);
@@ -1597,6 +1653,26 @@ const App: React.FC = () => {
         return;
       }
 
+      // Special case for Last ARCP general evidence
+      if (linkingReqIdx === 'ARCP_PREP_LAST_ARCP') {
+        console.log('Saving ARCP Prep Last ARCP Evidence:', selectedIds);
+
+        // Update Last ARCP evidence array
+        handleUpsertARCPPrepSafe({ last_arcp_evidence: selectedIds });
+
+        // Clear selection flags
+        setAllEvidence(prev => prev.map(e => {
+          const { isSelectedForLink, ...rest } = e as any;
+          return rest as EvidenceItem;
+        }));
+
+        setIsSelectionMode(false);
+        setLinkingReqIdx(null);
+        setLinkedEvidence({});
+        setCurrentView(View.ARCPPrep);
+        return;
+      }
+
       const parts = linkingReqIdx.replace('ARCP_PREP_', '').toLowerCase().split('_');
       const section = parts[0]; // 'last' or 'current'
       const target = parts[1]; // 'epas', 'gsat', 'msf', 'esr'
@@ -1648,6 +1724,16 @@ const App: React.FC = () => {
     // (This logic already exists in the app flow)
   };
 
+
+  const handleNavigateBack = () => {
+    if (selectedFormParams?.originView) {
+      setCurrentView(selectedFormParams.originView);
+    } else {
+      // Fallback or default behavior
+      setCurrentView(View.Dashboard);
+    }
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case View.Dashboard:
@@ -1685,7 +1771,7 @@ const App: React.FC = () => {
         );
       case View.Evidence:
         const evidenceData = viewingTraineeId
-          ? getTraineeSummary(viewingTraineeId)?.allEvidence || []
+          ? viewingTraineeEvidence
           : allEvidence;
         const evidenceProfile = viewingTraineeId
           ? getTraineeSummary(viewingTraineeId)?.profile || profile
@@ -1972,7 +2058,7 @@ const App: React.FC = () => {
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
             traineeName={profile.name}
-            onBack={handleBackToOrigin}
+            onBack={handleNavigateBack}
             onSubmitted={mandatoryContext?.expectedType === 'EPA' ? handleEPAFromEPASubmitted : handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, section, formParams) => handleLinkRequested(idx, View.EPAForm, undefined, section, formParams)}
@@ -1990,7 +2076,7 @@ const App: React.FC = () => {
             id={selectedFormParams?.id}
             initialLevel={selectedFormParams?.level || 1}
             traineeName={profile.name}
-            onBack={handleBackToOrigin}
+            onBack={handleNavigateBack}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)}
@@ -2017,7 +2103,7 @@ const App: React.FC = () => {
             initialStatus={selectedFormParams?.status || existingDOPs?.status || EvidenceStatus.Draft}
             initialDopsType={selectedFormParams?.type}
             traineeName={profile.name}
-            onBack={handleBackToOrigin}
+            onBack={handleNavigateBack}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
             allEvidence={allEvidence}
@@ -2205,7 +2291,16 @@ const App: React.FC = () => {
           />
         ) : null;
       case View.EyeLogbook:
-        return <EyeLogbook userId={session?.user?.id} deanery={profile.deanery} />;
+        return (
+          <EyeLogbook
+            userId={viewingTraineeId || session?.user?.id}
+            deanery={profile.deanery}
+            onBack={viewingTraineeId ? () => {
+              setViewingTraineeId(null);
+              setCurrentView(View.ARCPPanelDashboard);
+            } : undefined}
+          />
+        );
       case View.RefractiveAudit:
         return (
           <RefractiveAudit
@@ -2239,12 +2334,19 @@ const App: React.FC = () => {
             }}
             onViewActiveEPAs={(traineeId) => {
               setViewingTraineeId(traineeId);
+              setInitialEyeLogbookTab('logbook');
+              setCurrentView(View.EyeLogbook);
+            }}
+            onViewComplications={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              setInitialEyeLogbookTab('complications');
               setCurrentView(View.EyeLogbook);
             }}
             onViewTraineeEvidence={(traineeId) => {
               setViewingTraineeId(traineeId);
               setCurrentView(View.Evidence);
             }}
+
             onViewESR={(traineeId) => {
               setViewingTraineeId(traineeId);
               // For now, navigate to supervisor dashboard showing this trainee's supervisor
@@ -2259,10 +2361,14 @@ const App: React.FC = () => {
             }}
             onViewEvidenceItem={(item) => {
               // Navigate to the appropriate view based on evidence type
+              // Force status to Submitted to ensure read-only mode
+              const readOnlyStatus = EvidenceStatus.Submitted;
+
               setSelectedFormParams({
                 sia: item.sia || '',
                 level: item.level || 1,
                 id: item.id,
+                status: readOnlyStatus,
                 originView: View.ARCPPanelDashboard
               });
 
@@ -2286,8 +2392,9 @@ const App: React.FC = () => {
                   setCurrentView(View.CRSForm);
                   break;
                 default:
-                  // For other types, just view in MyEvidence
-                  setCurrentView(View.Evidence);
+                  // For other types (MSF, Curriculum Catch Up, Reflection, etc.), view in AddEvidence form
+                  setEditingEvidence(item);
+                  setCurrentView(View.AddEvidence);
                   break;
               }
             }}
@@ -2343,6 +2450,9 @@ const App: React.FC = () => {
           email={authEmail || session.user.email || ''}
           onComplete={() => {
             setProfileReloadKey(k => k + 1);
+          }}
+          onLogout={async () => {
+            await supabase?.auth.signOut();
           }}
         />
       );
@@ -2436,15 +2546,6 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <NavTab
-                    active={currentView === View.SupervisorDashboard}
-                    onClick={() => {
-                      setViewingTraineeId(null);
-                      setCurrentView(View.SupervisorDashboard);
-                    }}
-                    icon={<Users size={16} />}
-                    label="SUPERVISOR DASHBOARD"
-                  />
                   {viewingTraineeId && (
                     <>
                       <NavTab
@@ -2465,9 +2566,117 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative">
               <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1"></div>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 border border-white/20 shadow-md"></div>
+
+              {/* Settings Button */}
+              <button
+                onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 border border-white/20 shadow-md flex items-center justify-center hover:from-indigo-400 hover:to-purple-400 transition-all"
+                title="Settings"
+              >
+                <Settings size={18} className="text-white" />
+              </button>
+
+              {/* Settings Dropdown Menu */}
+              {isSettingsMenuOpen && (
+                <>
+                  {/* Backdrop to close menu when clicking outside */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsSettingsMenuOpen(false)}
+                  />
+
+                  <div className="absolute right-0 top-12 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Switch Role</p>
+                    </div>
+
+                    {/* Role Options */}
+                    <div className="p-2">
+                      {/* Resident Role */}
+                      <RoleMenuItem
+                        label="RESIDENT DASHBOARD"
+                        icon={<LayoutDashboard size={18} />}
+                        isAvailable={profile.roles?.includes(UserRole.Trainee) || !profile.roles?.length}
+                        isActive={currentRole === UserRole.Trainee}
+                        onClick={() => {
+                          setCurrentRole(UserRole.Trainee);
+                          setViewingTraineeId(null);
+                          setCurrentView(View.Dashboard);
+                          setIsSettingsMenuOpen(false);
+                        }}
+                      />
+
+                      {/* Supervisor Role */}
+                      <RoleMenuItem
+                        label="Supervisor Dashboard"
+                        icon={<Users size={18} />}
+                        isAvailable={profile.roles?.includes(UserRole.Supervisor) || profile.roles?.includes(UserRole.EducationalSupervisor)}
+                        isActive={currentRole === UserRole.Supervisor || currentRole === UserRole.EducationalSupervisor}
+                        onClick={() => {
+                          if (profile.roles?.includes(UserRole.Supervisor) || profile.roles?.includes(UserRole.EducationalSupervisor)) {
+                            setCurrentRole(UserRole.Supervisor);
+                            setViewingTraineeId(null);
+                            setCurrentView(View.SupervisorDashboard);
+                            setIsSettingsMenuOpen(false);
+                          }
+                        }}
+                      />
+
+                      {/* ARCP Panel Role */}
+                      <RoleMenuItem
+                        label="ARCP Panel Dashboard"
+                        icon={<ClipboardCheck size={18} />}
+                        isAvailable={profile.roles?.includes(UserRole.ARCPPanelMember)}
+                        isActive={currentView === View.ARCPPanelDashboard && currentRole !== UserRole.ARCPSuperuser}
+                        onClick={() => {
+                          if (profile.roles?.includes(UserRole.ARCPPanelMember)) {
+                            setCurrentRole(UserRole.ARCPPanelMember);
+                            setViewingTraineeId(null);
+                            setCurrentView(View.ARCPPanelDashboard);
+                            setIsSettingsMenuOpen(false);
+                          }
+                        }}
+                      />
+
+                      {/* ARCP Superuser Role */}
+                      <RoleMenuItem
+                        label="ARCP Superuser Dashboard"
+                        icon={<Activity size={18} />}
+                        isAvailable={profile.roles?.includes(UserRole.ARCPSuperuser)}
+                        isActive={currentRole === UserRole.ARCPSuperuser}
+                        onClick={() => {
+                          if (profile.roles?.includes(UserRole.ARCPSuperuser)) {
+                            setCurrentRole(UserRole.ARCPSuperuser);
+                            setViewingTraineeId(null);
+                            setCurrentView(View.ARCPPanelDashboard); // Same dashboard but with more permissions
+                            setIsSettingsMenuOpen(false);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-slate-200"></div>
+
+                    {/* Logout Button */}
+                    <div className="p-2">
+                      <button
+                        onClick={async () => {
+                          setIsSettingsMenuOpen(false);
+                          await supabase?.auth.signOut();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        <LogOut size={18} />
+                        <span className="font-medium text-sm">Log Out</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </nav>
@@ -2522,6 +2731,39 @@ const NavTab: React.FC<{ active: boolean; label: string; icon: React.ReactNode; 
   >
     <span className={`${active ? 'opacity-100' : 'opacity-40'}`}>{icon}</span>
     {label}
+  </button>
+);
+
+const RoleMenuItem: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  isAvailable: boolean;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ label, icon, isAvailable, isActive, onClick }) => (
+  <button
+    onClick={isAvailable ? onClick : undefined}
+    disabled={!isAvailable}
+    className={`
+      w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors
+      ${isActive
+        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+        : isAvailable
+          ? 'text-slate-700 hover:bg-slate-50'
+          : 'text-slate-400 cursor-not-allowed opacity-60'
+      }
+    `}
+  >
+    <span className={isActive ? 'text-indigo-600' : isAvailable ? 'text-slate-500' : 'text-slate-300'}>
+      {icon}
+    </span>
+    <span className="flex-1 font-medium text-sm">{label}</span>
+    {!isAvailable && (
+      <Lock size={14} className="text-slate-400" />
+    )}
+    {isActive && (
+      <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+    )}
   </button>
 );
 

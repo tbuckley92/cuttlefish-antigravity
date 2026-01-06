@@ -20,6 +20,7 @@ interface MyEvidenceProps {
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
   onEditEvidence?: (item: EvidenceItem) => void;
+  onViewItem?: (item: EvidenceItem) => void;
   onDeleteEvidence?: (id: string) => void;
   maxSelection?: number;
   isSupervisorView?: boolean;
@@ -51,6 +52,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   onConfirmSelection,
   onCancel,
   onEditEvidence,
+  onViewItem,
   onDeleteEvidence,
   maxSelection = Infinity,
   isSupervisorView = false,
@@ -411,7 +413,16 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                 return (
                   <tr
                     key={item.id}
-                    onClick={() => selectionMode ? toggleSelection(item.id) : onEditEvidence?.(item)}
+                    onClick={() => {
+                      if (selectionMode) {
+                        toggleSelection(item.id);
+                      } else if (onEditEvidence) {
+                        onEditEvidence(item);
+                      } else if (onViewItem) {
+                        onViewItem(item);
+                      }
+                    }}
+
                     className={`
                     group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer
                     ${selectionMode && isSelected ? 'bg-teal-500/5 dark:bg-teal-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'}

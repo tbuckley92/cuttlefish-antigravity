@@ -18,6 +18,8 @@ interface EyeLogbookProps {
   userId?: string;
   deanery?: string;
   onEvidenceCreated?: (evidenceId: string) => void;
+  onBack?: () => void;
+  initialTab?: string;
 }
 // Updated data model for all procedures
 interface LogbookEntry {
@@ -129,7 +131,7 @@ type TabType = 'logbook' | 'esr-grid' | 'procedure-stats';
 
 const ITEMS_PER_PAGE = 20;
 
-const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCreated }) => {
+const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCreated, onBack, initialTab }) => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -153,6 +155,7 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
     return saved || '';
   });
   const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (initialTab && initialTab !== 'complications') return initialTab as TabType;
     const saved = localStorage.getItem('eyePortfolio_eyelogbook_activeTab');
     return (saved as TabType) || 'logbook';
   });
@@ -168,7 +171,9 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
   const [procedureFilter, setProcedureFilter] = useState<string>('all');
 
   // Complication Log state
-  const [showComplicationLog, setShowComplicationLog] = useState(false);
+  const [showComplicationLog, setShowComplicationLog] = useState<boolean>(() => {
+    return initialTab === 'complications';
+  });
   const [complicationCases, setComplicationCases] = useState<ComplicationCase[]>([]);
   const [isAddingCase, setIsAddingCase] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
@@ -1371,6 +1376,14 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
     <div className="max-w-7xl mx-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="mb-8">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-4"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">

@@ -40,7 +40,8 @@ export const ProfileSetup: React.FC<{
   email: string;
   initial?: Partial<ProfileSetupValues>;
   onComplete: () => void;
-}> = ({ email, initial, onComplete }) => {
+  onLogout?: () => void;
+}> = ({ email, initial, onComplete, onLogout }) => {
   const [values, setValues] = useState<ProfileSetupValues>({ ...defaultValues, ...initial });
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +78,34 @@ export const ProfileSetup: React.FC<{
       if (userErr) throw userErr;
       const user = userData.user;
       if (!user) throw new Error('No authenticated user.');
+
+      // Check for duplicate GMC number
+      const { data: existingGmc } = await supabase
+        .from('user_profile')
+        .select('user_id')
+        .eq('gmc_number', values.gmc_number.trim())
+        .neq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingGmc) {
+        setError('A user with this GMC number already exists.');
+        setIsBusy(false);
+        return;
+      }
+
+      // Check for duplicate RCOphth number
+      const { data: existingRcophth } = await supabase
+        .from('user_profile')
+        .select('user_id')
+        .eq('rcophth_number', values.rcophth_number.trim())
+        .neq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingRcophth) {
+        setError('A user with this RCOphth number already exists.');
+        setIsBusy(false);
+        return;
+      }
 
       // Upsert profile row. This assumes `public.user_profile` exists.
       const payload = {
@@ -126,6 +155,18 @@ export const ProfileSetup: React.FC<{
           {error && (
             <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 text-sm">
               {error}
+            </div>
+          )}
+
+          {onLogout && (
+            <div className="mb-6 text-center">
+              <button
+                type="button"
+                onClick={onLogout}
+                className="text-sm text-indigo-600 hover:text-indigo-500 underline underline-offset-2"
+              >
+                ← Back to Login
+              </button>
             </div>
           )}
 
@@ -253,11 +294,10 @@ const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean)
   <button
     type="button"
     onClick={() => onChange(!checked)}
-    className={`p-4 rounded-2xl border text-left transition-all ${
-      checked
+    className={`p-4 rounded-2xl border text-left transition-all ${checked
         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-    }`}
+      }`}
   >
     <div className="flex items-center justify-between">
       <span className="text-sm font-semibold">{label}</span>

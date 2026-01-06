@@ -45,6 +45,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   const [localTootDays, setLocalTootDays] = useState(arcpPrepData?.toot_days || 0);
   const [localLastArcpDate, setLocalLastArcpDate] = useState(arcpPrepData?.last_arcp_date || '');
   const [localLastArcpType, setLocalLastArcpType] = useState(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
+  const [localNoMsfPlanned, setLocalNoMsfPlanned] = useState(arcpPrepData?.no_msf_planned || false);
 
   // Save timestamps
   const [lastManualSave, setLastManualSave] = useState<Date | null>(null);
@@ -59,6 +60,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     setLocalTootDays(arcpPrepData?.toot_days || 0);
     setLocalLastArcpDate(arcpPrepData?.last_arcp_date || '');
     setLocalLastArcpType(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
+    setLocalNoMsfPlanned(arcpPrepData?.no_msf_planned || false);
   }, [arcpPrepData]);
 
   // Autosave every 15 seconds
@@ -69,6 +71,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
         toot_days: localTootDays,
         last_arcp_date: localLastArcpDate,
         last_arcp_type: localLastArcpType,
+        no_msf_planned: localNoMsfPlanned,
         status: 'SAVED'
       };
 
@@ -77,7 +80,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     }, 15000); // 15 seconds
 
     return () => clearInterval(autosaveInterval);
-  }, [localTootDays, localLastArcpDate, localLastArcpType, onUpdateARCPPrep]);
+  }, [localTootDays, localLastArcpDate, localLastArcpType, localNoMsfPlanned, onUpdateARCPPrep]);
 
   // Form R State
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
@@ -120,6 +123,15 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   }, [allEvidence, arcpPrepData]);
 
   const existingFormR = formRItems[0] || null;
+
+  // Get Last ARCP evidence from last_arcp_evidence array
+  const lastArcpEvidence = useMemo(() => {
+    const linkedIds = arcpPrepData?.last_arcp_evidence || [];
+    if (linkedIds.length > 0) {
+      return allEvidence.filter(e => linkedIds.includes(e.id));
+    }
+    return [];
+  }, [allEvidence, arcpPrepData]);
 
   const eyeLogbookLastUpdated = useMemo(() => {
     const log = allEvidence.find(e => e.type === EvidenceType.Logbook);
@@ -182,6 +194,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
       toot_days: localTootDays,
       last_arcp_date: localLastArcpDate,
       last_arcp_type: localLastArcpType,
+      no_msf_planned: localNoMsfPlanned,
       status: 'SAVED'
     };
 
@@ -240,6 +253,12 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
 
     // Setting to null means use defaults
     onUpdateARCPPrep({ [fieldMap[target]]: null });
+  };
+
+  // Remove Last ARCP Evidence link
+  const handleRemoveLastArcpEvidence = (idToRemove: string) => {
+    const currentLinks = arcpPrepData?.last_arcp_evidence || [];
+    onUpdateARCPPrep({ last_arcp_evidence: currentLinks.filter(id => id !== idToRemove) });
   };
 
   // Form R Handlers
@@ -487,11 +506,11 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
             </GlassCard>
           </section>
 
-          {/* Review Details */}
+          {/* ARCP Details */}
           <section>
             <div className="flex items-center gap-2 mb-2">
               <Calendar size={16} className="text-purple-600" />
-              <h2 className="text-sm font-bold text-slate-900">Review Details</h2>
+              <h2 className="text-sm font-bold text-slate-900">ARCP Details</h2>
             </div>
 
             <GlassCard className="p-3 space-y-3">
@@ -509,7 +528,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
               {/* Last ARCP - Editable, stored in arcp_prep */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Last Date</label>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Date of Last ARCP Review</label>
                   <input
                     type="date"
                     value={localLastArcpDate}
@@ -518,7 +537,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Last Type</label>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Interim Review or Full ARCP?</label>
                   <select
                     value={localLastArcpType}
                     onChange={handleLastARCPTypeChange}
@@ -528,6 +547,53 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                     <option value={ARCPReviewType.InterimReview}>Interim</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="h-px bg-slate-100"></div>
+
+              {/* Last ARCP Evidence Linking */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Last ARCP</label>
+                  <button
+                    onClick={() => {
+                      if (!onLinkRequested) return;
+                      const existingIds = lastArcpEvidence.map(e => e.id);
+                      onLinkRequested('ARCP_PREP_LAST_ARCP', existingIds);
+                    }}
+                    className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+                  >
+                    <LinkIcon size={10} /> Link
+                  </button>
+                </div>
+
+                {/* Linked Last ARCP Evidence Items */}
+                {lastArcpEvidence.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {lastArcpEvidence.map(item => (
+                      <div key={item.id} className="p-2 bg-slate-50 rounded-lg flex justify-between items-center group">
+                        <div className="cursor-pointer flex-1" onClick={() => onEditEvidence?.(item)}>
+                          <p className="text-[10px] font-bold text-slate-700 truncate">{item.title}</p>
+                          <p className="text-[9px] text-slate-400">{item.date}</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLastArcpEvidence(item.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-500 transition-opacity"
+                          title="Remove link"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-3 text-slate-400 text-[10px]">
+                    No items
+                  </div>
+                )}
               </div>
             </GlassCard>
           </section>
@@ -574,6 +640,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
             onRemoveCurrent={(id) => handleRemoveEvidence('current', 'msf', id)}
             onResetCurrent={() => handleResetToDefaults('msf')}
             onViewItem={onEditEvidence}
+            currentCheckboxLabel="No MSF planned for this review"
+            currentCheckboxChecked={localNoMsfPlanned}
+            onCurrentCheckboxChange={setLocalNoMsfPlanned}
           />
 
           <EvidenceSection
@@ -756,7 +825,11 @@ const EvidenceSection: React.FC<{
   onRemoveCurrent: (id: string) => void;
   onResetCurrent: () => void;
   onViewItem?: (item: EvidenceItem) => void;
-}> = ({ title, lastItems, currentItems, isCurrentDefault, onLinkLast, onLinkCurrent, onRemoveLast, onRemoveCurrent, onResetCurrent, onViewItem }) => {
+  // Optional checkbox for Current section
+  currentCheckboxLabel?: string;
+  currentCheckboxChecked?: boolean;
+  onCurrentCheckboxChange?: (checked: boolean) => void;
+}> = ({ title, lastItems, currentItems, isCurrentDefault, onLinkLast, onLinkCurrent, onRemoveLast, onRemoveCurrent, onResetCurrent, onViewItem, currentCheckboxLabel, currentCheckboxChecked, onCurrentCheckboxChange }) => {
 
   const getIcon = () => {
     switch (title) {
@@ -860,6 +933,21 @@ const EvidenceSection: React.FC<{
               </div>
             )}
           </div>
+
+          {/* Optional checkbox */}
+          {currentCheckboxLabel && onCurrentCheckboxChange && (
+            <label className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={currentCheckboxChecked || false}
+                onChange={(e) => onCurrentCheckboxChange(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-[10px] text-slate-600 group-hover:text-slate-900">
+                {currentCheckboxLabel}
+              </span>
+            </label>
+          )}
         </GlassCard>
       </div>
     </section>

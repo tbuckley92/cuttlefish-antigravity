@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '../components/GlassCard';
-import { 
-  ArrowLeft, FileText, Database, Award, BookOpen, AlertCircle, 
+import {
+  ArrowLeft, FileText, Database, Award, BookOpen, AlertCircle,
   Search, Users, ClipboardCheck, Plus, CheckCircle2,
   UploadCloud, Save, ChevronRight, X, Heart, Trash2, Clock, ShieldCheck
 } from '../components/Icons';
@@ -29,6 +29,10 @@ const evidenceTypes = [
   { id: 'Logbook', label: 'Eye Logbook', icon: <ClipboardCheck size={18} />, description: 'Surgical procedure entries' },
   { id: 'Additional', label: 'Additional evidence', icon: <Plus size={18} />, description: 'Any other portfolio content' },
   { id: 'Compliment', label: 'Compliments', icon: <Heart size={18} />, description: 'Patient or peer feedback' },
+  { id: 'MSF', label: 'MSF', icon: <Users size={18} />, description: 'Multi-Source Feedback' },
+  { id: 'CurriculumCatchUp', label: 'Curriculum Catch Up', icon: <BookOpen size={18} />, description: 'Legacy curriculum evidence' },
+  { id: 'FourteenFish', label: 'FourteenFish', icon: <Database size={18} />, description: 'Imported FourteenFish data' },
+  { id: 'FormR', label: 'Form R', icon: <FileText size={18} />, description: 'Form R submission' },
 ];
 
 const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, editingEvidence, onBack, onCreated }) => {
@@ -37,11 +41,20 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
 
   const [selectedType, setSelectedType] = useState<string | null>(() => {
     if (editingEvidence) {
-      return evidenceTypes.find(t => t.label === editingEvidence.type)?.id || null;
+      // Direct match first
+      let match = evidenceTypes.find(t => t.label === editingEvidence.type || t.id === editingEvidence.type);
+
+      // Fallback for types that might not match exactly or are legacy
+      if (!match) {
+        if (editingEvidence.type === 'EPA Operating List') match = evidenceTypes.find(t => t.id === 'Logbook');
+        // If still no match, default to Additional
+        else match = evidenceTypes.find(t => t.id === 'Additional');
+      }
+      return match?.id || null;
     }
     return initialType || null;
   });
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields
@@ -78,24 +91,24 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
       alert('Please enter a title for the evidence.');
       return;
     }
-    
+
     if (!date) {
       alert('Please select a date for the evidence.');
       return;
     }
-    
+
     if (isLocked) {
       return;
     }
-    
+
     const typeLabel = evidenceTypes.find(t => t.id === selectedType)?.label as EvidenceType;
-    
+
     // Ensure we have a valid type
     if (!typeLabel && !selectedType) {
       alert('Please select an evidence type.');
       return;
     }
-    
+
     const evidenceItem = {
       // Only include id if we're editing, otherwise let it be generated
       ...(editingEvidence?.id && { id: editingEvidence.id }),
@@ -110,9 +123,9 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
       fileType: fileName ? 'application/pdf' : undefined,
       status: final ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
     };
-    
+
     console.log('AddEvidence: Creating evidence:', evidenceItem); // Debug log
-    
+
     onCreated(evidenceItem);
   };
 
@@ -148,8 +161,8 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
         <div className={`lg:col-span-4 space-y-3 ${selectedType ? 'hidden lg:block' : 'block'} lg:max-h-[80vh] lg:overflow-y-auto lg:pr-2 no-scrollbar ${(editingEvidence || isLocked) ? 'opacity-50 pointer-events-none' : ''}`}>
           <h2 className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-4 ml-1">Select Evidence Type</h2>
           {evidenceTypes.map((type) => (
-            <GlassCard 
-              key={type.id} 
+            <GlassCard
+              key={type.id}
               onClick={() => setSelectedType(type.id)}
               className={`p-4 flex items-center gap-4 group transition-all ${selectedType === type.id ? 'bg-indigo-600/10 border-indigo-500/50' : ''}`}
             >
@@ -190,7 +203,7 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">Training Level</label>
                     <select disabled={isLocked} value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value)} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 text-sm outline-none">
-                      {["1","2","3","4","N/A"].map(l => <option key={l} value={l}>Level {l}</option>)}
+                      {["1", "2", "3", "4", "N/A"].map(l => <option key={l} value={l}>Level {l}</option>)}
                     </select>
                   </div>
                   <div className="md:col-span-2">
@@ -205,28 +218,32 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
                 <div className="pt-4 md:pt-6 border-t border-slate-100 dark:border-white/10">
                   <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-1 md:mb-2 block">File Attachment (PDF Only)</label>
                   {!fileName ? (
-                    <div 
+                    <div
                       onClick={() => !isLocked && fileInputRef.current?.click()}
                       className={`group relative h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${isLocked ? 'border-slate-100 bg-slate-50/50 cursor-default' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer'}`}
                     >
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         ref={fileInputRef}
                         accept=".pdf"
                         onChange={handleFileChange}
-                        className="hidden" 
+                        className="hidden"
                       />
                       <UploadCloud size={24} className={`mb-2 transition-colors ${isLocked ? 'text-slate-300' : 'text-slate-400 dark:text-white/20 group-hover:text-indigo-500'}`} />
                       <p className={`text-xs font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400 dark:text-white/30 group-hover:text-indigo-600'}`}>Click or drag PDF to upload</p>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-500/20">
-                      <div className="flex items-center gap-3">
+                      <div
+                        className={`flex items-center gap-3 ${fileUrl ? 'cursor-pointer hover:opacity-70 transition-opacity' : ''}`}
+                        onClick={() => fileUrl && window.open(fileUrl, '_blank')}
+                        title={fileUrl ? "Click to view PDF" : undefined}
+                      >
                         <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
                           <FileText size={20} />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">{fileName}</p>
+                          <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-300 underline decoration-indigo-500/30 underline-offset-2">{fileName}</p>
                           <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">PDF Document</p>
                         </div>
                       </div>
@@ -246,21 +263,21 @@ const AddEvidence: React.FC<AddEvidenceProps> = ({ sia, level, initialType, edit
 
                 {!isLocked && (
                   <div className="pt-4 md:pt-6 flex justify-end gap-2 md:gap-3">
-                    <button 
-                      onClick={() => handleSave(false)} 
+                    <button
+                      onClick={() => handleSave(false)}
                       className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all flex items-center gap-2"
                     >
                       <Save size={16} /> Save Draft
                     </button>
-                    <button 
-                      onClick={() => handleSave(true)} 
+                    <button
+                      onClick={() => handleSave(true)}
                       className="px-8 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg hover:bg-indigo-500 transition-all flex items-center gap-2"
                     >
                       <CheckCircle2 size={16} /> Create Evidence
                     </button>
                   </div>
                 )}
-                
+
                 {isLocked && (
                   <div className="pt-4 md:pt-6 flex justify-center">
                     <button onClick={onBack} className="px-8 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 text-sm font-semibold">Close View</button>

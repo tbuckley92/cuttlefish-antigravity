@@ -196,8 +196,14 @@ export interface ARCPPrepData {
   last_arcp_date?: string;
   last_arcp_type?: string; // 'Full ARCP' or 'Interim Review'
 
+  // MSF planning for current review
+  no_msf_planned?: boolean;
+
   // Form R linked evidence (array for consistency with other evidence types)
   linked_form_r: string[];
+
+  // Last ARCP general evidence (any evidence linked to last ARCP)
+  last_arcp_evidence?: string[];
 
   // Last ARCP linked evidence (manually linked by user)
   last_evidence_epas: string[];
