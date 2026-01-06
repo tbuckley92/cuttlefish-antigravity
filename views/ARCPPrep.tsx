@@ -2,855 +2,847 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
-  Clock, AlertCircle, FileText, BookOpen, Users,
-  ClipboardCheck, Activity, Trash2, X, Info, ExternalLink, ShieldCheck,
-  UploadCloud, Calendar, Save, Eye
+  ArrowLeft, ChevronRight, CheckCircle2,
+  Clock, FileText, BookOpen, Users,
+  ClipboardCheck, Activity, X,
+  UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
-import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile } from '../types';
+import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile, ARCPPrepData, ARCPReviewType, PDPGoal } from '../types';
 
 interface ARCPPrepProps {
   sias: SIA[];
   allEvidence: EvidenceItem[];
   profile: UserProfile;
+  arcpPrepData?: ARCPPrepData;
   onBack: () => void;
   onNavigateGSAT: () => void;
   onNavigateMSF: () => void;
   onUpsertEvidence: (item: Partial<EvidenceItem>) => void;
+  onUpdateProfile: (profile: UserProfile) => void;
+  onUpdateARCPPrep: (data: Partial<ARCPPrepData>) => void;
+  onNavigateEyeLogbook: () => void;
+  onEditEvidence?: (item: EvidenceItem) => void;
+  onLinkRequested?: (reqKey: string, existingIds: string[]) => void;
 }
 
-const ARCPPrep: React.FC<ARCPPrepProps> = ({ sias, allEvidence, profile, onBack, onNavigateGSAT, onNavigateMSF, onUpsertEvidence }) => {
-  const [step, setStep] = useState(1);
-  const totalSteps = 5;
+const ARCPPrep: React.FC<ARCPPrepProps> = ({
+  sias,
+  allEvidence,
+  profile,
+  arcpPrepData,
+  onBack,
+  onNavigateGSAT,
+  onNavigateMSF,
+  onUpsertEvidence,
+  onUpdateProfile,
+  onUpdateARCPPrep,
+  onNavigateEyeLogbook,
+  onEditEvidence,
+  onLinkRequested
+}) => {
+  // Local state for editing
+  const [localTootDays, setLocalTootDays] = useState(arcpPrepData?.toot_days || 0);
+  const [localLastArcpDate, setLocalLastArcpDate] = useState(arcpPrepData?.last_arcp_date || '');
+  const [localLastArcpType, setLocalLastArcpType] = useState(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Track the ID of the persistent ARCP Prep evidence item
-  const existingPrepRecord = useMemo(() =>
-    allEvidence.find(e => e.type === EvidenceType.ARCPPrep),
-    [allEvidence]
-  );
+  // PDP Modal State
+  const [isPDPModalOpen, setIsPDPModalOpen] = useState(false);
+  const [tempPDPGoals, setTempPDPGoals] = useState<PDPGoal[]>([]);
 
-  const [prepId] = useState(existingPrepRecord?.id || uuidv4());
-  const [lastSaved, setLastSaved] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
+  // Update local state when props change
+  useEffect(() => {
+    setLocalTootDays(arcpPrepData?.toot_days || 0);
+    setLocalLastArcpDate(arcpPrepData?.last_arcp_date || '');
+    setLocalLastArcpType(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
+  }, [arcpPrepData]);
 
-  // Dialog State for Form R
+  // Form R State
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
   const [formRDate, setFormRDate] = useState(new Date().toISOString().split('T')[0]);
   const [formRFileName, setFormRFileName] = useState('');
   const [formRFileUrl, setFormRFileUrl] = useState('');
+  const [formRFile, setFormRFile] = useState<File | null>(null);
   const formRFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Dialog State for Eyelogbook
-  const [isLogbookDialogOpen, setIsLogbookDialogOpen] = useState(false);
-  const [logbookDate, setLogbookDate] = useState(new Date().toISOString().split('T')[0]);
-  const [logbookFileName, setLogbookFileName] = useState('');
-  const [logbookFileUrl, setLogbookFileUrl] = useState('');
-  const logbookFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Dialog State for PDP
-  const [isPDPDialogOpen, setIsPDPDialogOpen] = useState(false);
-
-  const saveStatus = (status: EvidenceStatus = EvidenceStatus.Draft) => {
-    setIsSaving(true);
-    onUpsertEvidence({
-      id: prepId,
-      title: "ARCP Portfolio Compilation",
-      type: EvidenceType.ARCPPrep,
-      status: status,
-      date: new Date().toISOString().split('T')[0],
-      notes: `User reached step ${step} of ${totalSteps}.`
-    });
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }, 600);
-  };
-
-  // Auto-save every 15 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      saveStatus(EvidenceStatus.Draft);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [step]);
-
-  const handleBack = () => {
-    saveStatus(EvidenceStatus.Draft);
-    onBack();
-  };
-
-  const handleFinish = () => {
-    saveStatus(EvidenceStatus.SignedOff);
-    onBack();
-  };
-
-  const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
-  const prevStep = () => setStep(s => Math.max(s - 1, 1));
-
-  // Find existing artifacts in allEvidence
-  const existingFormR = useMemo(() =>
-    allEvidence.find(e => e.title.toLowerCase().includes("form r")),
+  // Computed defaults for Current ARCP
+  const defaultCurrentEPAs = useMemo(() =>
+    allEvidence.filter(e => e.type === EvidenceType.EPA && e.status === EvidenceStatus.SignedOff).map(e => e.id),
     [allEvidence]
   );
 
-  const existingLogbook = useMemo(() =>
-    allEvidence.find(e => e.type === EvidenceType.Logbook),
-    [allEvidence]
-  );
+  const defaultCurrentGSAT = useMemo(() => {
+    const gsats = allEvidence.filter(e => e.type === EvidenceType.GSAT && e.status === EvidenceStatus.SignedOff);
+    const sorted = gsats.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return sorted.length > 0 ? [sorted[0].id] : [];
+  }, [allEvidence]);
 
-  // Dynamic Artifact Statuses for Part 1
-  const artifactStatuses = useMemo(() => {
-    const isComplete = (type?: EvidenceType, titleSearch?: string) => {
-      return allEvidence.some(e =>
-        (type && e.type === type && e.status === EvidenceStatus.SignedOff) ||
-        (titleSearch && e.title.toLowerCase().includes(titleSearch.toLowerCase()) && e.status === EvidenceStatus.SignedOff)
-      );
-    };
+  const defaultCurrentMSF = useMemo(() => {
+    const msfs = allEvidence.filter(e => e.type === EvidenceType.MSF && e.status === EvidenceStatus.SignedOff);
+    const sorted = msfs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return sorted.length > 0 ? [sorted[0].id] : [];
+  }, [allEvidence]);
 
-    // Check if PDP goals exist in profile
-    const hasPDPGoals = profile.pdpGoals && profile.pdpGoals.length > 0;
+  const defaultCurrentESR = useMemo(() => {
+    // ESR not implemented yet, return empty
+    return [];
+  }, [allEvidence]);
 
-    return {
-      formR: isComplete(undefined, "Form R") ? "COMPLETE" : "Action Required",
-      eyeLogbook: isComplete(EvidenceType.Logbook) ? "COMPLETE" : "Action Required",
-      pdp: hasPDPGoals ? "COMPLETE" : "Pending"
-    };
-  }, [allEvidence, profile.pdpGoals]);
+  // Get Form R evidence from linked_form_r array
+  const formRItems = useMemo(() => {
+    const linkedIds = arcpPrepData?.linked_form_r || [];
+    if (linkedIds.length > 0) {
+      return allEvidence.filter(e => linkedIds.includes(e.id));
+    }
+    return [];
+  }, [allEvidence, arcpPrepData]);
 
-  // Handlers for Form R
-  const handleOpenFormR = () => {
-    if (existingFormR) {
-      setFormRDate(existingFormR.date);
-      setFormRFileName(existingFormR.fileName || '');
-      setFormRFileUrl(existingFormR.fileUrl || '');
+  const existingFormR = formRItems[0] || null;
+
+  const eyeLogbookLastUpdated = useMemo(() => {
+    const log = allEvidence.find(e => e.type === EvidenceType.Logbook);
+    return log?.date;
+  }, [allEvidence]);
+
+  const pdpStatus = profile.pdpGoals?.length > 0
+    ? (profile.pdpGoals.every(g => g.status === 'COMPLETE') ? 'Completed' : 'Active')
+    : 'Not Started';
+
+  // Get items for a section (Last or Current)
+  const getItems = (section: 'last' | 'current', target: 'epas' | 'gsat' | 'msf' | 'esr'): EvidenceItem[] => {
+    if (section === 'last') {
+      const fieldMap = {
+        'epas': 'last_evidence_epas',
+        'gsat': 'last_evidence_gsat',
+        'msf': 'last_evidence_msf',
+        'esr': 'last_evidence_esr'
+      } as const;
+      const ids = arcpPrepData?.[fieldMap[target]] || [];
+      return allEvidence.filter(e => ids.includes(e.id));
     } else {
-      setFormRDate(new Date().toISOString().split('T')[0]);
-      setFormRFileName('');
-      setFormRFileUrl('');
-    }
-    setIsFormRDialogOpen(true);
-  };
+      // Current: use customized if set, otherwise defaults
+      const fieldMap = {
+        'epas': 'current_evidence_epas',
+        'gsat': 'current_evidence_gsat',
+        'msf': 'current_evidence_msf',
+        'esr': 'current_evidence_esr'
+      } as const;
+      const customIds = arcpPrepData?.[fieldMap[target]];
 
-  const handleFormRSubmit = () => {
-    if (!formRDate || !formRFileName) {
-      alert("Please select a date and upload a PDF.");
-      return;
-    }
-    onUpsertEvidence({
-      id: existingFormR?.id,
-      title: "Form R",
-      type: EvidenceType.Additional,
-      date: formRDate,
-      fileName: formRFileName,
-      fileUrl: formRFileUrl,
-      fileType: 'application/pdf',
-      status: EvidenceStatus.SignedOff
-    });
-    setIsFormRDialogOpen(false);
-  };
-
-  const handleViewPDF = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const url = formRFileUrl || existingFormR?.fileUrl;
-    if (url) {
-      window.open(url, '_blank');
-    } else {
-      const fileName = formRFileName || existingFormR?.fileName;
-      if (fileName) alert(`Opening document: ${fileName}\n(This file exists but no object URL was generated in this session)`);
+      let ids: string[];
+      if (customIds === null || customIds === undefined) {
+        // Use defaults
+        ids = target === 'epas' ? defaultCurrentEPAs :
+          target === 'gsat' ? defaultCurrentGSAT :
+            target === 'msf' ? defaultCurrentMSF : defaultCurrentESR;
+      } else {
+        ids = customIds;
+      }
+      return allEvidence.filter(e => ids.includes(e.id));
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'formr' | 'logbook') => {
+  // Check if current section is using defaults
+  const isUsingDefaults = (target: 'epas' | 'gsat' | 'msf' | 'esr'): boolean => {
+    const fieldMap = {
+      'epas': 'current_evidence_epas',
+      'gsat': 'current_evidence_gsat',
+      'msf': 'current_evidence_msf',
+      'esr': 'current_evidence_esr'
+    } as const;
+    const customIds = arcpPrepData?.[fieldMap[target]];
+    return customIds === null || customIds === undefined;
+  };
+
+  // Handlers
+  const handleSaveAll = () => {
+    const updates: Partial<ARCPPrepData> = {};
+
+    if (localTootDays !== arcpPrepData?.toot_days) {
+      updates.toot_days = localTootDays;
+    }
+    if (localLastArcpDate !== arcpPrepData?.last_arcp_date) {
+      updates.last_arcp_date = localLastArcpDate;
+    }
+    if (localLastArcpType !== arcpPrepData?.last_arcp_type) {
+      updates.last_arcp_type = localLastArcpType;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      onUpdateARCPPrep(updates);
+    }
+    setHasUnsavedChanges(false);
+  };
+
+  const handleTOOTChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value) || 0;
+    setLocalTootDays(val);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleLastARCPDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalLastArcpDate(e.target.value);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleLastARCPTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLocalLastArcpType(e.target.value);
+    setHasUnsavedChanges(true);
+  };
+
+  // Link Evidence
+  const handleLinkEvidence = (section: 'last' | 'current', target: 'epas' | 'gsat' | 'msf' | 'esr') => {
+    if (!onLinkRequested) return;
+
+    const items = getItems(section, target);
+    const existingIds = items.map(e => e.id);
+    const reqKey = `ARCP_PREP_${section.toUpperCase()}_${target.toUpperCase()}`;
+
+    onLinkRequested(reqKey, existingIds);
+  };
+
+  // Remove Evidence
+  const handleRemoveEvidence = (section: 'last' | 'current', target: 'epas' | 'gsat' | 'msf' | 'esr', idToRemove: string) => {
+    const fieldPrefix = section === 'last' ? 'last_evidence' : 'current_evidence';
+    const fieldMap = {
+      'epas': `${fieldPrefix}_epas`,
+      'gsat': `${fieldPrefix}_gsat`,
+      'msf': `${fieldPrefix}_msf`,
+      'esr': `${fieldPrefix}_esr`
+    } as const;
+
+    const currentItems = getItems(section, target);
+    const newIds = currentItems.filter(e => e.id !== idToRemove).map(e => e.id);
+
+    onUpdateARCPPrep({ [fieldMap[target]]: newIds });
+  };
+
+  // Reset Current to defaults
+  const handleResetToDefaults = (target: 'epas' | 'gsat' | 'msf' | 'esr') => {
+    const fieldMap = {
+      'epas': 'current_evidence_epas',
+      'gsat': 'current_evidence_gsat',
+      'msf': 'current_evidence_msf',
+      'esr': 'current_evidence_esr'
+    } as const;
+
+    // Setting to null means use defaults
+    onUpdateARCPPrep({ [fieldMap[target]]: null });
+  };
+
+  // Form R Handlers
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') {
         alert('Please upload a PDF file.');
         return;
       }
-      const objectUrl = URL.createObjectURL(file);
-      if (type === 'formr') {
-        setFormRFileName(file.name);
-        setFormRFileUrl(objectUrl);
-      } else {
-        setLogbookFileName(file.name);
-        setLogbookFileUrl(objectUrl);
-      }
+      setFormRFileName(file.name);
+      setFormRFileUrl(URL.createObjectURL(file));
+      setFormRFile(file);
     }
   };
 
-  // Handlers for Logbook
-  const handleOpenLogbook = () => {
-    if (existingLogbook) {
-      setLogbookDate(existingLogbook.date);
-      setLogbookFileName(existingLogbook.fileName || '');
-      setLogbookFileUrl(existingLogbook.fileUrl || '');
-    } else {
-      setLogbookDate(new Date().toISOString().split('T')[0]);
-      setLogbookFileName('');
-      setLogbookFileUrl('');
-    }
-    setIsLogbookDialogOpen(true);
-  };
-
-  const handleLogbookSubmit = () => {
-    if (!logbookDate || !logbookFileName) {
-      alert("Please select a date and upload your logbook PDF.");
+  const handleFormRSubmit = () => {
+    if (!formRDate || (!formRFileName && !existingFormR)) {
+      alert("Please select a date and upload a PDF.");
       return;
     }
+
+    const evidenceId = uuidv4();
+
     onUpsertEvidence({
-      id: existingLogbook?.id,
-      title: "Eye Logbook Summary",
-      type: EvidenceType.Logbook,
-      date: logbookDate,
-      fileName: logbookFileName,
-      fileUrl: logbookFileUrl,
-      fileType: 'application/pdf',
+      id: evidenceId,
+      title: "Form R (Part B)",
+      type: EvidenceType.FormR,
+      date: formRDate,
+      fileName: formRFileName,
+      fileUrl: formRFileUrl,
+      // @ts-ignore
+      file: formRFile,
       status: EvidenceStatus.SignedOff
     });
-    setIsLogbookDialogOpen(false);
+
+    // Link Form R to ARCP Prep (add to array)
+    const currentLinks = arcpPrepData?.linked_form_r || [];
+    onUpdateARCPPrep({ linked_form_r: [...currentLinks, evidenceId] });
+
+    // Clear form state
+    setFormRFileName('');
+    setFormRFileUrl('');
+    setFormRFile(null);
+
+    setIsFormRDialogOpen(false);
   };
 
-  const handleViewLogbookPDF = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const url = logbookFileUrl || existingLogbook?.fileUrl;
-    if (url) {
-      window.open(url, '_blank');
-    } else {
-      const fileName = logbookFileName || existingLogbook?.fileName;
-      if (fileName) alert(`Opening document: ${fileName}\n(This file exists but no object URL was generated in this session)`);
-    }
+  // PDP Handlers
+  const handleOpenPDPModal = () => {
+    setTempPDPGoals(profile.pdpGoals || []);
+    setIsPDPModalOpen(true);
   };
 
-  // Handler for PDP dialog
-  const handleOpenPDP = () => {
-    const hasPDPGoals = profile.pdpGoals && profile.pdpGoals.length > 0;
-    if (hasPDPGoals) {
-      setIsPDPDialogOpen(true);
-    }
+  const handleSavePDP = () => {
+    onUpdateProfile({ ...profile, pdpGoals: tempPDPGoals });
+    setIsPDPModalOpen(false);
   };
 
-  // Step 3: GSAT Status
-  const gsatStatus = useMemo(() => {
-    const gsatRecords = allEvidence.filter(e => e.type === EvidenceType.GSAT);
-    if (gsatRecords.length === 0) return 'Not yet started';
-    if (gsatRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'COMPLETE';
-    if (gsatRecords.some(e => e.status === EvidenceStatus.Submitted)) return 'Submitted';
-    if (gsatRecords.some(e => e.status === EvidenceStatus.Draft)) return 'Draft';
-    return 'Not yet started';
-  }, [allEvidence]);
-
-  // Step 4: MSF Status
-  const msfStatus = useMemo(() => {
-    const msfRecords = allEvidence.filter(e => e.type === EvidenceType.MSF);
-    if (msfRecords.length === 0) return 'Not started';
-    if (msfRecords.some(e => e.status === EvidenceStatus.SignedOff)) return 'Completed';
-    return 'In progress';
-  }, [allEvidence]);
-
-  const renderProgress = () => (
-    <div className="flex items-center gap-4 mb-8">
-      <div className="flex-1 h-1.5 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-          style={{ width: `${(step / totalSteps) * 100}%` }}
-        ></div>
-      </div>
-      <div className="flex flex-col items-end">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Part {step} of {totalSteps}
-        </span>
-        {lastSaved && (
-          <span className="text-[8px] font-bold text-teal-600 uppercase tracking-tight">Saved {lastSaved}</span>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderPart1 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Mandatory Artifacts</h2>
-        <p className="text-sm text-slate-500 mt-1">Review core compliance documentation.</p>
-      </div>
-      <div className="grid gap-4">
-        <ArtifactRow
-          icon={<FileText className="text-blue-500" />}
-          title="Form R"
-          description="Self-declaration of professional practice."
-          status={artifactStatuses.formR}
-          onClick={handleOpenFormR}
-          hasFile={!!(formRFileUrl || existingFormR?.fileUrl || formRFileName || existingFormR?.fileName)}
-          onView={handleViewPDF}
-        />
-        <ArtifactRow
-          icon={<ClipboardCheck className="text-teal-500" />}
-          title="Eyelogbook"
-          description="Full surgical logbook summary."
-          status={artifactStatuses.eyeLogbook}
-          onClick={handleOpenLogbook}
-          hasFile={!!(logbookFileUrl || existingLogbook?.fileUrl || logbookFileName || existingLogbook?.fileName)}
-          onView={handleViewLogbookPDF}
-        />
-        <ArtifactRow
-          icon={<Activity className="text-indigo-500" />}
-          title="PDP"
-          description="Personal Development Plan integration (Coming Soon)."
-          status={artifactStatuses.pdp}
-          onClick={handleOpenPDP}
-          isPDP={true}
-        />
-      </div>
-    </div>
-  );
-
-  const renderPart2 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Current EPAs & SIAs</h2>
-        <p className="text-sm text-slate-500 mt-1">Imported from your dashboard with real-time completion states.</p>
-      </div>
-      <div className="grid gap-4">
-        {sias.length > 0 ? sias.map(sia => {
-          // Calculate completion status for this SIA entry - matching Dashboard logic exactly
-          const matchingEpas = allEvidence.filter(e =>
-            e.type === EvidenceType.EPA &&
-            e.level === sia.level &&
-            (sia.level <= 2 ? true : e.sia === sia.specialty)
-          );
-
-          let currentStatus: EvidenceStatus | 'Not Yet Started' = 'Not Yet Started';
-          if (matchingEpas.some(e => e.status === EvidenceStatus.SignedOff)) currentStatus = EvidenceStatus.SignedOff;
-          else if (matchingEpas.some(e => e.status === EvidenceStatus.Submitted)) currentStatus = EvidenceStatus.Submitted;
-          else if (matchingEpas.some(e => e.status === EvidenceStatus.Draft)) currentStatus = EvidenceStatus.Draft;
-
-          return (
-            <div key={sia.id} className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{sia.specialty}</p>
-                  <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Level {sia.level}</p>
-                </div>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
-              </div>
-
-              {/* Status section matching Dashboard display */}
-              <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                  <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
-                    currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
-                      currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
-                        'text-slate-300'
-                    }`}>
-                    {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
-                      currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                        currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
-                    {currentStatus}
-                  </span>
-                </div>
-                <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
-                    currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
-                      currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
-                        'bg-slate-200 w-0'
-                    }`}></div>
-                </div>
-              </div>
-            </div>
-          );
-        }) : (
-          <div className="p-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl flex flex-col items-center text-center">
-            <AlertCircle size={32} className="text-slate-300 mb-3" />
-            <p className="text-sm text-slate-500 font-medium">No active EPAs found on your dashboard.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderPart3 = () => {
-    // Map GSAT status to EvidenceStatus-like format for consistent styling
-    const getStatusDisplay = (status: string): EvidenceStatus | 'Not Yet Started' => {
-      switch (status) {
-        case 'COMPLETE':
-          return EvidenceStatus.SignedOff;
-        case 'Submitted':
-          return EvidenceStatus.Submitted;
-        case 'Draft':
-          return EvidenceStatus.Draft;
-        default:
-          return 'Not Yet Started';
-      }
-    };
-
-    const currentStatus = getStatusDisplay(gsatStatus);
-
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">GSAT Matrix</h2>
-          <p className="text-sm text-slate-500 mt-1">Generic Skills Assessment Tool status.</p>
-        </div>
-        <div className="grid gap-4">
-          <div className="p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">GSAT Matrix</p>
-                <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Generic Skills Assessment Tool</p>
-              </div>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">Active</span>
-            </div>
-
-            {/* Status section matching EPA/SIA display */}
-            <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
-                  currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
-                    currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
-                      'text-slate-300'
-                  }`}>
-                  {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
-                    currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                      currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
-                  {gsatStatus}
-                </span>
-              </div>
-              <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
-                  currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
-                    currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
-                      'bg-slate-200 w-0'
-                  }`}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const handleAddPDPGoal = () => {
+    setTempPDPGoals([...tempPDPGoals, {
+      id: uuidv4(),
+      title: '',
+      actions: '',
+      targetDate: '',
+      successCriteria: '',
+      status: 'IN PROGRESS'
+    }]);
   };
 
-  const renderPart4 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">Multi-Source Feedback</h2>
-        <p className="text-sm text-slate-500 mt-1">MSF completion and respondent mix.</p>
-      </div>
-      <GlassCard className="p-8 flex flex-col items-center text-center">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${msfStatus === 'Completed' ? 'bg-green-100 text-green-600' : msfStatus === 'In progress' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-          <Users size={32} />
-        </div>
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">{msfStatus}</h3>
-        <p className="text-sm text-slate-500 mt-2 max-w-xs">Check that your minimum respondent count and mix has been met for this rotation.</p>
-        <button onClick={onNavigateMSF} className="mt-8 px-6 py-3 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2">
-          {msfStatus === 'Not started' ? 'Launch MSF' : 'Check MSF Progress'} <ChevronRight size={14} />
-        </button>
-      </GlassCard>
-    </div>
-  );
+  const handleDeletePDPGoal = (id: string) => {
+    setTempPDPGoals(tempPDPGoals.filter(g => g.id !== id));
+  };
 
-  const renderPart5 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white/90">ES Report (ESR)</h2>
-        <p className="text-sm text-slate-500 mt-1">Final supervisor sign-off for the ARCP panel.</p>
-      </div>
-      <GlassCard className="p-12 flex flex-col items-center text-center border-amber-500/20 bg-amber-500/[0.02]">
-        <AlertCircle size={48} className="text-amber-500 mb-6" />
-        <h3 className="text-lg font-bold text-amber-900 dark:text-amber-500 uppercase tracking-tight">Not yet defined</h3>
-        <p className="text-sm text-amber-800 dark:text-amber-800/60 mt-4 max-w-sm leading-relaxed font-medium">
-          The Educational Supervisor Report schema is pending final curriculum board approval. You will be notified when this form becomes available for completion.
-        </p>
-        <div className="mt-10 px-8 py-3 rounded-xl bg-slate-200 dark:bg-white/5 text-slate-400 text-xs font-bold uppercase tracking-widest cursor-not-allowed">
-          Generate ESR
-        </div>
-      </GlassCard>
-    </div>
-  );
+  const handleUpdatePDPGoal = (id: string, field: keyof PDPGoal, value: any) => {
+    setTempPDPGoals(tempPDPGoals.map(g => g.id === id ? { ...g, [field]: value } : g));
+  };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto p-4 animate-in fade-in duration-500">
+      {/* Compact Header */}
+      <div className="flex justify-between items-center mb-4">
+        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-slate-900">ARCP Preparation</h1>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Portfolio & Evidence Review</p>
+        </div>
+        <button
+          onClick={handleSaveAll}
+          disabled={!hasUnsavedChanges}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${hasUnsavedChanges
+            ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
+            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            }`}
+        >
+          <Save size={16} />
+          Save
+        </button>
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        {/* Left Column: Mandatory Artifacts & Review Details */}
+        <div className="lg:col-span-5 space-y-4">
+
+          {/* Mandatory Artifacts */}
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <ClipboardCheck size={16} className="text-indigo-600" />
+              <h2 className="text-sm font-bold text-slate-900">Mandatory Artifacts</h2>
+            </div>
+
+            <GlassCard className="p-0 overflow-hidden">
+              <div className="divide-y divide-slate-100">
+
+                {/* PDP */}
+                <div className="p-3 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors" onClick={handleOpenPDPModal}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${pdpStatus === 'Completed' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+                      <Activity size={12} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">PDP Status</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${pdpStatus === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {pdpStatus}
+                    </span>
+                    <Edit2 size={12} className="text-slate-400" />
+                  </div>
+                </div>
+
+                {/* EyeLogbook */}
+                <div className="p-3 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors" onClick={onNavigateEyeLogbook}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <BookOpen size={12} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">EyeLogbook & Complications</p>
+                      {eyeLogbookLastUpdated && <p className="text-[9px] text-slate-400">Last: {eyeLogbookLastUpdated}</p>}
+                    </div>
+                  </div>
+                  <ChevronRight size={12} className="text-slate-300" />
+                </div>
+
+                {/* Form R */}
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${formRItems.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <FileText size={12} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Form R</p>
+                        {formRItems.length > 0 ? (
+                          <p className="text-[9px] text-slate-400">Updated: {formRItems[0].date}</p>
+                        ) : (
+                          <p className="text-[9px] text-amber-500 font-bold">Required</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (!onLinkRequested) return;
+                          const existingIds = formRItems.map(e => e.id);
+                          onLinkRequested('ARCP_PREP_FORMR', existingIds);
+                        }}
+                        className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+                      >
+                        <LinkIcon size={10} /> Link
+                      </button>
+                      <button
+                        onClick={() => setIsFormRDialogOpen(true)}
+                        className="text-[9px] font-bold text-green-600 flex items-center gap-1 hover:underline"
+                      >
+                        <UploadCloud size={10} /> Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Linked Form R items */}
+                  {formRItems.length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      {formRItems.map(item => (
+                        <div key={item.id} className="p-2 bg-slate-50 rounded-lg flex justify-between items-center group">
+                          <div className="cursor-pointer flex-1" onClick={() => onEditEvidence?.(item)}>
+                            <div className="flex items-center gap-1">
+                              <p className="text-[10px] font-bold text-slate-700 truncate">{item.title}</p>
+                              <CheckCircle2 size={10} className="text-green-500" />
+                            </div>
+                            <p className="text-[9px] text-slate-400">{item.date}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentLinks = arcpPrepData?.linked_form_r || [];
+                              onUpdateARCPPrep({ linked_form_r: currentLinks.filter(id => id !== item.id) });
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-500 transition-opacity"
+                            title="Remove link"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* TOOT */}
+                <div className="p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <Clock size={12} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Time Out of Training</p>
+                      <p className="text-[9px] text-slate-400">Days (TOOT)</p>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    value={localTootDays}
+                    onChange={handleTOOTChange}
+                    className="w-16 text-right bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+              </div>
+            </GlassCard>
+          </section>
+
+          {/* Review Details */}
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar size={16} className="text-purple-600" />
+              <h2 className="text-sm font-bold text-slate-900">Review Details</h2>
+            </div>
+
+            <GlassCard className="p-3 space-y-3">
+              {/* Current ARCP - Read from profile */}
+              <div>
+                <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Current ARCP</label>
+                <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
+                  <span className="text-xs font-bold text-slate-900">{profile.arcpDate || 'Not Set'}</span>
+                  <span className="text-[10px] font-medium text-slate-500">{profile.arcpInterimFull || 'Full ARCP'}</span>
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100"></div>
+
+              {/* Last ARCP - Editable, stored in arcp_prep */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Last Date</label>
+                  <input
+                    type="date"
+                    value={localLastArcpDate}
+                    onChange={handleLastARCPDateChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Last Type</label>
+                  <select
+                    value={localLastArcpType}
+                    onChange={handleLastARCPTypeChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-purple-500"
+                  >
+                    <option value={ARCPReviewType.FullARCP}>Full ARCP</option>
+                    <option value={ARCPReviewType.InterimReview}>Interim</option>
+                  </select>
+                </div>
+              </div>
+            </GlassCard>
+          </section>
+
+        </div>
+
+        {/* Right Column: Evidence Sections */}
+        <div className="lg:col-span-7 space-y-4">
+
+          <EvidenceSection
+            title="EPAs"
+            lastItems={getItems('last', 'epas')}
+            currentItems={getItems('current', 'epas')}
+            isCurrentDefault={isUsingDefaults('epas')}
+            onLinkLast={() => handleLinkEvidence('last', 'epas')}
+            onLinkCurrent={() => handleLinkEvidence('current', 'epas')}
+            onRemoveLast={(id) => handleRemoveEvidence('last', 'epas', id)}
+            onRemoveCurrent={(id) => handleRemoveEvidence('current', 'epas', id)}
+            onResetCurrent={() => handleResetToDefaults('epas')}
+            onViewItem={onEditEvidence}
+          />
+
+          <EvidenceSection
+            title="GSAT"
+            lastItems={getItems('last', 'gsat')}
+            currentItems={getItems('current', 'gsat')}
+            isCurrentDefault={isUsingDefaults('gsat')}
+            onLinkLast={() => handleLinkEvidence('last', 'gsat')}
+            onLinkCurrent={() => handleLinkEvidence('current', 'gsat')}
+            onRemoveLast={(id) => handleRemoveEvidence('last', 'gsat', id)}
+            onRemoveCurrent={(id) => handleRemoveEvidence('current', 'gsat', id)}
+            onResetCurrent={() => handleResetToDefaults('gsat')}
+            onViewItem={onEditEvidence}
+          />
+
+          <EvidenceSection
+            title="MSF"
+            lastItems={getItems('last', 'msf')}
+            currentItems={getItems('current', 'msf')}
+            isCurrentDefault={isUsingDefaults('msf')}
+            onLinkLast={() => handleLinkEvidence('last', 'msf')}
+            onLinkCurrent={() => handleLinkEvidence('current', 'msf')}
+            onRemoveLast={(id) => handleRemoveEvidence('last', 'msf', id)}
+            onRemoveCurrent={(id) => handleRemoveEvidence('current', 'msf', id)}
+            onResetCurrent={() => handleResetToDefaults('msf')}
+            onViewItem={onEditEvidence}
+          />
+
+          <EvidenceSection
+            title="ESR"
+            lastItems={getItems('last', 'esr')}
+            currentItems={getItems('current', 'esr')}
+            isCurrentDefault={isUsingDefaults('esr')}
+            onLinkLast={() => handleLinkEvidence('last', 'esr')}
+            onLinkCurrent={() => handleLinkEvidence('current', 'esr')}
+            onRemoveLast={(id) => handleRemoveEvidence('last', 'esr', id)}
+            onRemoveCurrent={(id) => handleRemoveEvidence('current', 'esr', id)}
+            onResetCurrent={() => handleResetToDefaults('esr')}
+            onViewItem={onEditEvidence}
+          />
+
+        </div>
+
+      </div>
 
       {/* Form R Dialog */}
       {isFormRDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Form R</h2>
-                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Professional Declaration</p>
-                  <a href="https://trainee.tis.nhs.uk/" target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:text-indigo-600 font-bold mt-1 block hover:underline">Link to TIS: https://trainee.tis.nhs.uk/</a>
-                </div>
-                <button onClick={() => setIsFormRDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-8">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Completion Date</label>
-                  <div className="relative">
-                    <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" />
-                    <input
-                      type="date"
-                      value={formRDate}
-                      onChange={(e) => setFormRDate(e.target.value)}
-                      className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Document Upload (PDF)</label>
-                    {(formRFileUrl || existingFormR?.fileUrl) && (
-                      <button
-                        onClick={() => handleViewPDF()}
-                        className="flex items-center gap-1.5 text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition-colors"
-                      >
-                        <Eye size={12} /> View Current
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    onClick={() => formRFileInputRef.current?.click()}
-                    className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${formRFileName ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-white/10 hover:border-indigo-500/50 hover:bg-indigo-50/20'}`}
-                  >
-                    <input type="file" ref={formRFileInputRef} accept=".pdf" onChange={(e) => handleFileChange(e, 'formr')} className="hidden" />
-                    {formRFileName ? (
-                      <div className="text-center animate-in zoom-in-95">
-                        <CheckCircle2 size={32} className="text-indigo-600 mx-auto mb-2" />
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{formRFileName}</p>
-                        <p className="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-widest">Click to replace</p>
-                      </div>
-                    ) : (
-                      <>
-                        <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Click or drag to upload</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-4 flex flex-col gap-3">
-                  <button
-                    onClick={handleFormRSubmit}
-                    className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Save size={18} /> {existingFormR ? 'Update Form R' : 'Submit Form R'}
-                  </button>
-                  <button
-                    onClick={() => setIsFormRDialogOpen(false)}
-                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PDP Dialog */}
-      {isPDPDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem] max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 bg-white shadow-2xl rounded-3xl">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Personal Development Plan</h2>
-                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">PDP Goals</p>
+                  <h2 className="text-xl font-bold text-slate-900">Form R</h2>
+                  <p className="text-[9px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Part B - Professional Declaration</p>
                 </div>
-                <button onClick={() => setIsPDPDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
-                  <X size={20} />
+                <button onClick={() => setIsFormRDialogOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                  <X size={18} />
                 </button>
               </div>
 
-              <div className="space-y-6 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-                {profile.pdpGoals && profile.pdpGoals.length > 0 ? (
-                  profile.pdpGoals.map((goal, idx) => (
-                    <div key={goal.id} className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Goal {idx + 1}</h3>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Brief title</label>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">{goal.title || 'Untitled Goal'}</p>
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Agreed action(s) or goal(s)</label>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{goal.actions || '–'}</p>
-                        </div>
-
-                        {goal.targetDate && (
-                          <div>
-                            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Target date</label>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(goal.targetDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Trainee appraisal of progress toward PDP goal</label>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{goal.successCriteria || '–'}</p>
-                        </div>
-
-                        {goal.targetDate && (
-                          <div>
-                            <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Target date</label>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">{new Date(goal.targetDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Status</label>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${goal.status === 'COMPLETE'
-                            ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
-                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                            }`}>
-                            {goal.status || 'IN PROGRESS'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-12 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl flex flex-col items-center text-center">
-                    <AlertCircle size={32} className="text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500 font-medium">No PDP goals found.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-6 mt-6 border-t border-slate-200 dark:border-white/10">
-                <button
-                  onClick={() => setIsPDPDialogOpen(false)}
-                  className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Eyelogbook Dialog */}
-      {isLogbookDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-lg animate-in zoom-in-95 duration-300">
-            <div className="p-8 bg-white dark:bg-slate-900 shadow-2xl border-none rounded-[2.5rem]">
-              <div className="flex justify-between items-center mb-8">
+              <div className="space-y-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Eyelogbook</h2>
-                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1 uppercase tracking-[0.2em] font-black">Surgical Logbook Summary</p>
-                </div>
-                <button onClick={() => setIsLogbookDialogOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-8">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black mb-3 block">Extraction Date</label>
-                  <div className="relative">
-                    <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-teal-500" />
-                    <input
-                      type="date"
-                      value={logbookDate}
-                      onChange={(e) => setLogbookDate(e.target.value)}
-                      className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none focus:border-teal-500/50 transition-all font-medium"
-                    />
-                  </div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Date</label>
+                  <input
+                    type="date"
+                    value={formRDate}
+                    onChange={(e) => setFormRDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium outline-none focus:border-indigo-500"
+                  />
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-black block">Logbook PDF Export</label>
-                    {(logbookFileUrl || existingLogbook?.fileUrl) && (
-                      <button
-                        onClick={() => handleViewLogbookPDF()}
-                        className="flex items-center gap-1.5 text-[10px] font-black uppercase text-teal-600 hover:text-teal-700 transition-colors"
-                      >
-                        <Eye size={12} /> View Current
-                      </button>
-                    )}
-                  </div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Upload PDF</label>
                   <div
-                    onClick={() => logbookFileInputRef.current?.click()}
-                    className={`h-40 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all cursor-pointer ${logbookFileName ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-500/10' : 'border-slate-200 dark:border-white/10 hover:border-teal-500/50 hover:bg-teal-50/20'}`}
+                    onClick={() => formRFileInputRef.current?.click()}
+                    className={`h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors ${formRFileName ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-300'}`}
                   >
-                    <input type="file" ref={logbookFileInputRef} accept=".pdf" onChange={(e) => handleFileChange(e, 'logbook')} className="hidden" />
-                    {logbookFileName ? (
-                      <div className="text-center animate-in zoom-in-95">
-                        <CheckCircle2 size={32} className="text-teal-600 mx-auto mb-2" />
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">{logbookFileName}</p>
-                        <p className="text-[10px] text-teal-500 font-bold mt-1 uppercase tracking-widest">Click to replace</p>
+                    <input type="file" ref={formRFileInputRef} accept=".pdf" onChange={handleFileChange} className="hidden" />
+                    {formRFileName ? (
+                      <div className="text-center">
+                        <CheckCircle2 className="mx-auto text-indigo-500 mb-1" size={20} />
+                        <p className="text-xs font-bold text-slate-900">{formRFileName}</p>
+                        <p className="text-[10px] text-indigo-500 mt-0.5">Click to replace</p>
                       </div>
                     ) : (
-                      <>
-                        <UploadCloud size={32} className="mb-3 text-slate-300 dark:text-white/20" />
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Click or drag to upload</p>
-                      </>
+                      <div className="text-center text-slate-400">
+                        <UploadCloud className="mx-auto mb-1" size={20} />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">Click to upload</p>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="pt-4 flex flex-col gap-3">
-                  <button
-                    onClick={handleLogbookSubmit}
-                    className="w-full py-4 rounded-2xl bg-teal-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-600/30 hover:bg-teal-500 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Save size={18} /> {existingLogbook ? 'Update Eyelogbook' : 'Submit Eyelogbook'}
-                  </button>
-                  <button
-                    onClick={() => setIsLogbookDialogOpen(false)}
-                    className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors text-center"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <button
+                  onClick={handleFormRSubmit}
+                  className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold uppercase tracking-widest text-xs hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                >
+                  Save Form R
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-12">
-        <button onClick={handleBack} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors">
-          <X size={24} />
-        </button>
-        <div className="text-center">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">ARCP Preparation Flow</h1>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">Evidence Compilation Guide</p>
-        </div>
-        <div className="w-10"></div> {/* Spacer */}
-      </div>
-
-      <div className="min-h-[500px]">
-        {renderProgress()}
-
-        {/* Compact Navigation Bar relocated to here */}
-        <div className="flex justify-between items-center mb-12 -mt-4">
-          <button
-            onClick={prevStep}
-            disabled={step === 1}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all disabled:opacity-0"
-          >
-            <ChevronLeft size={16} /> Previous
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => saveStatus(EvidenceStatus.Draft)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-100 transition-all"
-            >
-              <Save size={14} /> Save Draft
-            </button>
-            {step < totalSteps ? (
-              <button
-                onClick={nextStep}
-                className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all uppercase tracking-widest"
-              >
-                Next Part <ChevronRight size={16} />
+      {/* PDP Modal */}
+      {isPDPModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Personal Development Plan</h2>
+              <button onClick={() => setIsPDPModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                <X size={18} />
               </button>
-            ) : (
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {tempPDPGoals.map((goal, idx) => (
+                <div key={goal.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-xs font-bold text-slate-500">Goal {idx + 1}</span>
+                    <button onClick={() => handleDeletePDPGoal(goal.id)} className="text-red-500 hover:bg-red-50 p-1 rounded">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  <textarea
+                    placeholder="Goal title..."
+                    value={goal.title}
+                    onChange={(e) => handleUpdatePDPGoal(goal.id, 'title', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:border-indigo-500"
+                    rows={2}
+                  />
+                  <textarea
+                    placeholder="Actions required..."
+                    value={goal.actions}
+                    onChange={(e) => handleUpdatePDPGoal(goal.id, 'actions', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:border-indigo-500"
+                    rows={1}
+                  />
+                  <textarea
+                    placeholder="Success criteria..."
+                    value={goal.successCriteria}
+                    onChange={(e) => handleUpdatePDPGoal(goal.id, 'successCriteria', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 outline-none focus:border-indigo-500"
+                    rows={1}
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Target Date</label>
+                      <input
+                        type="date"
+                        value={goal.targetDate || ''}
+                        onChange={(e) => handleUpdatePDPGoal(goal.id, 'targetDate', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Status</label>
+                      <select
+                        value={goal.status || 'IN PROGRESS'}
+                        onChange={(e) => handleUpdatePDPGoal(goal.id, 'status', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      >
+                        <option value="IN PROGRESS">In Progress</option>
+                        <option value="COMPLETE">Complete</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
               <button
-                onClick={handleFinish}
-                className="px-8 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xl hover:bg-black transition-all uppercase tracking-widest"
+                onClick={handleAddPDPGoal}
+                className="flex-1 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-slate-50"
               >
-                Finish Review
+                + Add Goal
               </button>
-            )}
+              <button
+                onClick={handleSavePDP}
+                className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-indigo-500"
+              >
+                Save PDP
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="overflow-hidden">
-          {step === 1 && renderPart1()}
-          {step === 2 && renderPart2()}
-          {step === 3 && renderPart3()}
-          {step === 4 && renderPart4()}
-          {step === 5 && renderPart5()}
-        </div>
-      </div>
     </div>
   );
 };
 
-const ArtifactRow: React.FC<{ icon: React.ReactNode, title: string, description: string, status?: string, hasFile?: boolean, onClick?: () => void, onView?: (e: React.MouseEvent) => void, isPDP?: boolean }> = ({ icon, title, description, status = "Action Required", hasFile = false, onClick, onView, isPDP = false }) => {
-  const isComplete = status === "COMPLETE" || status === "Completed";
-  const isPending = status === "Pending";
-  const isClickable = isPDP ? isComplete : true;
+// Evidence Section Component with Link/Remove for both Last and Current
+const EvidenceSection: React.FC<{
+  title: string;
+  lastItems: EvidenceItem[];
+  currentItems: EvidenceItem[];
+  isCurrentDefault: boolean;
+  onLinkLast: () => void;
+  onLinkCurrent: () => void;
+  onRemoveLast: (id: string) => void;
+  onRemoveCurrent: (id: string) => void;
+  onResetCurrent: () => void;
+  onViewItem?: (item: EvidenceItem) => void;
+}> = ({ title, lastItems, currentItems, isCurrentDefault, onLinkLast, onLinkCurrent, onRemoveLast, onRemoveCurrent, onResetCurrent, onViewItem }) => {
+
+  const getIcon = () => {
+    switch (title) {
+      case 'EPAs': return <ClipboardCheck size={16} className="text-indigo-600" />;
+      case 'GSAT': return <ClipboardCheck size={16} className="text-teal-600" />;
+      case 'MSF': return <Users size={16} className="text-amber-600" />;
+      case 'ESR': return <FileText size={16} className="text-slate-600" />;
+      default: return null;
+    }
+  };
 
   return (
-    <div
-      onClick={isClickable ? onClick : undefined}
-      className={`p-5 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-5 group transition-all ${isClickable ? 'hover:shadow-lg cursor-pointer' : 'cursor-default'
-        }`}
-    >
-      <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-xl shadow-inner transition-transform group-hover:scale-110">
-        {icon}
+    <section>
+      <div className="flex items-center gap-2 mb-2">
+        {getIcon()}
+        <h2 className="text-sm font-bold text-slate-900">{title}</h2>
       </div>
-      <div className="flex-1">
-        <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{title}</h4>
-        <p className="text-xs text-slate-500 mt-1 font-medium">{description}</p>
-      </div>
-      <div className="text-right">
-        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1 justify-end
-          ${isComplete ? 'text-green-600 bg-green-50' : isPending ? 'text-slate-400 bg-slate-100' : 'text-indigo-600 bg-indigo-50'}
-        `}>
-          {isComplete && <ShieldCheck size={10} />}
-          {status}
-        </span>
-        <div className="flex justify-end mt-2">
-          {/* For PDP, don't show Edit button - only show View if complete */}
-          {!isPDP && (
-            <>
-              {/* Always show View/Edit on hover if a file or completion state exists */}
-              <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                {hasFile && onView && (
+
+      <div className="grid grid-cols-2 gap-3">
+        {/* Last ARCP */}
+        <GlassCard className="p-3">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last ARCP</h3>
+            <button onClick={onLinkLast} className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+              <LinkIcon size={10} /> Link
+            </button>
+          </div>
+
+          <div className="space-y-1.5 min-h-[60px]">
+            {lastItems.length > 0 ? lastItems.map(item => (
+              <div
+                key={item.id}
+                className="p-2 bg-slate-50 rounded-lg border border-slate-100 group relative"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 cursor-pointer" onClick={() => onViewItem?.(item)}>
+                    <p className="text-[10px] font-bold text-slate-700 truncate pr-4">{item.title}</p>
+                    <p className="text-[9px] text-slate-400">{item.date}</p>
+                  </div>
                   <button
-                    onClick={onView}
-                    className="flex items-center gap-1 text-[10px] text-teal-600 font-black uppercase tracking-tight hover:text-teal-700"
+                    onClick={(e) => { e.stopPropagation(); onRemoveLast(item.id); }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-500 transition-opacity"
+                    title="Remove"
                   >
-                    <Eye size={12} /> View
+                    <X size={10} />
                   </button>
-                )}
-                {!isPending && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-                    className="flex items-center gap-1 text-[10px] text-indigo-500 font-black uppercase tracking-tight"
-                  >
-                    Edit
-                  </button>
-                )}
-                {isPending && <ChevronRight size={14} className="text-slate-300" />}
-              </div>
-              {!isComplete && !hasFile && !isPending && (
-                <div className="group-hover:hidden">
-                  <ChevronRight size={14} className="text-slate-300 transition-transform" />
                 </div>
+              </div>
+            )) : (
+              <div className="h-full flex items-center justify-center text-slate-300 min-h-[60px]">
+                <p className="text-[10px]">No links</p>
+              </div>
+            )}
+          </div>
+        </GlassCard>
+
+        {/* Current ARCP */}
+        <GlassCard className="p-3 bg-gradient-to-b from-white to-slate-50">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-[9px] font-black uppercase tracking-widest text-teal-600">
+              Current {isCurrentDefault && <span className="text-slate-400">(Default)</span>}
+            </h3>
+            <div className="flex items-center gap-1">
+              {!isCurrentDefault && (
+                <button onClick={onResetCurrent} className="text-[9px] font-bold text-slate-400 hover:text-slate-600" title="Reset to defaults">
+                  Reset
+                </button>
               )}
-            </>
-          )}
-          {/* For PDP when complete, show click hint */}
-          {isPDP && isComplete && (
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-              <span className="text-[10px] text-indigo-500 font-black uppercase tracking-tight">Click to view</span>
+              <button onClick={onLinkCurrent} className="text-[9px] font-bold text-teal-600 flex items-center gap-1 hover:underline">
+                <LinkIcon size={10} /> Link
+              </button>
             </div>
-          )}
-          {/* For PDP when pending, show chevron */}
-          {isPDP && isPending && (
-            <ChevronRight size={14} className="text-slate-300 mt-2" />
-          )}
-        </div>
+          </div>
+
+          <div className="space-y-1.5 min-h-[60px]">
+            {currentItems.length > 0 ? currentItems.map(item => (
+              <div
+                key={item.id}
+                className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm group relative"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 cursor-pointer" onClick={() => onViewItem?.(item)}>
+                    <div className="flex items-center gap-1">
+                      <p className="text-[10px] font-bold text-slate-900 truncate flex-1 pr-4">{item.title}</p>
+                      {item.status === EvidenceStatus.SignedOff && <CheckCircle2 size={10} className="text-green-500" />}
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-0.5">{item.date}</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemoveCurrent(item.id); }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-red-500 transition-opacity"
+                    title="Remove"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              </div>
+            )) : (
+              <div className="h-full flex items-center justify-center text-slate-300 min-h-[60px]">
+                <p className="text-[10px]">No items</p>
+              </div>
+            )}
+          </div>
+        </GlassCard>
       </div>
-    </div>
+    </section>
   );
 };
 

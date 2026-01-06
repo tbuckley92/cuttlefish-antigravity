@@ -32,7 +32,8 @@ export enum EvidenceType {
   MSF = 'MSF',
   ARCPPrep = 'ARCP Preparation',
   CurriculumCatchUp = 'Curriculum Catch Up',
-  FourteenFish = 'FourteenFish'
+  FourteenFish = 'FourteenFish',
+  FormR = 'Form R'
 }
 
 export enum EvidenceStatus {
@@ -96,6 +97,8 @@ export interface UserProfile {
   deanery?: string; // Default: "Thames Valley Deanery"
   arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
   arcpInterimFull?: string; // "Full ARCP" or "Interim Review"
+  lastArcpDate?: string;
+  lastArcpType?: string;
   // Exam results
   frcophthPart1?: boolean;
   frcophthPart2Written?: boolean;
@@ -180,6 +183,35 @@ export interface EyeLogbookComplication {
   other_details?: Record<string, string>;
   cause?: string;
   action_taken?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ARCPPrepData {
+  id: string;
+  user_id: string;
+  toot_days: number;
+
+  // Last ARCP details (user-defined)
+  last_arcp_date?: string;
+  last_arcp_type?: string; // 'Full ARCP' or 'Interim Review'
+
+  // Form R linked evidence (array for consistency with other evidence types)
+  linked_form_r: string[];
+
+  // Last ARCP linked evidence (manually linked by user)
+  last_evidence_epas: string[];
+  last_evidence_gsat: string[];
+  last_evidence_msf: string[];
+  last_evidence_esr: string[];
+
+  // Current ARCP evidence (null = use defaults, array = user customized)
+  current_evidence_epas?: string[] | null;
+  current_evidence_gsat?: string[] | null;
+  current_evidence_msf?: string[] | null;
+  current_evidence_esr?: string[] | null;
+
+  status: string;
   created_at?: string;
   updated_at?: string;
 }

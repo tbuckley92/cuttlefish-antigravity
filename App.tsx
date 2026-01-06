@@ -28,7 +28,7 @@ import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem } from './types';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 import { Footer } from './components/Footer';
 import { Auth } from './views/Auth';
@@ -167,6 +167,8 @@ const App: React.FC = () => {
     return INITIAL_EVIDENCE;
   });
 
+  const [arcpPrepData, setArcpPrepData] = useState<ARCPPrepData | undefined>(undefined);
+
   const [portfolioProgress, setPortfolioProgress] = useState<PortfolioProgressItem[]>([]);
 
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
@@ -258,6 +260,22 @@ const App: React.FC = () => {
         console.error('Error fetching portfolio progress:', progressError);
       } else if (progressData) {
         setPortfolioProgress(progressData);
+      }
+
+      // Fetch ARCP Prep Data
+      const { data: arcpData, error: arcpError } = await supabase
+        .from('arcp_prep')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (arcpError) {
+        console.error('Error fetching ARCP prep data:', arcpError);
+      } else if (arcpData) {
+        setArcpPrepData(arcpData);
+      } else {
+        // No row yet, set undefined or create one lazily? Local state remains undefined, component will handle it or create on first save.
+        setArcpPrepData(undefined);
       }
     };
 
@@ -428,6 +446,8 @@ const App: React.FC = () => {
       refraction_certificate: nextProfile.refractionCertificate ?? false,
       sias: nextProfile.sias ?? [],
       arcp_interim_full: nextProfile.arcpInterimFull ?? 'Full ARCP',
+      last_arcp_date: nextProfile.lastArcpDate || null,
+      last_arcp_type: nextProfile.lastArcpType || null,
     };
     if (deanery) payload.deanery = deanery;
 
@@ -604,6 +624,82 @@ const App: React.FC = () => {
 
       if (error) {
         console.error('Error deleting portfolio progress:', error);
+      }
+    }
+  };
+
+  const handleUpsertARCPPrepSafe = async (data: Partial<ARCPPrepData>) => {
+    if (!isSupabaseConfigured || !supabase || !session?.user) {
+      // Local-only update
+      setArcpPrepData(prev => ({
+        ...prev,
+        ...data,
+        id: prev?.id || data.id || uuidv4(),
+        user_id: session?.user?.id || 'temp',
+        status: data.status || prev?.status || 'DRAFT'
+      } as ARCPPrepData));
+      return;
+    }
+
+    // Generate ID for first-time creation
+    let idToUse = arcpPrepData?.id;
+    if (!idToUse) {
+      idToUse = uuidv4();
+    }
+
+    const payload = {
+      ...data,
+      id: idToUse,
+      user_id: session.user.id,
+      toot_days: data.toot_days ?? arcpPrepData?.toot_days ?? 0,
+      last_arcp_date: data.last_arcp_date ?? arcpPrepData?.last_arcp_date,
+      last_arcp_type: data.last_arcp_type ?? arcpPrepData?.last_arcp_type,
+      linked_form_r: data.linked_form_r ?? arcpPrepData?.linked_form_r ?? [],
+      last_evidence_epas: data.last_evidence_epas ?? arcpPrepData?.last_evidence_epas ?? [],
+      last_evidence_gsat: data.last_evidence_gsat ?? arcpPrepData?.last_evidence_gsat ?? [],
+      last_evidence_msf: data.last_evidence_msf ?? arcpPrepData?.last_evidence_msf ?? [],
+      last_evidence_esr: data.last_evidence_esr ?? arcpPrepData?.last_evidence_esr ?? [],
+      current_evidence_epas: data.current_evidence_epas !== undefined ? data.current_evidence_epas : arcpPrepData?.current_evidence_epas,
+      current_evidence_gsat: data.current_evidence_gsat !== undefined ? data.current_evidence_gsat : arcpPrepData?.current_evidence_gsat,
+      current_evidence_msf: data.current_evidence_msf !== undefined ? data.current_evidence_msf : arcpPrepData?.current_evidence_msf,
+      current_evidence_esr: data.current_evidence_esr !== undefined ? data.current_evidence_esr : arcpPrepData?.current_evidence_esr,
+      status: data.status ?? arcpPrepData?.status ?? 'DRAFT',
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('Upserting ARCP prep:', payload);
+
+    // Update local with explicit ID
+    setArcpPrepData(prev => ({
+      ...prev,
+      ...payload,
+    } as ARCPPrepData));
+
+    // Check if we already have a row
+    const existingId = arcpPrepData?.id;
+
+    if (existingId) {
+      // Update existing row
+      const { error } = await supabase
+        .from('arcp_prep')
+        .update(payload)
+        .eq('id', existingId);
+
+      if (error) {
+        console.error("Error updating ARCP prep:", error);
+      } else {
+        console.log("ARCP prep updated successfully");
+      }
+    } else {
+      // Insert new row
+      const { error } = await supabase
+        .from('arcp_prep')
+        .insert(payload);
+
+      if (error) {
+        console.error("Error inserting ARCP prep:", error);
+      } else {
+        console.log("ARCP prep inserted successfully");
       }
     }
   };
@@ -926,28 +1022,82 @@ const App: React.FC = () => {
     handleUpdateProfile({ ...profile, sias: updatedSias });
   };
 
-  const handleLinkRequested = (reqIndex: number | string, origin: View, domain?: string, sectionIndex?: number, currentFormParams?: any) => {
-    let linkKey = '';
-    if (domain) {
-      linkKey = `GSAT-${domain}-${reqIndex}`;
-    } else {
+  const handleLinkRequested = (idx: string, originView?: View, domain?: string, section?: number, formParams?: FormParams) => {
+    // Check for ARCP Prep link requests - format: ARCP_PREP_LAST_EPAS or ARCP_PREP_CURRENT_EPAS
+    if (idx.startsWith('ARCP_PREP_')) {
+      const parts = idx.replace('ARCP_PREP_', '').toLowerCase().split('_');
+      const section = parts[0]; // 'last' or 'current'
+      const target = parts[1]; // 'epas', 'gsat', 'msf', 'esr'
+
+      const lastFieldMap = {
+        'epas': 'last_evidence_epas',
+        'gsat': 'last_evidence_gsat',
+        'msf': 'last_evidence_msf',
+        'esr': 'last_evidence_esr'
+      } as const;
+
+      const currentFieldMap = {
+        'epas': 'current_evidence_epas',
+        'gsat': 'current_evidence_gsat',
+        'msf': 'current_evidence_msf',
+        'esr': 'current_evidence_esr'
+      } as const;
+
+      const fieldMap = section === 'last' ? lastFieldMap : currentFieldMap;
+
+      // Store current linked IDs from arcpPrepData
+      // @ts-ignore
+      const currentLinkedIds = arcpPrepData?.[fieldMap[target as keyof typeof fieldMap]] || [];
+      setLinkedEvidence({ [idx]: currentLinkedIds });
+      setLinkingReqIdx(idx);
+      setIsSelectionMode(true);
+      setReturnTarget({ originView: View.ARCPPrep, section: 0 });
+
+      // Mark existing items as selected
+      if (currentLinkedIds.length > 0) {
+        setAllEvidence(prev => prev.map(e => ({
+          ...e,
+          // @ts-ignore
+          isSelectedForLink: currentLinkedIds.includes(e.id)
+        })));
+      }
+
+      setCurrentView(View.Evidence);
+      return;
+    }
+
+    // Only filter same-type evidence when it's a form request?
+    // We want to allow cross-linking between different forms now
+    const viewType = originView ? viewToEvidenceType(originView) : undefined;
+
+    // Switched logic: we now EXCLUDE matching types in selection
+    // because those can cause circular links or duplicates.
+    let filterType: EvidenceType | undefined = undefined;
+
+    // Build the reqKey dynamically if needed
+    let reqKey = idx;
+    if (originView === View.GSATForm && domain && section !== undefined) {
+      reqKey = `GSAT - ${domain} - ${section} - ${idx}`;
+    } else if (originView === View.EPAForm) {
       // EPAForm passes reqKey like 'EPA - L1 -SIA -B -0 ' - use it directly if it starts with 'EPA - '
-      linkKey = typeof reqIndex === 'string' && reqIndex.startsWith('EPA - ')
-        ? reqIndex
-        : `EPA-${reqIndex}`;
+      reqKey = idx;
+    } else {
+      // Default for other forms
+      reqKey = `EPA-${idx}`;
     }
 
-    if (currentFormParams) {
-      setSelectedFormParams(prev => ({ ...prev, ...currentFormParams }));
-    }
-
-    setLinkingReqIdx(linkKey);
-    setReturnTarget({
-      originView: origin,
-      section: sectionIndex ?? 0,
-      index: typeof reqIndex === 'number' ? reqIndex : undefined
-    });
+    setLinkingReqIdx(reqKey);
     setIsSelectionMode(true);
+
+    // Store return target if provided
+    if (section !== undefined) {
+      setReturnTarget({ originView: originView || View.RecordForm, section, index: parseInt(idx.split('-').pop() || '0') });
+    }
+
+    // Store form params if provided
+    if (formParams) {
+      setSelectedFormParams(formParams);
+    }
     setCurrentView(View.Evidence);
   };
 
@@ -1415,6 +1565,89 @@ const App: React.FC = () => {
     setCurrentView(View.ARCPPanelDashboard);
   };
 
+  const handleConfirmLinkSelection = (ids?: string[]) => {
+    if (!linkingReqIdx) return;
+
+    // Get selected IDs from parameter or fallback
+    const selectedIds = ids || allEvidence
+      .filter(e => (e as any).isSelectedForLink)
+      .map(e => e.id);
+
+    console.log('Confirming link selection:', linkingReqIdx, 'with IDs:', selectedIds);
+
+    // Check if ARCP Prep link - format: ARCP_PREP_LAST_EPAS or ARCP_PREP_CURRENT_EPAS or ARCP_PREP_FORMR
+    if (linkingReqIdx.startsWith('ARCP_PREP_')) {
+      // Special case for Form R
+      if (linkingReqIdx === 'ARCP_PREP_FORMR') {
+        console.log('Saving ARCP Prep Form R:', selectedIds);
+
+        // Update Form R linked array
+        handleUpsertARCPPrepSafe({ linked_form_r: selectedIds });
+
+        // Clear selection flags
+        setAllEvidence(prev => prev.map(e => {
+          const { isSelectedForLink, ...rest } = e as any;
+          return rest as EvidenceItem;
+        }));
+
+        setIsSelectionMode(false);
+        setLinkingReqIdx(null);
+        setLinkedEvidence({});
+        setCurrentView(View.ARCPPrep);
+        return;
+      }
+
+      const parts = linkingReqIdx.replace('ARCP_PREP_', '').toLowerCase().split('_');
+      const section = parts[0]; // 'last' or 'current'
+      const target = parts[1]; // 'epas', 'gsat', 'msf', 'esr'
+
+      const fieldPrefix = section === 'last' ? 'last_evidence' : 'current_evidence';
+      const fieldMap = {
+        'epas': `${fieldPrefix}_epas`,
+        'gsat': `${fieldPrefix}_gsat`,
+        'msf': `${fieldPrefix}_msf`,
+        'esr': `${fieldPrefix}_esr`
+      } as const;
+
+      console.log('Saving ARCP Prep linked evidence:', section, target, selectedIds);
+
+      // Update ARCP Prep data
+      handleUpsertARCPPrepSafe({ [fieldMap[target as keyof typeof fieldMap]]: selectedIds });
+
+      // Clear selection flags
+      setAllEvidence(prev => prev.map(e => {
+        const { isSelectedForLink, ...rest } = e as any;
+        return rest as EvidenceItem;
+      }));
+
+      setIsSelectionMode(false);
+      setLinkingReqIdx(null);
+      setLinkedEvidence({});
+
+      // Navigate back to ARCP Prep
+      setCurrentView(View.ARCPPrep);
+      return;
+    }
+
+    // Update linkedEvidence state for forms
+    setLinkedEvidence(prev => ({
+      ...prev,
+      [linkingReqIdx]: selectedIds
+    }));
+
+    // Clear selection flags from evidence
+    setAllEvidence(prev => prev.map(e => {
+      const { isSelectedForLink, ...rest } = e as any;
+      return rest as EvidenceItem;
+    }));
+
+    setIsSelectionMode(false);
+    setLinkingReqIdx(null);
+
+    // If we're returning to a form, restore the form params and view
+    // (This logic already exists in the app flow)
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case View.Dashboard:
@@ -1462,7 +1695,7 @@ const App: React.FC = () => {
             allEvidence={evidenceData}
             profile={evidenceProfile}
             selectionMode={isSelectionMode}
-            onConfirmSelection={handleConfirmSelection}
+            onConfirmSelection={handleConfirmLinkSelection}
             onCancel={handleCancelSelection}
             onEditEvidence={viewingTraineeId ? undefined : handleEditEvidence}
             onDeleteEvidence={viewingTraineeId ? undefined : handleDeleteEvidence}
@@ -1569,7 +1802,7 @@ const App: React.FC = () => {
                 fileBase64: data.fileBase64, // Always store base64 for viewing
                 fileName: data.file?.name,
                 notes: `Legacy Upload. Levels: ${levels}`,
-                // @ts-ignore - Dynamic field
+                // @ts-ignore
                 selectedBoxes: Array.from(data.selectedBoxes)
               } as EvidenceItem;
 
@@ -1907,10 +2140,33 @@ const App: React.FC = () => {
             sias={sias}
             allEvidence={allEvidence}
             profile={profile}
+            arcpPrepData={arcpPrepData}
             onBack={() => setCurrentView(View.Dashboard)}
             onNavigateGSAT={() => setCurrentView(View.GSATForm)}
             onNavigateMSF={handleNavigateToMSF}
             onUpsertEvidence={handleUpsertEvidence}
+            onUpdateProfile={(updatedProfile) => handleUpdateProfile({ ...updatedProfile, lastArcpDate: updatedProfile.lastArcpDate, lastArcpType: updatedProfile.lastArcpType })}
+            onUpdateARCPPrep={handleUpsertARCPPrepSafe}
+            onEditEvidence={handleEditEvidence}
+            onLinkRequested={(reqKey, existingIds) => {
+              // Store current linked IDs
+              setLinkedEvidence({ [reqKey]: existingIds || [] });
+              setLinkingReqIdx(reqKey);
+              setIsSelectionMode(true);
+              setReturnTarget({ originView: View.ARCPPrep, section: 0 });
+
+              // Mark existing items as selected
+              if (existingIds && existingIds.length > 0) {
+                setAllEvidence(prev => prev.map(e => ({
+                  ...e,
+                  // @ts-ignore
+                  isSelectedForLink: existingIds.includes(e.id)
+                })));
+              }
+
+              setCurrentView(View.Evidence);
+            }}
+            onNavigateEyeLogbook={() => setCurrentView(View.EyeLogbook)}
           />
         );
       case View.SupervisorDashboard:
