@@ -45,7 +45,10 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   const [localTootDays, setLocalTootDays] = useState(arcpPrepData?.toot_days || 0);
   const [localLastArcpDate, setLocalLastArcpDate] = useState(arcpPrepData?.last_arcp_date || '');
   const [localLastArcpType, setLocalLastArcpType] = useState(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Save timestamps
+  const [lastManualSave, setLastManualSave] = useState<Date | null>(null);
+  const [lastAutosave, setLastAutosave] = useState<Date | null>(null);
 
   // PDP Modal State
   const [isPDPModalOpen, setIsPDPModalOpen] = useState(false);
@@ -57,6 +60,24 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     setLocalLastArcpDate(arcpPrepData?.last_arcp_date || '');
     setLocalLastArcpType(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
   }, [arcpPrepData]);
+
+  // Autosave every 15 seconds
+  useEffect(() => {
+    const autosaveInterval = setInterval(() => {
+      // Build payload with current values
+      const autosavePayload: Partial<ARCPPrepData> = {
+        toot_days: localTootDays,
+        last_arcp_date: localLastArcpDate,
+        last_arcp_type: localLastArcpType,
+        status: 'SAVED'
+      };
+
+      onUpdateARCPPrep(autosavePayload);
+      setLastAutosave(new Date());
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(autosaveInterval);
+  }, [localTootDays, localLastArcpDate, localLastArcpType, onUpdateARCPPrep]);
 
   // Form R State
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
@@ -157,38 +178,28 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
 
   // Handlers
   const handleSaveAll = () => {
-    const updates: Partial<ARCPPrepData> = {};
+    const updates: Partial<ARCPPrepData> = {
+      toot_days: localTootDays,
+      last_arcp_date: localLastArcpDate,
+      last_arcp_type: localLastArcpType,
+      status: 'SAVED'
+    };
 
-    if (localTootDays !== arcpPrepData?.toot_days) {
-      updates.toot_days = localTootDays;
-    }
-    if (localLastArcpDate !== arcpPrepData?.last_arcp_date) {
-      updates.last_arcp_date = localLastArcpDate;
-    }
-    if (localLastArcpType !== arcpPrepData?.last_arcp_type) {
-      updates.last_arcp_type = localLastArcpType;
-    }
-
-    if (Object.keys(updates).length > 0) {
-      onUpdateARCPPrep(updates);
-    }
-    setHasUnsavedChanges(false);
+    onUpdateARCPPrep(updates);
+    setLastManualSave(new Date());
   };
 
   const handleTOOTChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value) || 0;
     setLocalTootDays(val);
-    setHasUnsavedChanges(true);
   };
 
   const handleLastARCPDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalLastArcpDate(e.target.value);
-    setHasUnsavedChanges(true);
   };
 
   const handleLastARCPTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLocalLastArcpType(e.target.value);
-    setHasUnsavedChanges(true);
   };
 
   // Link Evidence
@@ -318,17 +329,26 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
           <h1 className="text-xl font-bold text-slate-900">ARCP Preparation</h1>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Portfolio & Evidence Review</p>
         </div>
-        <button
-          onClick={handleSaveAll}
-          disabled={!hasUnsavedChanges}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${hasUnsavedChanges
-            ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
-            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-        >
-          <Save size={16} />
-          Save
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleSaveAll}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20"
+          >
+            <Save size={16} />
+            Save
+          </button>
+          <div className="text-[9px] text-slate-400 text-right">
+            {lastManualSave && (
+              <span>Saved: {lastManualSave.toLocaleTimeString()}</span>
+            )}
+            {lastAutosave && (
+              <span className="ml-2">Auto: {lastAutosave.toLocaleTimeString()}</span>
+            )}
+            {!lastManualSave && !lastAutosave && (
+              <span>Autosave every 15s</span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main Grid */}

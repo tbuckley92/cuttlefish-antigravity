@@ -567,8 +567,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ) : (
                 <div className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between ${(profile.arcpInterimFull || 'Full ARCP') === 'Full ARCP'
-                    ? 'bg-indigo-600/10 text-indigo-700 dark:text-indigo-400 border border-indigo-600/20'
-                    : 'bg-amber-600/10 text-amber-700 dark:text-amber-400 border border-amber-600/20'
+                  ? 'bg-indigo-600/10 text-indigo-700 dark:text-indigo-400 border border-indigo-600/20'
+                  : 'bg-amber-600/10 text-amber-700 dark:text-amber-400 border border-amber-600/20'
                   }`}>
                   {profile.arcpInterimFull || 'Full ARCP'}
                 </div>
@@ -805,18 +805,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                       </button>
-                      <div className="flex items-center justify-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${arcpPrepStatus === "COMPLETE" ? "bg-emerald-500" :
-                          arcpPrepStatus === "IN PROGRESS" ? "bg-amber-400 animate-pulse" :
-                            "bg-slate-300"
-                          }`}></div>
-                        <span className={`text-[9px] font-black uppercase tracking-widest ${arcpPrepStatus === "COMPLETE" ? "text-emerald-600" :
-                          arcpPrepStatus === "IN PROGRESS" ? "text-amber-600" :
-                            "text-slate-400"
-                          }`}>
-                          {arcpPrepStatus}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </>
