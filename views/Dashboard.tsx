@@ -547,7 +547,35 @@ const Dashboard: React.FC<DashboardProps> = ({
               <ProfileItem icon={<Calendar size={13} />} label="ARCP MONTH" value={isEditing ? <input type="text" value={tempProfile.arcpMonth} onChange={(e) => handleInputChange('arcpMonth', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : profile.arcpMonth} />
               <ProfileItem icon={<Calendar size={13} />} label="CCT DATE" value={isEditing ? <input type="date" value={tempProfile.cctDate} onChange={(e) => handleInputChange('cctDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : profile.cctDate} />
               <ProfileItem icon={<Calendar size={13} />} label="NEXT ARCP DATE" value={isEditing && isResident ? <input type="date" value={tempProfile.arcpDate || ''} onChange={(e) => handleInputChange('arcpDate', e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[13px]" /> : (profile.arcpDate || '—')} />
+            </div>
 
+            {/* ARCP TYPE Toggle */}
+            {/* ARCP TYPE Toggle */}
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5">
+              <p className="text-[#94a3b8] text-[11px] uppercase tracking-widest font-bold mb-2">NEXT ARCP TYPE</p>
+              {isEditing ? (
+                <div className="relative">
+                  <select
+                    value={tempProfile.arcpInterimFull || 'Full ARCP'}
+                    onChange={(e) => handleInputChange('arcpInterimFull', e.target.value)}
+                    className="w-full appearance-none bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-indigo-500/50 transition-all cursor-pointer"
+                  >
+                    <option value="Full ARCP">Full ARCP</option>
+                    <option value="Interim Review">Interim Review</option>
+                  </select>
+                  <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+                </div>
+              ) : (
+                <div className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between ${(profile.arcpInterimFull || 'Full ARCP') === 'Full ARCP'
+                    ? 'bg-indigo-600/10 text-indigo-700 dark:text-indigo-400 border border-indigo-600/20'
+                    : 'bg-amber-600/10 text-amber-700 dark:text-amber-400 border border-amber-600/20'
+                  }`}>
+                  {profile.arcpInterimFull || 'Full ARCP'}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-[11px]">
               {/* Exam Results Section in Sidebar */}
               <div className="pt-3 border-t border-slate-100 dark:border-white/5">
                 <div className="flex items-center gap-2 mb-2">

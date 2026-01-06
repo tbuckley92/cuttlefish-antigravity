@@ -44,7 +44,10 @@ export enum EvidenceStatus {
 export enum UserRole {
   Trainee = 'Trainee',
   EducationalSupervisor = 'EducationalSupervisor',
-  ARCPPanelMember = 'ARCPPanelMember'
+  ARCPPanelMember = 'ARCPPanelMember',
+  ARCPSuperuser = 'ARCPSuperuser',
+  Supervisor = 'Supervisor',
+  Admin = 'Admin'
 }
 
 export enum ARCPOutcome {
@@ -92,6 +95,7 @@ export interface UserProfile {
   pdpGoals: PDPGoal[];
   deanery?: string; // Default: "Thames Valley Deanery"
   arcpOutcome?: ARCPOutcome; // Selected ARCP outcome
+  arcpInterimFull?: string; // "Full ARCP" or "Interim Review"
   // Exam results
   frcophthPart1?: boolean;
   frcophthPart2Written?: boolean;
@@ -102,6 +106,7 @@ export interface UserProfile {
   fourteenFishEvidence?: Record<string, string>; // Map of box keys to image file URLs (key format: "column-level")
   fourteenFishCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
   sias?: SIA[]; // Active EPAs
+  roles?: UserRole[]; // User roles for access control
 }
 
 export interface SIA {

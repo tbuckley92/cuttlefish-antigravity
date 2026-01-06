@@ -17,6 +17,7 @@ import RecordForm from './views/RecordForm';
 import PlaceholderForm from './views/PlaceholderForm';
 import ARCPPrep from './views/ARCPPrep';
 import SupervisorDashboard from './views/SupervisorDashboard';
+import ARCPPanelDashboard from './views/ARCPPanelDashboard';
 import EyeLogbook from './views/EyeLogbook';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
@@ -24,7 +25,7 @@ import { RefractiveAudit } from './views/RefractiveAudit';
 import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem } from './types';
@@ -59,7 +60,8 @@ enum View {
   EyeLogbook = 'eye-logbook',
   RefractiveAudit = 'refractive-audit',
   MyRefractiveAudit = 'my-refractive-audit',
-  EPALegacyForm = 'epa-legacy-form'
+  EPALegacyForm = 'epa-legacy-form',
+  ARCPPanelDashboard = 'arcp-panel-dashboard'
 }
 
 interface FormParams {
@@ -425,6 +427,7 @@ const App: React.FC = () => {
       frcophth_part2_viva: nextProfile.frcophthPart2Viva ?? false,
       refraction_certificate: nextProfile.refractionCertificate ?? false,
       sias: nextProfile.sias ?? [],
+      arcp_interim_full: nextProfile.arcpInterimFull ?? 'Full ARCP',
     };
     if (deanery) payload.deanery = deanery;
 
@@ -1407,6 +1410,11 @@ const App: React.FC = () => {
     setCurrentView(View.SupervisorDashboard);
   };
 
+  const handleNavigateToARCPPanel = () => {
+    setViewingTraineeId(null);
+    setCurrentView(View.ARCPPanelDashboard);
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case View.Dashboard:
@@ -1957,6 +1965,78 @@ const App: React.FC = () => {
             userId={session?.user?.id}
           />
         );
+      case View.ARCPPanelDashboard:
+        return (
+          <ARCPPanelDashboard
+            currentUser={profile}
+            onBack={() => setCurrentView(View.Dashboard)}
+            onViewTraineeGSAT={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              // Navigate to GSAT form for level 1 by default
+              const existing = findExistingEvidence(EvidenceType.GSAT, 1);
+              setSelectedFormParams({
+                sia: '',
+                level: 1,
+                id: existing?.id
+              });
+              setCurrentView(View.GSATForm);
+            }}
+            onViewActiveEPAs={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              setCurrentView(View.EyeLogbook);
+            }}
+            onViewTraineeEvidence={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              setCurrentView(View.Evidence);
+            }}
+            onViewESR={(traineeId) => {
+              setViewingTraineeId(traineeId);
+              // For now, navigate to supervisor dashboard showing this trainee's supervisor
+              // TODO: Create dedicated ESR view
+              alert(`ESR view for trainee ${traineeId} - Feature coming soon`);
+            }}
+            onUpdateARCPOutcome={(traineeId, outcome) => {
+              const summary = getTraineeSummary(traineeId);
+              if (summary) {
+                summary.profile.arcpOutcome = outcome;
+              }
+            }}
+            onViewEvidenceItem={(item) => {
+              // Navigate to the appropriate view based on evidence type
+              setSelectedFormParams({
+                sia: item.sia || '',
+                level: item.level || 1,
+                id: item.id,
+                originView: View.ARCPPanelDashboard
+              });
+
+              switch (item.type) {
+                case EvidenceType.EPA:
+                  setCurrentView(View.EPAForm);
+                  break;
+                case EvidenceType.GSAT:
+                  setCurrentView(View.GSATForm);
+                  break;
+                case EvidenceType.DOPs:
+                  setCurrentView(View.DOPsForm);
+                  break;
+                case EvidenceType.OSATs:
+                  setCurrentView(View.OSATSForm);
+                  break;
+                case EvidenceType.CbD:
+                  setCurrentView(View.CBDForm);
+                  break;
+                case EvidenceType.CRS:
+                  setCurrentView(View.CRSForm);
+                  break;
+                default:
+                  // For other types, just view in MyEvidence
+                  setCurrentView(View.Evidence);
+                  break;
+              }
+            }}
+          />
+        );
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={handleUpdateProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -2164,7 +2244,11 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      <Footer onNavigateToSupervisorDashboard={handleNavigateToSupervisorDashboard} />
+      <Footer
+        onNavigateToSupervisorDashboard={handleNavigateToSupervisorDashboard}
+        onNavigateToARCPPanel={handleNavigateToARCPPanel}
+        currentUserRoles={profile.roles || [UserRole.Admin]} // Default to Admin for demo
+      />
     </div>
   );
 };
