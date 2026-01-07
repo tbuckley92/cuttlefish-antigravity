@@ -98,7 +98,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     fte: p.fte,
                     arcpDate: p.arcp_date,
                     arcpOutcome: p.arcp_outcome,
-                    arcpInterimFull: undefined,
+                    arcpInterimFull: p.arcp_interim_full,
                     frcophthPart1: p.frcophth_part1,
                     frcophthPart2Written: p.frcophth_part2_written,
                     frcophthPart2Oral: p.frcophth_part2_oral,
@@ -193,6 +193,8 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     current_evidence_gsat: arcpPreps[0].current_evidence_gsat,
                     current_evidence_msf: arcpPreps[0].current_evidence_msf,
                     current_evidence_esr: arcpPreps[0].current_evidence_esr,
+                    current_es: arcpPreps[0].current_es,
+                    last_es: arcpPreps[0].last_es,
                     status: arcpPreps[0].status || 'DRAFT'
                 } : undefined;
 
@@ -464,16 +466,15 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-slate-100">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">EDUCATIONAL SUPERVISOR</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
-                                    <User size={12} className="text-slate-500" />
-                                </div>
-                                <span className="text-xs text-slate-700">{summary.profile.supervisorName || '—'}</span>
-                            </div>
+                            <button
+                                onClick={() => onViewTraineeEvidence(summary.profile.id!)}
+                                className="w-full py-1.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-100 transition-all flex items-center justify-center gap-2"
+                            >
+                                <FileText size={12} /> Evidence
+                            </button>
                         </div>
+
+
                     </div >
 
                     {/* Center Panel: EPA Grid */}
@@ -681,6 +682,22 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                         <span className="text-[8px] font-bold text-slate-400 uppercase">ESR</span>
                                                         <EvidenceList items={lastESR} />
                                                     </div>
+                                                    <div className="pt-2 border-t border-slate-100">
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Educational Supervisor</span>
+                                                        {arcpPrep?.last_es ? (
+                                                            <div className="text-[10px] text-slate-700">
+                                                                <div className="font-semibold">{arcpPrep.last_es.name}</div>
+                                                                {arcpPrep.last_es.email && (
+                                                                    <div className="text-slate-500">{arcpPrep.last_es.email}</div>
+                                                                )}
+                                                                {arcpPrep.last_es.gmc && (
+                                                                    <div className="text-slate-500">GMC: {arcpPrep.last_es.gmc}</div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[10px] text-slate-300 italic">Not specified</div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -692,6 +709,9 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                         <span className="text-[9px] text-slate-400">{formatDate(summary.profile.arcpDate)}</span>
                                                     )}
                                                 </div>
+                                                {summary.profile.arcpInterimFull && (
+                                                    <div className="text-[9px] text-teal-600 font-medium mb-2">{summary.profile.arcpInterimFull}</div>
+                                                )}
                                                 <div className="space-y-2">
                                                     <div>
                                                         <span className="text-[8px] font-bold text-slate-400 uppercase">EPAs</span>
@@ -712,6 +732,22 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                     <div>
                                                         <span className="text-[8px] font-bold text-slate-400 uppercase">ESR</span>
                                                         <EvidenceList items={currentESR} />
+                                                    </div>
+                                                    <div className="pt-2 border-t border-teal-100">
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Educational Supervisor</span>
+                                                        {arcpPrep?.current_es ? (
+                                                            <div className="text-[10px] text-slate-700">
+                                                                <div className="font-semibold">{arcpPrep.current_es.name}</div>
+                                                                {arcpPrep.current_es.email && (
+                                                                    <div className="text-slate-500">{arcpPrep.current_es.email}</div>
+                                                                )}
+                                                                {arcpPrep.current_es.gmc && (
+                                                                    <div className="text-slate-500">GMC: {arcpPrep.current_es.gmc}</div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[10px] text-slate-300 italic">Not specified</div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -768,25 +804,12 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                             </div>
                         </div>
 
-                        {/* Navigation Buttons */}
                         <div className="mb-4 space-y-2">
                             <button
                                 onClick={() => onViewActiveEPAs(summary.profile.id!)}
                                 className="w-full py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
                             >
                                 <Activity size={12} /> EyeLogbook
-                            </button>
-                            <button
-                                onClick={() => onViewComplications(summary.profile.id!)}
-                                className="w-full py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
-                            >
-                                <AlertCircle size={12} /> Complications
-                            </button>
-                            <button
-                                onClick={() => onViewTraineeEvidence(summary.profile.id!)}
-                                className="w-full py-1.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-100 transition-all flex items-center justify-center gap-2"
-                            >
-                                <FileText size={12} /> Evidence
                             </button>
                         </div>
 

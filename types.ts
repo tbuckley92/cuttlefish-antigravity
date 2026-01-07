@@ -225,6 +225,18 @@ export interface ARCPPrepData {
   current_evidence_msf?: string[] | null;
   current_evidence_esr?: string[] | null;
 
+  // Educational Supervisors
+  current_es?: {
+    name: string;
+    email: string;
+    gmc: string;
+  };
+  last_es?: {
+    name: string;
+    email: string;
+    gmc: string;
+  };
+
   status: string;
   created_at?: string;
   updated_at?: string;

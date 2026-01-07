@@ -719,6 +719,8 @@ const App: React.FC = () => {
       current_evidence_gsat: data.current_evidence_gsat !== undefined ? data.current_evidence_gsat : arcpPrepData?.current_evidence_gsat,
       current_evidence_msf: data.current_evidence_msf !== undefined ? data.current_evidence_msf : arcpPrepData?.current_evidence_msf,
       current_evidence_esr: data.current_evidence_esr !== undefined ? data.current_evidence_esr : arcpPrepData?.current_evidence_esr,
+      current_es: data.current_es !== undefined ? data.current_es : arcpPrepData?.current_es,
+      last_es: data.last_es !== undefined ? data.last_es : arcpPrepData?.last_es,
       status: data.status ?? arcpPrepData?.status ?? 'DRAFT',
       updated_at: new Date().toISOString()
     };

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   ArrowLeft, ChevronRight, CheckCircle2,
-  Clock, FileText, BookOpen, Users,
+  Clock, FileText, BookOpen, Users, User,
   ClipboardCheck, Activity, X,
   UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon
 } from '../components/Icons';
@@ -47,6 +47,12 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   const [localLastArcpType, setLocalLastArcpType] = useState(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
   const [localNoMsfPlanned, setLocalNoMsfPlanned] = useState(arcpPrepData?.no_msf_planned || false);
 
+  // Educational Supervisor State
+  const [localLastESName, setLocalLastESName] = useState(arcpPrepData?.last_es?.name || '');
+  const [localLastESEmail, setLocalLastESEmail] = useState(arcpPrepData?.last_es?.email || '');
+  const [localLastESGmc, setLocalLastESGmc] = useState(arcpPrepData?.last_es?.gmc || '');
+  const [isEditingLastES, setIsEditingLastES] = useState(!arcpPrepData?.last_es?.name);
+
   // Save timestamps
   const [lastManualSave, setLastManualSave] = useState<Date | null>(null);
   const [lastAutosave, setLastAutosave] = useState<Date | null>(null);
@@ -61,6 +67,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     setLocalLastArcpDate(arcpPrepData?.last_arcp_date || '');
     setLocalLastArcpType(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
     setLocalNoMsfPlanned(arcpPrepData?.no_msf_planned || false);
+    setLocalLastESName(arcpPrepData?.last_es?.name || '');
+    setLocalLastESEmail(arcpPrepData?.last_es?.email || '');
+    setLocalLastESGmc(arcpPrepData?.last_es?.gmc || '');
   }, [arcpPrepData]);
 
   // Autosave every 15 seconds
@@ -72,6 +81,16 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
         last_arcp_date: localLastArcpDate,
         last_arcp_type: localLastArcpType,
         no_msf_planned: localNoMsfPlanned,
+        current_es: profile.supervisorName ? {
+          name: profile.supervisorName,
+          email: profile.supervisorEmail,
+          gmc: profile.supervisorGmc
+        } : undefined,
+        last_es: (localLastESName || localLastESEmail || localLastESGmc) ? {
+          name: localLastESName,
+          email: localLastESEmail,
+          gmc: localLastESGmc
+        } : undefined,
         status: 'SAVED'
       };
 
@@ -80,7 +99,7 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     }, 15000); // 15 seconds
 
     return () => clearInterval(autosaveInterval);
-  }, [localTootDays, localLastArcpDate, localLastArcpType, localNoMsfPlanned, onUpdateARCPPrep]);
+  }, [localTootDays, localLastArcpDate, localLastArcpType, localNoMsfPlanned, localLastESName, localLastESEmail, localLastESGmc, profile.supervisorName, profile.supervisorEmail, profile.supervisorGmc, onUpdateARCPPrep]);
 
   // Form R State
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
@@ -195,11 +214,22 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
       last_arcp_date: localLastArcpDate,
       last_arcp_type: localLastArcpType,
       no_msf_planned: localNoMsfPlanned,
+      current_es: profile.supervisorName ? {
+        name: profile.supervisorName,
+        email: profile.supervisorEmail,
+        gmc: profile.supervisorGmc
+      } : undefined,
+      last_es: (localLastESName || localLastESEmail || localLastESGmc) ? {
+        name: localLastESName,
+        email: localLastESEmail,
+        gmc: localLastESGmc
+      } : undefined,
       status: 'SAVED'
     };
 
     onUpdateARCPPrep(updates);
     setLastManualSave(new Date());
+    setIsEditingLastES(false);
   };
 
   const handleTOOTChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -592,6 +622,105 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                 ) : (
                   <div className="text-center py-3 text-slate-400 text-[10px]">
                     No items
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </section>
+
+          {/* Educational Supervisors */}
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <User size={16} className="text-teal-600" />
+              <h2 className="text-sm font-bold text-slate-900">Educational Supervisors</h2>
+            </div>
+
+            <GlassCard className="p-3 space-y-3">
+              {/* Current Educational Supervisor - Read from profile */}
+              <div>
+                <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Current Educational Supervisor</label>
+                <div className="p-2 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <User size={14} className="text-teal-600" />
+                    <span className="text-xs font-bold text-slate-900">{profile.supervisorName || 'Not Set'}</span>
+                  </div>
+                  {profile.supervisorEmail && (
+                    <p className="text-[10px] text-slate-600 ml-5">Email: {profile.supervisorEmail}</p>
+                  )}
+                  {profile.supervisorGmc && (
+                    <p className="text-[10px] text-slate-600 ml-5">GMC: {profile.supervisorGmc}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100"></div>
+
+              {/* Last Educational Supervisor - Editable, stored in arcp_prep */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block">Last Educational Supervisor</label>
+                  {!isEditingLastES && (
+                    <button
+                      onClick={() => setIsEditingLastES(true)}
+                      className="text-[9px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    >
+                      <Edit2 size={10} /> Edit
+                    </button>
+                  )}
+                </div>
+
+                {isEditingLastES ? (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Name</label>
+                      <input
+                        type="text"
+                        value={localLastESName}
+                        onChange={(e) => setLocalLastESName(e.target.value)}
+                        placeholder="Enter name..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Email</label>
+                      <input
+                        type="email"
+                        value={localLastESEmail}
+                        onChange={(e) => setLocalLastESEmail(e.target.value)}
+                        placeholder="Enter email..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">GMC Number</label>
+                      <input
+                        type="text"
+                        value={localLastESGmc}
+                        onChange={(e) => setLocalLastESGmc(e.target.value)}
+                        placeholder="Enter GMC number..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveAll}
+                      className="w-full mt-2 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-teal-500 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Save size={12} />
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <User size={14} className="text-slate-400" />
+                      <span className="text-xs font-bold text-slate-900">{localLastESName || 'Not Set'}</span>
+                    </div>
+                    {localLastESEmail && (
+                      <p className="text-[10px] text-slate-600 ml-5">Email: {localLastESEmail}</p>
+                    )}
+                    {localLastESGmc && (
+                      <p className="text-[10px] text-slate-600 ml-5">GMC: {localLastESGmc}</p>
+                    )}
                   </div>
                 )}
               </div>
