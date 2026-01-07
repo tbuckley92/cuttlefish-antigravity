@@ -248,14 +248,36 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
       try {
         // Load eyelogbook entries
-        const { data: entriesData, error: entriesError } = await supabase
-          .from('eyelogbook')
-          .select('*')
-          .eq('trainee_id', userId)
-          .order('procedure_date', { ascending: false })
-          .limit(10000);
+        // Load eyelogbook entries with pagination to bypass 1000 row limit
+        let allEntries: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-        if (entriesError) throw entriesError;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('eyelogbook')
+            .select('*')
+            .eq('trainee_id', userId)
+            .order('procedure_date', { ascending: false })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allEntries = [...allEntries, ...data];
+            // If we got less than pageSize, we've reached the end
+            if (data.length < pageSize) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const entriesData = allEntries;
 
         // Convert to local format
         const loadedEntries: LogbookEntry[] = (entriesData || []).map((e: any) => ({
@@ -998,12 +1020,35 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
           // Add small delay to ensure propagation (just in case)
           await new Promise(resolve => setTimeout(resolve, 500));
 
-          const { data: reloadedData } = await supabase
-            .from('eyelogbook')
-            .select('*')
-            .eq('trainee_id', userId)
-            .order('procedure_date', { ascending: false })
-            .limit(10000);
+          let reloadedData: any[] = [];
+          let reloadPage = 0;
+          let reloadHasMore = true;
+          const reloadPageSize = 1000;
+
+          while (reloadHasMore) {
+            const { data, error } = await supabase
+              .from('eyelogbook')
+              .select('*')
+              .eq('trainee_id', userId)
+              .order('procedure_date', { ascending: false })
+              .range(reloadPage * reloadPageSize, (reloadPage + 1) * reloadPageSize - 1);
+
+            if (error) {
+              console.error('Error reloading data:', error);
+              break;
+            }
+
+            if (data && data.length > 0) {
+              reloadedData = [...reloadedData, ...data];
+              if (data.length < reloadPageSize) {
+                reloadHasMore = false;
+              } else {
+                reloadPage++;
+              }
+            } else {
+              reloadHasMore = false;
+            }
+          }
 
           if (reloadedData) {
             // Debug: Check roles in reloaded data
