@@ -110,6 +110,14 @@ export interface UserProfile {
   fourteenFishCompletions?: Record<string, boolean>; // Map of completed boxes (key format: "column-level")
   sias?: SIA[]; // Active EPAs
   roles?: UserRole[]; // User roles for access control
+  // Phaco/cataract surgery statistics (stored for efficient querying)
+  phacoTotal?: number;
+  phacoPerformed?: number;
+  phacoSupervised?: number;
+  phacoAssisted?: number;
+  phacoPcrCount?: number;
+  phacoPcrRate?: number;
+  phacoStatsUpdatedAt?: string;
 }
 
 export interface SIA {

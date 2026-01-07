@@ -106,7 +106,15 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     laserCertificate: p.laser_certificate,
                     sias: p.sias ? (Array.isArray(p.sias) ? p.sias : JSON.parse(p.sias)) : [],
                     predictedSIAs: p.predicted_sias || [],
-                    pdpGoals: p.pdp_goals || []
+                    pdpGoals: p.pdp_goals || [],
+                    // Phaco stats from stored values
+                    phacoTotal: p.phaco_total || 0,
+                    phacoPerformed: p.phaco_performed || 0,
+                    phacoSupervised: p.phaco_supervised || 0,
+                    phacoAssisted: p.phaco_assisted || 0,
+                    phacoPcrCount: p.phaco_pcr_count || 0,
+                    phacoPcrRate: p.phaco_pcr_rate || 0,
+                    phacoStatsUpdatedAt: p.phaco_stats_updated_at
                 }));
 
                 setProfiles(mappedProfiles);
@@ -152,52 +160,16 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                 if (evidenceResult.error) console.error('Error fetching evidence:', evidenceResult.error);
                 if (arcpPrepResult.error) console.error('Error fetching arcp_prep:', arcpPrepResult.error);
 
-                // --- Fetch Phaco Stats ---
-                let stats = { total: 0, performed: 0, supervised: 0, assisted: 0, pcrRate: 0 };
-                try {
-                    const { data: logbookData, error: logbookError } = await supabase
-                        .from('eyelogbook')
-                        .select('id, procedure, role, complication, has_complication, complication_cause, complication_action')
-                        .eq('trainee_id', selectedTraineeId);
-
-                    console.log('ARCP Dash Debug - Querying logbook for:', selectedTraineeId);
-                    if (logbookError) {
-                        console.error('ARCP Dash Debug - Error fetching logbook data:', logbookError);
-                        // Keep stats as 0, do not fallback
-                    } else if (logbookData) {
-                        console.log('ARCP Dash Debug - Fetched rows:', logbookData.length);
-                        const phacoCases = logbookData.filter(entry =>
-                            (entry.procedure || '').toLowerCase().includes('phaco') ||
-                            (entry.procedure || '').toLowerCase().includes('cataract')
-                        );
-                        console.log('ARCP Dash Debug - Phaco filtered rows:', phacoCases.length);
-
-                        let pcrCount = 0;
-                        stats.total = phacoCases.length;
-
-                        phacoCases.forEach(c => {
-                            // Exact role matching with EyeLogbook.tsx
-                            // EyeLogbook uses: P, PS, SJ, A
-                            const role = c.role;
-                            if (role === 'P' || role === 'PS') stats.performed++;
-                            else if (role === 'SJ' || role === 'S' || role === 'T') stats.supervised++; // Handle legacy T/S if present, but prefer SJ
-                            else if (role === 'A') stats.assisted++;
-
-                            // Check for PCR - Strict match with EyeLogbook.tsx
-                            const hasPCR =
-                                (c.has_complication && (c.complication_cause || '').toLowerCase().includes('pc rupture')) ||
-                                (c.complication?.complications?.some((comp: string) => comp.toLowerCase().includes('pc rupture')));
-
-                            if (hasPCR) pcrCount++;
-                        });
-
-                        if (stats.total > 0) {
-                            stats.pcrRate = (pcrCount / stats.total) * 100;
-                        }
-                    }
-                } catch (err) {
-                    console.error('Error calculating phaco stats:', err);
-                }
+                // --- Use Stored Phaco Stats from Profile ---
+                // Stats are now stored in user_profile and updated when EyeLogbook changes
+                const stats = {
+                    total: profile.phacoTotal || 0,
+                    performed: profile.phacoPerformed || 0,
+                    supervised: profile.phacoSupervised || 0,
+                    assisted: profile.phacoAssisted || 0,
+                    pcrRate: profile.phacoPcrRate || 0
+                };
+                console.log('ARCP Dash Debug - Using stored phaco stats:', stats);
                 setPhacoStats(stats);
                 // -------------------------
 
@@ -755,10 +727,10 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                         <div className="mb-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <BarChart2 size={16} className="text-slate-400" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">TOTAL CASES (LIVE/TRAINEE_ID)</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CATARACT CASES (P/PS)</span>
                             </div>
                             <div className="mb-2">
-                                <span className="text-3xl font-bold text-slate-900">{cases.total}</span>
+                                <span className="text-3xl font-bold text-slate-900">{cases.performed}</span>
                                 <p className="text-[10px] text-slate-500 mt-0.5">Phacoemulsification with IOL</p>
                             </div>
                             {/* PCR Rate */}

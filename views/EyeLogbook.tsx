@@ -252,7 +252,8 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
           .from('eyelogbook')
           .select('*')
           .eq('trainee_id', userId)
-          .order('procedure_date', { ascending: false });
+          .order('procedure_date', { ascending: false })
+          .limit(10000);
 
         if (entriesError) throw entriesError;
 
@@ -277,6 +278,15 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
           complication: e.complication
         }));
         setEntries(loadedEntries);
+
+        // Debug: Check role distribution on mount
+        console.log("EYELOGBOOK COMPONENT MOUNTED v2.1 (Fixed)"); // VERSION CHECK
+        const roleCount = loadedEntries.reduce((acc, e) => {
+          acc[e.role || 'NULL'] = (acc[e.role || 'NULL'] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log('Initial load - Role distribution:', roleCount);
+        console.log('Initial load - A role count:', loadedEntries.filter(e => e.role === 'A').length);
 
         // Load Complications
         const { data: compData, error: compError } = await supabase
@@ -367,6 +377,81 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       localStorage.removeItem('eyePortfolio_eyelogbook_complications');
     }
   }, [complicationCases]);
+
+  // --- Update Phaco Stats in user_profile ---
+  const updatePhacoStats = useCallback(async (entriesToCalc: LogbookEntry[]) => {
+    if (!isSupabaseConfigured || !supabase || !userId) return;
+
+    try {
+      // Filter for phaco/cataract procedures
+      const phacoCases = entriesToCalc.filter(entry =>
+        entry.procedure.toLowerCase().includes('phaco') ||
+        entry.procedure.toLowerCase().includes('cataract')
+      );
+
+      let performed = 0, supervised = 0, assisted = 0, pcrCount = 0;
+
+      phacoCases.forEach(c => {
+        const role = c.role;
+        if (role === 'P' || role === 'PS') performed++;
+        else if (role === 'SJ' || role === 'S' || role === 'T') supervised++;
+        else if (role === 'A') assisted++;
+
+        // Check for PCR
+        let complications: string[] = [];
+        if (c.complication && typeof c.complication === 'object' && Array.isArray(c.complication.complications)) {
+          complications = c.complication.complications;
+        }
+        const hasPCR = complications.some((comp: string) =>
+          comp.toLowerCase().includes('pc rupture')
+        );
+        if (hasPCR) pcrCount++;
+      });
+
+      const total = phacoCases.length;
+      const pcrRate = total > 0 ? (pcrCount / total) * 100 : 0;
+
+      // Debug: Check phaco case role distribution
+      const phacoBefore = entriesToCalc.filter(e => e.role === 'A').length;
+      const phacoAfter = phacoCases.filter(c => c.role === 'A').length;
+      console.log('updatePhacoStats Debug:', {
+        totalEntries: entriesToCalc.length,
+        phacoCasesCount: total,
+        'A_before_filter': phacoBefore,
+        'A_after_phaco_filter': phacoAfter,
+        performed, supervised, assisted
+      });
+      // Show what procedures the 'A' entries have
+      const aEntries = entriesToCalc.filter(e => e.role === 'A');
+      const aProcedures = aEntries.slice(0, 5).map(e => e.procedure);
+      console.log('A role entry procedures (first 5):', aProcedures);
+      // Show phaco entries with their roles
+      const phacoWithRoles = phacoCases.slice(0, 10).map(c => ({ proc: c.procedure.slice(0, 25), role: c.role }));
+      console.log('Phaco entries with roles (first 10):', phacoWithRoles);
+
+      // Update user_profile with stats
+      const { error } = await supabase
+        .from('user_profile')
+        .update({
+          phaco_total: total,
+          phaco_performed: performed,
+          phaco_supervised: supervised,
+          phaco_assisted: assisted,
+          phaco_pcr_count: pcrCount,
+          phaco_pcr_rate: pcrRate,
+          phaco_stats_updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating phaco stats:', error);
+      } else {
+        console.log('Phaco stats updated:', { total, performed, supervised, assisted, pcrCount, pcrRate });
+      }
+    } catch (err) {
+      console.error('Error in updatePhacoStats:', err);
+    }
+  }, [userId]);
 
   // --- Handlers for Editing ---
   const handleEditClick = (entry: LogbookEntry) => {
@@ -741,6 +826,11 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
           const patientId = patientIdParts.join('').replace(/\s+/g, '').replace(/,/g, '');
           const role = roleIndex >= 0 ? afterDate[roleIndex] : 'P';
 
+          // Debug: Log when role is 'A' or when it defaults to 'P' despite afterDate containing 'A'
+          if (afterDate.includes('A')) {
+            console.log('PDF Parse Debug - Row contains A:', { afterDate, roleIndex, role });
+          }
+
           // Hospital and Grade are after role
           let hospital = 'Unknown';
           let grade = '';
@@ -808,9 +898,18 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
             throw evidenceError;
           }
 
-          // 3. Insert entries with deduplication (ON CONFLICT DO NOTHING via upsert)
-          // The unique constraint handles deduplication automatically
-          const entriesToInsert = extractedEntries.map(e => ({
+          // 3. Insert entries with deduplication
+          // First dedupe in JS to prevent "cannot affect row a second time" error
+          const entryMap = new Map<string, typeof extractedEntries[0]>();
+          extractedEntries.forEach(e => {
+            const key = `${userId}|${e.patientId}|${e.side}|${e.procedure}|${e.date}`;
+            entryMap.set(key, e); // Last one wins
+          });
+
+          const dedupedEntries = Array.from(entryMap.values());
+          console.log(`Deduped entries: ${extractedEntries.length} -> ${dedupedEntries.length}`);
+
+          const entriesToInsert = dedupedEntries.map(e => ({
             trainee_id: userId,
             evidence_id: evidenceId,
             procedure: e.procedure,
@@ -822,38 +921,120 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
             trainee_grade: e.grade
           }));
 
-          // Batch insert - Supabase will ignore duplicates due to unique constraint
-          // We use upsert with ignoreDuplicates to skip existing entries
-          const { error: insertError } = await supabase
+          // Merge strategy: Update existing entries, insert new ones, preserve local-only entries
+          // First, fetch existing entries to identify which need updating vs inserting
+          const { data: existingEntries } = await supabase
             .from('eyelogbook')
-            .upsert(entriesToInsert, {
-              onConflict: 'trainee_id,patient_id,side,procedure,procedure_date',
-              ignoreDuplicates: true
-            });
+            .select('id, trainee_id, patient_id, side, procedure, procedure_date')
+            .eq('trainee_id', userId);
 
-          if (insertError) {
-            console.error('Error inserting entries:', insertError);
-            throw insertError;
+          const existingKeys = new Set(
+            (existingEntries || []).map(e =>
+              `${e.trainee_id}|${e.patient_id}|${e.side}|${e.procedure}|${e.procedure_date}`
+            )
+          );
+          const existingIdMap = new Map(
+            (existingEntries || []).map(e => [
+              `${e.trainee_id}|${e.patient_id}|${e.side}|${e.procedure}|${e.procedure_date}`,
+              e.id
+            ])
+          );
+
+          // Split into updates and inserts
+          const toUpdate: any[] = [];
+          const toInsert: any[] = [];
+
+          entriesToInsert.forEach(entry => {
+            const key = `${entry.trainee_id}|${entry.patient_id}|${entry.side}|${entry.procedure}|${entry.procedure_date}`;
+            if (existingKeys.has(key)) {
+              toUpdate.push({ ...entry, id: existingIdMap.get(key) });
+            } else {
+              toInsert.push(entry);
+            }
+          });
+
+          console.log(`Merge: ${toUpdate.length} updates, ${toInsert.length} inserts`);
+
+          // Perform updates (including role changes)
+          let updateSuccess = 0, updateFailed = 0, zeroRowsAffected = 0;
+
+          for (const entry of toUpdate) {
+            const { id, ...updateData } = entry;
+
+            const { data: updatedRows, error: updateError } = await supabase
+              .from('eyelogbook')
+              .update(updateData)
+              .eq('id', id)
+              .select(); // IMPORTANT: Select to check if row was actually updated
+
+            if (updateError) {
+              updateFailed++;
+              if (updateFailed <= 3) console.error('Update failed:', updateError);
+            } else if (!updatedRows || updatedRows.length === 0) {
+              zeroRowsAffected++;
+              if (zeroRowsAffected <= 3) console.warn('Update succeeded but 0 rows affected for ID:', id);
+            } else {
+              updateSuccess++;
+            }
           }
+          console.log(`Update results: ${updateSuccess} success, ${updateFailed} failed, ${zeroRowsAffected} zero-rows`);
+
+          // Perform inserts (use upsert to handle any duplicates gracefully)
+          if (toInsert.length > 0) {
+            const { error: insertError } = await supabase
+              .from('eyelogbook')
+              .upsert(toInsert, {
+                onConflict: 'trainee_id,patient_id,side,procedure,procedure_date'
+              });
+
+            if (insertError) {
+              console.error('Error inserting entries:', insertError);
+              throw insertError;
+            }
+          }
+          console.log(`Merge complete: ${toUpdate.length} updated, ${toInsert.length} inserted`);
 
           // 4. Reload entries from database to get accurate count
+          // Add small delay to ensure propagation (just in case)
+          await new Promise(resolve => setTimeout(resolve, 500));
+
           const { data: reloadedData } = await supabase
             .from('eyelogbook')
             .select('*')
             .eq('trainee_id', userId)
-            .order('procedure_date', { ascending: false });
+            .order('procedure_date', { ascending: false })
+            .limit(10000);
 
           if (reloadedData) {
-            const reloadedEntries: LogbookEntry[] = reloadedData.map((e: any) => ({
+            // Debug: Check roles in reloaded data
+            const reloadedRoleCount = reloadedData.reduce((acc, e) => {
+              acc[e.role || 'NULL'] = (acc[e.role || 'NULL'] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>);
+            console.log('DB Reload - Role distribution:', reloadedRoleCount);
+            const reloadedA = reloadedData.filter(e => e.role === 'A');
+            console.log('DB Reload - A role entries:', reloadedA.length);
+
+
+
+            const loadedEntries: LogbookEntry[] = reloadedData.map((e: any) => ({
+              id: e.id,
               procedure: e.procedure,
               side: e.side || '',
               date: e.procedure_date,
               patientId: e.patient_id,
               role: e.role || '',
               hospital: e.hospital || '',
-              grade: e.trainee_grade || ''
+              grade: e.trainee_grade || '',
+              hasComplication: e.has_complication,
+              complicationCause: e.complication_cause,
+              complicationAction: e.complication_action,
+              isLinkedToLog: e.added_to_log,
+              complication: e.complication
             }));
-            setEntries(reloadedEntries);
+            setEntries(loadedEntries);
+            // Update phaco stats in user_profile
+            await updatePhacoStats(loadedEntries);
           } else {
             setEntries(extractedEntries);
           }
@@ -1673,10 +1854,15 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
           {/* Tab Navigation */}
           {entries.length > 0 && (
-            <div className="flex gap-2 mb-6">
-              <TabButton tab="logbook" label="Logbook" icon={<List size={16} />} />
-              <TabButton tab="esr-grid" label="ESR Grid" icon={<Grid size={16} />} />
-              <TabButton tab="procedure-stats" label="Procedure Stats" icon={<PieChart size={16} />} />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex gap-2">
+                <TabButton tab="logbook" label="Logbook" icon={<List size={16} />} />
+                <TabButton tab="esr-grid" label="ESR Grid" icon={<Grid size={16} />} />
+                <TabButton tab="procedure-stats" label="Procedure Stats" icon={<PieChart size={16} />} />
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm">
+                v2.1 (Fixed)
+              </span>
             </div>
           )}
 
