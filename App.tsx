@@ -1790,7 +1790,50 @@ const App: React.FC = () => {
             isSupervisorView={!!viewingTraineeId}
             onBack={viewingTraineeId ? () => {
               setViewingTraineeId(null);
-              setCurrentView(View.SupervisorDashboard);
+              // Return to correct dashboard based on current role
+              if (currentRole === UserRole.ARCPPanelMember || currentRole === UserRole.ARCPSuperuser) {
+                setCurrentView(View.ARCPPanelDashboard);
+              } else {
+                setCurrentView(View.SupervisorDashboard);
+              }
+            } : undefined}
+            // Allow viewing evidence in read-only mode when viewing trainee evidence
+            onViewItem={viewingTraineeId ? (item) => {
+              // Navigate to the appropriate view based on evidence type (read-only mode)
+              const readOnlyStatus = EvidenceStatus.Submitted;
+              setSelectedFormParams({
+                sia: item.sia || '',
+                level: item.level || 1,
+                id: item.id,
+                status: readOnlyStatus,
+                originView: View.Evidence // Return to Evidence view after viewing
+              });
+
+              switch (item.type) {
+                case EvidenceType.EPA:
+                  setCurrentView(View.EPAForm);
+                  break;
+                case EvidenceType.GSAT:
+                  setCurrentView(View.GSATForm);
+                  break;
+                case EvidenceType.DOPs:
+                  setCurrentView(View.DOPsForm);
+                  break;
+                case EvidenceType.OSATs:
+                  setCurrentView(View.OSATSForm);
+                  break;
+                case EvidenceType.CbD:
+                  setCurrentView(View.CBDForm);
+                  break;
+                case EvidenceType.CRS:
+                  setCurrentView(View.CRSForm);
+                  break;
+                default:
+                  // For other types (MSF, Curriculum Catch Up, etc.), view in AddEvidence form
+                  setEditingEvidence(item);
+                  setCurrentView(View.AddEvidence);
+                  break;
+              }
             } : undefined}
             excludeType={isSelectionMode && returnTarget && returnTarget.originView !== View.EPAForm ? viewToEvidenceType(returnTarget.originView) : undefined}
             epaLinkingMode={isSelectionMode && returnTarget?.originView === View.EPAForm}
