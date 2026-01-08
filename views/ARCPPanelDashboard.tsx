@@ -2,11 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
     User, FileText, ClipboardCheck, Activity,
-    CheckCircle2, AlertCircle, ArrowLeft, Edit2, BarChart2, Clock, Save
+    CheckCircle2, AlertCircle, ArrowLeft, Edit2, BarChart2, Clock, Save, Trash2, Download
 } from '../components/Icons';
-import { TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, UserProfile, EvidenceItem, TrainingGrade, ARCPPrepData } from '../types';
+import { TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, UserProfile, EvidenceItem, TrainingGrade, ARCPPrepData, ARCPOutcomeData, ARCPOutcomeStatus } from '../types';
 import { ARCP_OUTCOMES, SPECIALTIES } from '../constants';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
+import { generateEvidencePDF } from '../utils/pdfGenerator';
 
 interface ARCPPanelDashboardProps {
     currentUser: UserProfile;
@@ -18,11 +19,12 @@ interface ARCPPanelDashboardProps {
     onViewESR: (traineeId: string) => void;
     onUpdateARCPOutcome: (traineeId: string, outcome: ARCPOutcome) => void;
     onViewEvidenceItem?: (item: EvidenceItem) => void;
+    onEditEvidenceItem?: (item: EvidenceItem) => void;
 }
 
 const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
     currentUser, onBack, onViewTraineeGSAT, onViewActiveEPAs, onViewComplications,
-    onViewTraineeEvidence, onViewESR, onUpdateARCPOutcome, onViewEvidenceItem
+    onViewTraineeEvidence, onViewESR, onUpdateARCPOutcome, onViewEvidenceItem, onEditEvidenceItem
 }) => {
     // Database state
     const [profiles, setProfiles] = useState<UserProfile[]>([]);
@@ -43,8 +45,63 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
         gradeAtNextRotation: '',
         comments: '',
         outcome: '' as ARCPOutcome | '',
-        lockDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Default 2 weeks
+        lockDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 2 weeks
+        panelReviewDate: new Date().toISOString().split('T')[0] // Default today
     });
+    const [showPendingWarning, setShowPendingWarning] = useState(false);
+
+    // View mode state: 'overview' (current composite) or 'outcomes' (ARCP outcomes table)
+    type ViewMode = 'overview' | 'outcomes';
+    const [viewMode, setViewMode] = useState<ViewMode>('overview');
+    const [arcpOutcomes, setArcpOutcomes] = useState<ARCPOutcomeData[]>([]);
+    const [loadingOutcomes, setLoadingOutcomes] = useState(false);
+
+    // Outcome filters and sort
+    const [outcomeFilterTraineeId, setOutcomeFilterTraineeId] = useState<string>('all');
+    const [outcomeSort, setOutcomeSort] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'>('date-desc');
+    const [outcomeDateRange, setOutcomeDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+
+    const uniqueOutcomeTrainees = useMemo(() => {
+        const trainees = new Map();
+        arcpOutcomes.forEach(o => {
+            if (!trainees.has(o.traineeId)) {
+                trainees.set(o.traineeId, o.traineeName);
+            }
+        });
+        return Array.from(trainees.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [arcpOutcomes]);
+
+    const filteredAndSortedOutcomes = useMemo(() => {
+        let result = [...arcpOutcomes];
+
+        if (outcomeFilterTraineeId !== 'all') {
+            result = result.filter(o => o.traineeId === outcomeFilterTraineeId);
+        }
+
+        if (outcomeDateRange.start) {
+            result = result.filter(o => o.createdAt && o.createdAt >= outcomeDateRange.start);
+        }
+        if (outcomeDateRange.end) {
+            result = result.filter(o => o.createdAt && o.createdAt.split('T')[0] <= outcomeDateRange.end);
+        }
+
+        result.sort((a, b) => {
+            switch (outcomeSort) {
+                case 'date-desc':
+                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                case 'date-asc':
+                    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+                case 'name-asc':
+                    return a.traineeName.localeCompare(b.traineeName);
+                case 'name-desc':
+                    return b.traineeName.localeCompare(a.traineeName);
+                default:
+                    return 0;
+            }
+        });
+
+        return result;
+    }, [arcpOutcomes, outcomeFilterTraineeId, outcomeSort, outcomeDateRange]);
 
     // Persist selection
     useEffect(() => {
@@ -272,27 +329,271 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
         setOutcomeFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleSaveOutcomeForm = async () => {
-        if (!selectedTraineeId) return;
+    // Fetch ARCP outcomes for the selected deanery
+    const fetchArcpOutcomes = async () => {
+        if (!supabase) return;
 
-        // In a real implementation, this would save to arcp_outcome_form table
-        console.log('Saving ARCP Outcome Form:', {
-            traineeId: selectedTraineeId,
-            ...outcomeFormData
-        });
+        setLoadingOutcomes(true);
+        try {
+            const { data, error } = await supabase
+                .from('arcp_outcome')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        // Current behavior: update profile outcome
-        if (outcomeFormData.outcome) {
+            if (error) throw error;
+
+            const today = new Date().toISOString().split('T')[0];
+            const mappedOutcomes: ARCPOutcomeData[] = (data || []).map(o => ({
+                id: o.id,
+                traineeId: o.trainee_id,
+                traineeName: o.trainee_name,
+                gradeAssessed: o.grade_assessed,
+                nextTrainingGrade: o.next_training_grade,
+                chairId: o.chair_id,
+                chairName: o.chair_name,
+                outcome: o.outcome as ARCPOutcome,
+                reviewType: o.review_type as 'Full ARCP' | 'Interim Review',
+                panelComments: o.panel_comments,
+                currentArcpEpas: o.current_arcp_epas || [],
+                lockDate: o.lock_date,
+                status: o.lock_date <= today && o.status === 'PENDING'
+                    ? ARCPOutcomeStatus.Confirmed
+                    : o.status as ARCPOutcomeStatus,
+                lockedAt: o.locked_at,
+                createdBy: o.created_by,
+                createdAt: o.created_at,
+                evidenceId: o.evidence_id,
+                traineeDeanery: o.trainee_deanery
+            }));
+
+            // Process on-demand lock transitions
+            for (const outcome of mappedOutcomes) {
+                if (outcome.lockDate <= today && outcome.status === ARCPOutcomeStatus.Pending) {
+                    // Update to confirmed in database
+                    await supabase
+                        .from('arcp_outcome')
+                        .update({ status: 'CONFIRMED', locked_at: new Date().toISOString() })
+                        .eq('id', outcome.id);
+
+                    // Update evidence status
+                    if (outcome.evidenceId) {
+                        await supabase
+                            .from('evidence')
+                            .update({ status: 'COMPLETE' })
+                            .eq('id', outcome.evidenceId);
+                    }
+
+                    // Clear arcp_prep linked evidence for this trainee
+                    await supabase
+                        .from('arcp_prep')
+                        .update({
+                            current_evidence_epas: null,
+                            current_evidence_gsat: null,
+                            current_evidence_msf: null,
+                            current_evidence_esr: null
+                        })
+                        .eq('user_id', outcome.traineeId);
+
+                    outcome.status = ARCPOutcomeStatus.Confirmed;
+                }
+            }
+
+            setArcpOutcomes(mappedOutcomes);
+        } catch (err) {
+            console.error('Error fetching ARCP outcomes:', err);
+        } finally {
+            setLoadingOutcomes(false);
+        }
+    };
+
+    // Fetch outcomes when view mode changes to 'outcomes'
+    useEffect(() => {
+        if (viewMode === 'outcomes') {
+            fetchArcpOutcomes();
+        }
+    }, [viewMode, selectedDeanery]);
+
+    const handleSaveOutcomeInit = async () => {
+        if (!selectedTraineeId || !supabase) return;
+
+        // Check for existing pending outcomes for this trainee
+        const { data: pendingOutcomes } = await supabase
+            .from('arcp_outcome')
+            .select('id')
+            .eq('trainee_id', selectedTraineeId)
+            .eq('status', 'PENDING');
+
+        if (pendingOutcomes && pendingOutcomes.length > 0) {
+            setShowPendingWarning(true);
+            return;
+        }
+
+        executeSaveOutcome();
+    };
+
+    const executeSaveOutcome = async () => {
+        setShowPendingWarning(false); // Close dialog if open
+        if (!selectedTraineeId || !supabase) return;
+
+        if (!outcomeFormData.outcome) {
+            alert('Please select an outcome');
+            return;
+        }
+
+        const lockDate = outcomeFormData.lockDate;
+        const reviewType = currentSummary?.profile.arcpInterimFull || 'Full ARCP';
+        const evidenceType = reviewType === 'Interim Review'
+            ? EvidenceType.ARCPInterimReview
+            : EvidenceType.ARCPFullReview;
+
+        // Get current ARCP EPAs from arcp_prep
+        const currentEpas = arcpPrepByTrainee[selectedTraineeId]?.current_evidence_epas || [];
+        const chairName = panelMembers.find(m => m.id === outcomeFormData.chairId)?.name;
+
+        try {
+            // 1. Create evidence record
+            const evidencePayload = {
+                trainee_id: selectedTraineeId,
+                type: evidenceType,
+                title: `${reviewType} - ${outcomeFormData.outcome} (${currentSummary?.profile.grade})`,
+                event_date: new Date().toISOString().split('T')[0],
+                status: 'Draft', // Displayed as PENDING in UI
+                trainee_deanery: currentSummary?.profile.deanery,
+                data: {
+                    outcome: outcomeFormData.outcome,
+                    gradeAssessed: currentSummary?.profile.grade,
+                    nextTrainingGrade: outcomeFormData.gradeAtNextRotation,
+                    chairId: outcomeFormData.chairId,
+                    chairName: chairName,
+                    panelComments: outcomeFormData.comments,
+                    lockDate: lockDate,
+                    currentArcpEpas: currentEpas,
+                    status: 'PENDING',
+                    panelReviewDate: outcomeFormData.panelReviewDate
+                }
+            };
+
+            const { data: evidenceData, error: evidenceError } = await supabase
+                .from('evidence')
+                .insert(evidencePayload)
+                .select()
+                .single();
+
+            if (evidenceError) {
+                console.error('Error creating evidence:', evidenceError);
+                alert('Failed to save outcome evidence: ' + evidenceError.message);
+                return;
+            }
+
+            // 2. Create arcp_outcome record
+            const outcomePayload = {
+                trainee_id: selectedTraineeId,
+                evidence_id: evidenceData.id,
+                trainee_name: currentSummary?.profile.name,
+                grade_assessed: currentSummary?.profile.grade,
+                next_training_grade: outcomeFormData.gradeAtNextRotation,
+                chair_id: outcomeFormData.chairId || null,
+                chair_name: chairName || null,
+                outcome: outcomeFormData.outcome,
+                review_type: reviewType,
+                panel_comments: outcomeFormData.comments,
+                current_arcp_epas: currentEpas,
+                lock_date: lockDate,
+                status: 'PENDING',
+                created_by: currentUser.id,
+                trainee_deanery: currentSummary?.profile.deanery,
+                panel_review_date: outcomeFormData.panelReviewDate
+            };
+
+            const { error: outcomeError } = await supabase
+                .from('arcp_outcome')
+                .insert(outcomePayload);
+
+            if (outcomeError) {
+                console.error('Error creating outcome record:', outcomeError);
+                // Evidence was created, so show partial success
+                alert('Evidence created but outcome record failed: ' + outcomeError.message);
+            }
+
+            // 3. Update profile with outcome
             onUpdateARCPOutcome(selectedTraineeId, outcomeFormData.outcome as ARCPOutcome);
-            // Show feedback
+
+            // Show success feedback
             const btn = document.getElementById('save-outcome-btn');
             if (btn) {
                 const originalText = btn.innerText;
                 btn.innerText = 'Saved!';
                 setTimeout(() => btn.innerText = originalText, 2000);
             }
-        } else {
-            alert('Please select an outcome');
+
+            // Reset form for next entry
+            setOutcomeFormData({
+                chairId: '',
+                gradeAtNextRotation: '',
+                comments: '',
+                outcome: '' as ARCPOutcome | '',
+                lockDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                panelReviewDate: new Date().toISOString().split('T')[0]
+            });
+
+        } catch (err: any) {
+            console.error('Save error:', err);
+            alert('An error occurred while saving: ' + err.message);
+        }
+    };
+
+    // Delete ARCP outcome
+    const handleDeleteOutcome = async (outcomeId: string) => {
+        if (!supabase) return;
+
+        if (!confirm('Are you sure you want to delete this ARCP outcome? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            // Find the outcome to get evidence ID
+            const outcome = arcpOutcomes.find(o => o.id === outcomeId);
+
+            // Delete the outcome record
+            const { error: outcomeError } = await supabase
+                .from('arcp_outcome')
+                .delete()
+                .eq('id', outcomeId);
+
+            if (outcomeError) throw outcomeError;
+
+            // Delete associated evidence if exists
+            if (outcome?.evidenceId) {
+                await supabase
+                    .from('evidence')
+                    .delete()
+                    .eq('id', outcome.evidenceId);
+            }
+
+            // Refresh outcomes list
+            fetchArcpOutcomes();
+        } catch (err: any) {
+            console.error('Delete error:', err);
+            alert('Failed to delete outcome: ' + err.message);
+        }
+    };
+
+    // Download PDF for outcome
+    const handleDownloadOutcomePDF = async (outcome: ARCPOutcomeData) => {
+        const evidenceItem: EvidenceItem = {
+            id: outcome.evidenceId || outcome.id,
+            type: outcome.reviewType === 'Full ARCP' ? EvidenceType.ARCPFullReview : EvidenceType.ARCPInterimReview,
+            title: `${outcome.reviewType} - ${outcome.outcome} (${outcome.gradeAssessed})`,
+            date: outcome.createdAt?.split('T')[0] || '',
+            status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft,
+            notes: outcome.panelComments,
+        };
+
+        try {
+            await generateEvidencePDF(evidenceItem, { name: outcome.traineeName } as UserProfile);
+        } catch (err) {
+            console.error('PDF generation error:', err);
+            alert('Failed to generate PDF');
         }
     };
 
@@ -474,6 +775,39 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                             </button>
                         </div>
 
+                        {/* Form R Section */}
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">FORM R</span>
+                            </div>
+                            {(() => {
+                                const arcpPrep = arcpPrepByTrainee[summary.profile.id!] || {};
+                                const linkedFormRDs = arcpPrep.linked_form_r || [];
+                                const formRItems = summary.allEvidence.filter(e => linkedFormRDs.includes(e.id));
+
+                                if (formRItems.length === 0) return <div className="text-[10px] text-slate-300 italic">No Form R linked</div>;
+
+                                return (
+                                    <div className="space-y-1">
+                                        {formRItems.slice(0, 3).map(item => (
+                                            <div key={item.id} className="flex items-center gap-2 text-xs font-semibold text-slate-700 truncate cursor-pointer hover:text-indigo-600 group" onClick={() => handleViewEvidenceItem(item)}>
+                                                <span className="truncate flex-1">• {item.title}</span>
+                                                {item.status === EvidenceStatus.SignedOff && (
+                                                    <span className="shrink-0 px-1.5 py-0.5 rounded-[4px] bg-emerald-100 text-emerald-800 text-[9px] font-bold uppercase tracking-wider">COMPLETE</span>
+                                                )}
+                                                {item.status === EvidenceStatus.Submitted && (
+                                                    <span className="shrink-0 px-1.5 py-0.5 rounded-[4px] bg-amber-100 text-amber-800 text-[9px] font-bold uppercase tracking-wider">SUBMITTED</span>
+                                                )}
+                                                {item.status === EvidenceStatus.Draft && (
+                                                    <span className="shrink-0 px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-wider">DRAFT</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
 
                     </div >
 
@@ -610,6 +944,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                     const lastGSAT = getEvidenceItems(arcpPrep?.last_evidence_gsat);
                                     const lastMSF = getEvidenceItems(arcpPrep?.last_evidence_msf);
                                     const lastESR = getEvidenceItems(arcpPrep?.last_evidence_esr);
+                                    const lastArcpEvidence = getEvidenceItems(arcpPrep?.last_arcp_evidence);
 
                                     const formatDate = (dateStr?: string) => {
                                         if (!dateStr) return 'Not set';
@@ -667,6 +1002,10 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                 )}
                                                 <div className="space-y-2">
                                                     <div>
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase">LAST ARCP OUTCOME</span>
+                                                        <EvidenceList items={lastArcpEvidence} emptyText="No outcome linked" />
+                                                    </div>
+                                                    <div>
                                                         <span className="text-[8px] font-bold text-slate-400 uppercase">EPAs</span>
                                                         <EvidenceList items={lastEPAs} />
                                                     </div>
@@ -698,6 +1037,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                             <div className="text-[10px] text-slate-300 italic">Not specified</div>
                                                         )}
                                                     </div>
+
                                                 </div>
                                             </div>
 
@@ -815,11 +1155,23 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
                         {/* Outcome Form */}
                         <div className="pt-4 border-t border-slate-100 space-y-3">
-                            <div>
+                            <h4 className="text-sm font-semibold text-slate-900 mb-3">ARCP Panel Review</h4>
+
+                            <div className="mb-3">
                                 <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Grade Assessed</label>
                                 <div className="w-full px-2 py-1.5 bg-slate-100 rounded border border-slate-200 text-xs font-semibold text-slate-600">
                                     {summary.profile.grade || 'N/A'}
                                 </div>
+                            </div>
+
+                            <div className="mb-3">
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Date of panel review</label>
+                                <input
+                                    type="date"
+                                    className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                    value={outcomeFormData.panelReviewDate}
+                                    onChange={(e) => handleOutcomeFormChange('panelReviewDate', e.target.value)}
+                                />
                             </div>
 
                             <div>
@@ -875,7 +1227,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Lock Date</label>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">AUTO-CONFIRM OUTCOME ON</label>
                                 <input
                                     type="date"
                                     className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
@@ -886,10 +1238,12 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
                             <button
                                 id="save-outcome-btn"
-                                onClick={handleSaveOutcomeForm}
-                                className="w-full py-2 rounded-lg bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
+                                onClick={handleSaveOutcomeInit}
+                                disabled={!outcomeFormData.outcome}
+                                className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow group"
                             >
-                                <Save size={12} /> Save Outcome
+                                <Save size={18} className="group-hover:scale-110 transition-transform" />
+                                Save Outcome
                             </button>
                         </div>
                     </div>
@@ -937,21 +1291,38 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                         </div>
 
                         <div>
-                            <label htmlFor="trainee-filter" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                Trainee
+                            <label htmlFor="view-mode" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                View
                             </label>
                             <select
-                                id="trainee-filter"
-                                value={selectedTraineeId}
-                                onChange={(e) => setSelectedTraineeId(e.target.value)}
-                                className="w-full md:w-64 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                id="view-mode"
+                                value={viewMode}
+                                onChange={(e) => setViewMode(e.target.value as 'overview' | 'outcomes')}
+                                className="w-full md:w-48 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             >
-                                <option value="">Select a Trainee...</option>
-                                {filteredTrainees.map(p => (
-                                    <option key={p.id} value={p.id!}>{p.name}</option>
-                                ))}
+                                <option value="overview">ARCP Overview</option>
+                                <option value="outcomes">ARCP Outcomes</option>
                             </select>
                         </div>
+
+                        {viewMode === 'overview' && (
+                            <div>
+                                <label htmlFor="trainee-filter" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    Trainee
+                                </label>
+                                <select
+                                    id="trainee-filter"
+                                    value={selectedTraineeId}
+                                    onChange={(e) => setSelectedTraineeId(e.target.value)}
+                                    className="w-full md:w-64 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                >
+                                    <option value="">Select a Trainee...</option>
+                                    {filteredTrainees.map(p => (
+                                        <option key={p.id} value={p.id!}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -974,28 +1345,254 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                 </GlassCard>
             )}
 
-            {!loading && !error && !selectedTraineeId && (
-                <GlassCard className="p-16 text-center">
-                    <User size={64} className="text-slate-200 mx-auto mb-4" />
-                    <h2 className="text-xl font-semibold text-slate-900 mb-2">Select a Trainee</h2>
-                    <p className="text-slate-500 max-w-sm mx-auto">
-                        Please select a trainee from the dropdown above to view their ARCP portfolio dashboard.
-                    </p>
-                </GlassCard>
+            {/* ARCP Overview View */}
+            {viewMode === 'overview' && !loading && !error && (
+                <>
+                    {!selectedTraineeId && (
+                        <GlassCard className="p-16 text-center">
+                            <User size={64} className="text-slate-200 mx-auto mb-4" />
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Select a Trainee</h2>
+                            <p className="text-slate-500 max-w-sm mx-auto">
+                                Please select a trainee from the dropdown above to view their ARCP portfolio dashboard.
+                            </p>
+                        </GlassCard>
+                    )}
+
+                    {selectedTraineeId && loadingDetails && (
+                        <GlassCard className="p-16 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                <p className="text-slate-500 font-medium">Loading trainee details...</p>
+                            </div>
+                        </GlassCard>
+                    )}
+
+                    {!loadingDetails && currentSummary && (
+                        <div>
+                            {renderTraineeRow(currentSummary)}
+                        </div>
+                    )}
+                </>
             )}
 
-            {!loading && !error && selectedTraineeId && loadingDetails && (
-                <GlassCard className="p-16 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                        <p className="text-slate-500 font-medium">Loading trainee details...</p>
+            {/* ARCP Outcomes View */}
+            {viewMode === 'outcomes' && !loading && !error && (
+                <GlassCard className="p-4">
+                    <div className="flex flex-col gap-4 mb-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-slate-900">ARCP Outcomes</h2>
+                            <span className="text-sm text-slate-500">{filteredAndSortedOutcomes.length} outcome(s)</span>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            {/* Trainee Filter */}
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Trainee</label>
+                                <select
+                                    value={outcomeFilterTraineeId}
+                                    onChange={(e) => setOutcomeFilterTraineeId(e.target.value)}
+                                    className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                    <option value="all">All Trainees</option>
+                                    {uniqueOutcomeTrainees.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Sort */}
+                            <div className="flex-1 md:max-w-[200px]">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sort By</label>
+                                <select
+                                    value={outcomeSort}
+                                    onChange={(e) => setOutcomeSort(e.target.value as any)}
+                                    className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                    <option value="date-desc">Newest First</option>
+                                    <option value="date-asc">Oldest First</option>
+                                    <option value="name-asc">Name (A-Z)</option>
+                                    <option value="name-desc">Name (Z-A)</option>
+                                </select>
+                            </div>
+
+                            {/* Date Range */}
+                            <div className="flex gap-2">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">From</label>
+                                    <input
+                                        type="date"
+                                        value={outcomeDateRange.start}
+                                        onChange={(e) => setOutcomeDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                        className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">To</label>
+                                    <input
+                                        type="date"
+                                        value={outcomeDateRange.end}
+                                        onChange={(e) => setOutcomeDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                        className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Clear Filters */}
+                            {(outcomeFilterTraineeId !== 'all' || outcomeDateRange.start || outcomeDateRange.end) && (
+                                <div className="flex items-end">
+                                    <button
+                                        onClick={() => {
+                                            setOutcomeFilterTraineeId('all');
+                                            setOutcomeDateRange({ start: '', end: '' });
+                                        }}
+                                        className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded transition-colors mb-[1px]"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
+
+                    {loadingOutcomes && (
+                        <div className="py-12 text-center">
+                            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p className="text-slate-500 text-sm">Loading outcomes...</p>
+                        </div>
+                    )}
+
+                    {!loadingOutcomes && filteredAndSortedOutcomes.length === 0 && (
+                        <div className="py-12 text-center">
+                            <ClipboardCheck size={48} className="text-slate-200 mx-auto mb-4" />
+                            <p className="text-slate-500">No outcomes found</p>
+                            <p className="text-slate-400 text-sm mt-1">Try adjusting your filters or create a new outcome.</p>
+                        </div>
+                    )}
+
+                    {!loadingOutcomes && filteredAndSortedOutcomes.length > 0 && (
+                        <div className="space-y-2">
+                            {filteredAndSortedOutcomes.map(outcome => (
+                                <div
+                                    key={outcome.id}
+                                    className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer group"
+                                    onClick={() => {
+                                        if (outcome.evidenceId && onViewEvidenceItem) {
+                                            handleViewEvidenceItem({
+                                                id: outcome.evidenceId,
+                                                type: outcome.reviewType === 'Full ARCP' ? EvidenceType.ARCPFullReview : EvidenceType.ARCPInterimReview,
+                                                title: `${outcome.reviewType} - ${outcome.outcome}`,
+                                                date: outcome.createdAt?.split('T')[0] || '',
+                                                status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-semibold text-slate-900 truncate">{outcome.traineeName}</h4>
+                                                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${outcome.status === ARCPOutcomeStatus.Confirmed
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                    {outcome.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-600 mb-1">
+                                                <span className="font-medium">{outcome.reviewType}</span> •
+                                                <span className="text-indigo-600 font-semibold ml-1">{outcome.outcome}</span>
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">
+                                                {outcome.gradeAssessed} → {outcome.nextTrainingGrade} •
+                                                Lock: {outcome.lockDate} •
+                                                Chair: {outcome.chairName || 'N/A'}
+                                            </p>
+                                            {outcome.panelComments && (
+                                                <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">
+                                                    {outcome.panelComments}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Edit functionality - navigate to ARCPForm in edit mode
+                                                    if (outcome.evidenceId && onEditEvidenceItem) {
+                                                        const item: any = {
+                                                            id: outcome.evidenceId,
+                                                            type: outcome.reviewType === 'Full ARCP' ? EvidenceType.ARCPFullReview : EvidenceType.ARCPInterimReview,
+                                                            title: `${outcome.reviewType} - ${outcome.outcome}`,
+                                                            date: outcome.createdAt?.split('T')[0] || '',
+                                                            status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
+                                                        };
+                                                        onEditEvidenceItem(item);
+                                                    } else {
+                                                        // Fallback to old behavior if prop not provided or no evidence ID
+                                                        setSelectedTraineeId(outcome.traineeId);
+                                                        setViewMode('overview');
+                                                    }
+                                                }}
+                                                className="p-2 hover:bg-white rounded-lg transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Edit2 size={14} className="text-slate-500" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteOutcome(outcome.id);
+                                                }}
+                                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={14} className="text-red-500" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDownloadOutcomePDF(outcome);
+                                                }}
+                                                className="p-2 hover:bg-white rounded-lg transition-colors"
+                                                title="Download PDF"
+                                            >
+                                                <Download size={14} className="text-slate-500" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </GlassCard>
             )}
 
-            {!loadingDetails && !error && currentSummary && (
-                <div>
-                    {renderTraineeRow(currentSummary)}
+            {/* Pending Warning Dialog */}
+            {showPendingWarning && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center gap-3 mb-4 text-amber-600">
+                            <AlertCircle size={24} />
+                            <h3 className="text-lg font-semibold text-slate-900">Pending Outcome Exists</h3>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            ARCP Outcome for this Trainee already exists, pending confirmation. Click SAVE OUTCOME to create a new ARCP Outcome or Cancel.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowPendingWarning(false)}
+                                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={executeSaveOutcome}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm hover:shadow"
+                            >
+                                SAVE OUTCOME
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

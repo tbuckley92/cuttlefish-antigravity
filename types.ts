@@ -33,7 +33,9 @@ export enum EvidenceType {
   ARCPPrep = 'ARCP Preparation',
   CurriculumCatchUp = 'Curriculum Catch Up',
   FourteenFish = 'FourteenFish',
-  FormR = 'Form R'
+  FormR = 'Form R',
+  ARCPFullReview = 'ARCP Full Review',
+  ARCPInterimReview = 'ARCP Interim Review'
 }
 
 export enum EvidenceStatus {
@@ -69,6 +71,33 @@ export enum ARCPOutcome {
 export enum ARCPReviewType {
   InterimReview = 'Interim Review',
   FullARCP = 'Full ARCP'
+}
+
+export enum ARCPOutcomeStatus {
+  Pending = 'PENDING',
+  Confirmed = 'CONFIRMED'
+}
+
+export interface ARCPOutcomeData {
+  id: string;
+  traineeId: string;
+  traineeName: string;
+  gradeAssessed: string;
+  nextTrainingGrade: string;
+  chairId?: string;
+  chairName?: string;
+  outcome: ARCPOutcome;
+  reviewType: 'Full ARCP' | 'Interim Review';
+  panelComments?: string;
+  currentArcpEpas: string[];
+  lockDate: string;
+  status: ARCPOutcomeStatus;
+  lockedAt?: string;
+  createdBy?: string;
+  createdAt?: string;
+  evidenceId?: string;
+  traineeDeanery?: string;
+  panelReviewDate?: string;
 }
 
 export interface PDPGoal {
@@ -268,6 +297,7 @@ export interface EvidenceItem {
   procedureType?: string;
   role?: string;
   // Form-specific data for PDF generation
+  data?: any; // Generic data for new evidence types (ARCP Outcome)
   epaFormData?: {
     comments: Record<string, string>;
     grading: Record<string, string>;

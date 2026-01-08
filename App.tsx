@@ -25,6 +25,7 @@ import { RefractiveAudit } from './views/RefractiveAudit';
 import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
+import ARCPForm from './views/ARCPForm';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
@@ -61,7 +62,8 @@ enum View {
   RefractiveAudit = 'refractive-audit',
   MyRefractiveAudit = 'my-refractive-audit',
   EPALegacyForm = 'epa-legacy-form',
-  ARCPPanelDashboard = 'arcp-panel-dashboard'
+  ARCPPanelDashboard = 'arcp-panel-dashboard',
+  ARCPForm = 'arcp-form'
 }
 
 interface FormParams {
@@ -75,6 +77,7 @@ interface FormParams {
   initialSection?: number; // Section to navigate to when opening the form
   originView?: View; // View we came from when viewing linked evidence
   originFormParams?: FormParams; // Form params of the origin form
+  editMode?: boolean; // Whether to open in edit mode
 }
 
 interface ReturnTarget {
@@ -959,6 +962,21 @@ const App: React.FC = () => {
     } else if (item.type === EvidenceType.GSAT) {
       setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.GSATForm);
+    } else if (item.type === EvidenceType.ARCPFullReview || item.type === EvidenceType.ARCPInterimReview) {
+      setSelectedFormParams({
+        sia: '',
+        level: 0,
+        id: item.id,
+        status: urlParams.get('ra') ? EvidenceStatus.Submitted : item.status,
+        originView: currentView,
+        editMode: true // Trainees shouldn't get here via handleEditEvidence usually unless allowed, but ARCPPanelDashboard uses this for editing.
+        // Actually, for Trainees, handleEditEvidence routes here too. 
+        // Trainees are NOT allowed to edit. 
+        // We rely on canEdit prop in ARCPForm. 
+        // So editMode=true is a request, but canEdit will block it if not allowed?
+        // Let's ensure canEdit is passed correctly in renderView.
+      });
+      setCurrentView(View.ARCPForm);
     } else if (item.type === EvidenceType.CurriculumCatchUp || item.type === EvidenceType.FourteenFish) {
       // Lazy load legacy data if missing
       // @ts-ignore
@@ -1810,6 +1828,10 @@ const App: React.FC = () => {
               });
 
               switch (item.type) {
+                case EvidenceType.ARCPFullReview:
+                case EvidenceType.ARCPInterimReview:
+                  setCurrentView(View.ARCPForm);
+                  break;
                 case EvidenceType.EPA:
                   setCurrentView(View.EPAForm);
                   break;
@@ -2361,6 +2383,23 @@ const App: React.FC = () => {
             userId={session?.user?.id}
           />
         );
+      case View.ARCPForm:
+        const arcpEvidence = selectedFormParams?.id
+          ? (viewingTraineeId
+            ? viewingTraineeEvidence
+            : allEvidence
+          ).find(e => e.id === selectedFormParams.id)
+          : null;
+
+        return (
+          <ARCPForm
+            initialData={arcpEvidence ? { ...arcpEvidence.data, id: arcpEvidence.id } : null}
+            onBack={handleBackToOrigin}
+            traineeName={viewingTraineeId ? getTraineeSummary(viewingTraineeId)?.profile.name : profile.name}
+            canEdit={profile.roles?.some(r => ['Admin', 'EducationalSupervisor', 'ARCPPanelMember', 'ARCPSuperuser'].includes(r))}
+            initialEditMode={selectedFormParams?.editMode}
+          />
+        );
       case View.ARCPPanelDashboard:
         return (
           <ARCPPanelDashboard
@@ -2373,7 +2412,8 @@ const App: React.FC = () => {
               setSelectedFormParams({
                 sia: '',
                 level: 1,
-                id: existing?.id
+                id: existing?.id,
+                originView: View.ARCPPanelDashboard
               });
               setCurrentView(View.GSATForm);
             }}
@@ -2391,7 +2431,6 @@ const App: React.FC = () => {
               setViewingTraineeId(traineeId);
               setCurrentView(View.Evidence);
             }}
-
             onViewESR={(traineeId) => {
               setViewingTraineeId(traineeId);
               // For now, navigate to supervisor dashboard showing this trainee's supervisor
@@ -2406,7 +2445,8 @@ const App: React.FC = () => {
             }}
             onViewEvidenceItem={(item) => {
               // Navigate to the appropriate view based on evidence type
-              // Force status to Submitted to ensure read-only mode
+              // Force status to Submitted to ensure read-only mode by default for viewing
+              // But handleEditEvidence uses editMode: true
               const readOnlyStatus = EvidenceStatus.Submitted;
 
               setSelectedFormParams({
@@ -2418,6 +2458,10 @@ const App: React.FC = () => {
               });
 
               switch (item.type) {
+                case EvidenceType.ARCPFullReview:
+                case EvidenceType.ARCPInterimReview:
+                  setCurrentView(View.ARCPForm);
+                  break;
                 case EvidenceType.EPA:
                   setCurrentView(View.EPAForm);
                   break;
@@ -2438,11 +2482,13 @@ const App: React.FC = () => {
                   break;
                 default:
                   // For other types (MSF, Curriculum Catch Up, Reflection, etc.), view in AddEvidence form
+                  // Here we use setEditingEvidence to load data, but status Submitted makes it read-only mostly?
                   setEditingEvidence(item);
                   setCurrentView(View.AddEvidence);
                   break;
               }
             }}
+            onEditEvidenceItem={handleEditEvidence}
           />
         );
       default:

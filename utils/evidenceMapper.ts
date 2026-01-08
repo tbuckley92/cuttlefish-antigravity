@@ -57,6 +57,7 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
 
         // Spread the entire data object. 
         // This restores all the form-specific fields like epaFormData, dopsFormData, linkedEvidence, etc.
+        data: data, // Preserve the raw data object for new types like ARCP Outcome
         ...(data || {})
     };
 
