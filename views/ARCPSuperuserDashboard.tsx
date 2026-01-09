@@ -330,7 +330,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                 const notifications = recipients.map(r => ({
                     id: uuidv4(),
                     user_id: r.id,
-                    role_context: 'arcp_superuser',
+                    role_context: 'trainee',
                     type: 'deanery_broadcast',
                     title: subject,
                     body: body,
@@ -479,8 +479,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                                     key={folder.id}
                                     onClick={() => { setActiveFolder(folder.id); setIsComposing(false); setSelectedMessageId(null); }}
                                     className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors ${activeFolder === folder.id && !isComposing
-                                            ? 'bg-blue-100 text-blue-700 font-medium'
-                                            : 'text-slate-600 hover:bg-slate-100'
+                                        ? 'bg-blue-100 text-blue-700 font-medium'
+                                        : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     <folder.icon className="w-4 h-4" />

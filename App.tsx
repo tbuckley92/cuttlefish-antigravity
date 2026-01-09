@@ -613,6 +613,30 @@ const App: React.FC = () => {
           console.error('Error saving evidence to Supabase:', error);
           alert(`Failed to save evidence to server: ${error.message}`);
           // Consider reverting local state here if strict consistency is required
+        } else {
+          // Create notification when form is signed off
+          if (item.status === EvidenceStatus.SignedOff) {
+            const notificationPayload = {
+              id: uuidv4(),
+              user_id: session.user.id,
+              role_context: 'trainee',
+              type: 'form_signed',
+              title: `${optimisticItem.type} Signed Off`,
+              body: `Your ${optimisticItem.title} has been signed off by ${optimisticItem.supervisorName || 'your supervisor'}.`,
+              reference_id: optimisticItem.id,
+              reference_type: 'evidence',
+              email_sent: false,
+              is_read: false
+            };
+
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert(notificationPayload);
+
+            if (notifError) {
+              console.error('Error creating sign-off notification:', notifError);
+            }
+          }
         }
       } catch (err) {
         console.error('Exception saving evidence:', err);
@@ -621,6 +645,7 @@ const App: React.FC = () => {
       // Local storage persistence is handled by the useEffect [allEvidence] hook
     }
   };
+
 
   const handleBackToOrigin = () => {
     if (selectedFormParams?.originView && selectedFormParams?.originFormParams) {

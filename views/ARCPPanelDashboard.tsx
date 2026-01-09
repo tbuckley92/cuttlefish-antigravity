@@ -8,6 +8,7 @@ import { TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, Us
 import { ARCP_OUTCOMES, SPECIALTIES } from '../constants';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { generateEvidencePDF } from '../utils/pdfGenerator';
+import { uuidv4 } from '../utils/uuid';
 
 interface ARCPPanelDashboardProps {
     currentUser: UserProfile;
@@ -517,6 +518,28 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
             // 3. Update profile with outcome
             onUpdateARCPOutcome(selectedTraineeId, outcomeFormData.outcome as ARCPOutcome);
+
+            // Create notification for trainee
+            const notificationPayload = {
+                id: uuidv4(),
+                user_id: selectedTraineeId,
+                role_context: 'trainee',
+                type: 'arcp_outcome',
+                title: 'ARCP Outcome Available',
+                body: `Your ARCP outcome for ${reviewType} has been recorded as ${outcomeFormData.outcome}.`,
+                reference_id: evidenceData.id,
+                reference_type: 'evidence',
+                email_sent: false,
+                is_read: false
+            };
+
+            const { error: notifError } = await supabase
+                .from('notifications')
+                .insert(notificationPayload);
+
+            if (notifError) {
+                console.error('Error creating ARCP outcome notification:', notifError);
+            }
 
             // Show success feedback
             const btn = document.getElementById('save-outcome-btn');
