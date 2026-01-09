@@ -26,6 +26,7 @@ import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import ARCPForm from './views/ARCPForm';
+import ARCPSuperuserDashboard from './views/ARCPSuperuserDashboard';
 // Ticket System Views
 import AdminDashboard from './views/Admin/AdminDashboard';
 import Inbox from './views/Inbox';
@@ -76,7 +77,9 @@ enum View {
   Inbox = 'inbox',
   RaiseTicket = 'raise-ticket',
   MyTickets = 'my-tickets',
-  TicketDetail = 'ticket-detail'
+  TicketDetail = 'ticket-detail',
+  // ARCP Superuser Message Centre
+  ARCPSuperuserDashboard = 'arcp-superuser-dashboard'
 }
 
 interface FormParams {
@@ -2573,6 +2576,16 @@ const App: React.FC = () => {
             }}
           />
         );
+      // ARCP Superuser Message Centre
+      case View.ARCPSuperuserDashboard:
+        return (
+          <ARCPSuperuserDashboard
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            currentUserDeanery={profile.deanery || 'Thames Valley Deanery'}
+            onBack={() => setCurrentView(View.Dashboard)}
+          />
+        );
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={handleUpdateProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -2824,7 +2837,7 @@ const App: React.FC = () => {
                           if (profile.roles?.includes(UserRole.ARCPSuperuser)) {
                             setCurrentRole(UserRole.ARCPSuperuser);
                             setViewingTraineeId(null);
-                            setCurrentView(View.ARCPPanelDashboard); // Same dashboard but with more permissions
+                            setCurrentView(View.ARCPSuperuserDashboard);
                             setIsSettingsMenuOpen(false);
                           }
                         }}

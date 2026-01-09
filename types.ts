@@ -906,10 +906,44 @@ export enum NotificationType {
   TicketResponse = 'ticket_response',
   TicketStatusChange = 'ticket_status_change',
   FormSigned = 'form_signed',
-  ARCPOutcome = 'arcp_outcome'
+  ARCPOutcome = 'arcp_outcome',
+  DeaneryBroadcast = 'deanery_broadcast'
 }
 
-export type RoleContext = 'trainee' | 'supervisor' | 'arcp_panel' | 'admin';
+export type RoleContext = 'trainee' | 'supervisor' | 'arcp_panel' | 'arcp_superuser' | 'admin';
+
+// ============================================
+// DEANERY MESSAGING TYPES
+// ============================================
+
+export type MessageStatus = 'DRAFT' | 'SCHEDULED' | 'SENT' | 'DELETED';
+
+export type RecipientListType = 'trainees' | 'supervisors' | 'arcp_panel' | 'custom';
+
+export interface DeaneryMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  deanery: string;
+  recipientIds: string[];
+  recipientListType?: RecipientListType;
+  subject: string;
+  body: string;
+  status: MessageStatus;
+  scheduledAt?: string;
+  sentAt?: string;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeaneryUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  deanery: string;
+}
 
 export interface Ticket {
   id: string;
