@@ -889,3 +889,65 @@ export interface TraineeSummary {
   sias: SIA[];
   allEvidence: EvidenceItem[];
 }
+
+// ============================================
+// TICKET SYSTEM TYPES
+// ============================================
+
+export enum TicketStatus {
+  Open = 'OPEN',
+  InProgress = 'IN_PROGRESS',
+  Resolved = 'RESOLVED',
+  Closed = 'CLOSED'
+}
+
+export enum NotificationType {
+  TicketCreated = 'ticket_created',
+  TicketResponse = 'ticket_response',
+  TicketStatusChange = 'ticket_status_change',
+  FormSigned = 'form_signed',
+  ARCPOutcome = 'arcp_outcome'
+}
+
+export type RoleContext = 'trainee' | 'supervisor' | 'arcp_panel' | 'admin';
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  subject: string;
+  status: TicketStatus;
+  isUrgent: boolean;
+  statusHistory?: Array<{
+    status: TicketStatus;
+    changedBy: string;
+    changedAt: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'user' | 'admin';
+  message: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  roleContext: RoleContext;
+  type: NotificationType;
+  title: string;
+  body?: string;
+  referenceId?: string;
+  referenceType?: 'ticket' | 'evidence' | 'arcp_outcome';
+  emailSent: boolean;
+  isRead: boolean;
+  createdAt: string;
+}

@@ -26,7 +26,14 @@ import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import ARCPForm from './views/ARCPForm';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock } from './components/Icons';
+// Ticket System Views
+import AdminDashboard from './views/Admin/AdminDashboard';
+import Inbox from './views/Inbox';
+import RaiseTicket from './views/RaiseTicket';
+import MyTickets from './views/MyTickets';
+import TicketDetail from './views/TicketDetail';
+import { Ticket, TicketStatus } from './types';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock, MessageSquare, Bell } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData } from './types';
@@ -63,7 +70,13 @@ enum View {
   MyRefractiveAudit = 'my-refractive-audit',
   EPALegacyForm = 'epa-legacy-form',
   ARCPPanelDashboard = 'arcp-panel-dashboard',
-  ARCPForm = 'arcp-form'
+  ARCPForm = 'arcp-form',
+  // Ticket System Views
+  AdminDashboard = 'admin-dashboard',
+  Inbox = 'inbox',
+  RaiseTicket = 'raise-ticket',
+  MyTickets = 'my-tickets',
+  TicketDetail = 'ticket-detail'
 }
 
 interface FormParams {
@@ -430,6 +443,8 @@ const App: React.FC = () => {
   const [viewingTraineeEvidence, setViewingTraineeEvidence] = useState<EvidenceItem[]>([]);
   // State for initial EyeLogbook tab
   const [initialEyeLogbookTab, setInitialEyeLogbookTab] = useState<string | undefined>(undefined);
+  // State for viewing a selected ticket in TicketDetail
+  const [selectedTicketForView, setSelectedTicketForView] = useState<Ticket | null>(null);
 
   // Fetch viewing trainee evidence when viewingTraineeId changes
   useEffect(() => {
@@ -1786,6 +1801,8 @@ const App: React.FC = () => {
               setCurrentView(View.GSATForm);
             }}
             onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)}
+            onNavigateToMyTickets={() => setCurrentView(View.MyTickets)}
+            onNavigateToInbox={() => setCurrentView(View.Inbox)}
             isResident={currentRole === UserRole.Trainee}
           />
         );
@@ -2491,6 +2508,71 @@ const App: React.FC = () => {
             onEditEvidenceItem={handleEditEvidence}
           />
         );
+      // Ticket System Views
+      case View.AdminDashboard:
+        return (
+          <AdminDashboard
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            onBack={() => setCurrentView(View.Dashboard)}
+          />
+        );
+      case View.Inbox:
+        return (
+          <Inbox
+            currentUserId={session?.user?.id || ''}
+            roleContext="trainee"
+            onBack={() => setCurrentView(View.Dashboard)}
+            onNavigateToTicket={(ticketId) => {
+              // Find ticket and navigate to detail
+              // For simplicity, navigate to MyTickets which shows the list
+              setCurrentView(View.MyTickets);
+            }}
+          />
+        );
+      case View.RaiseTicket:
+        return (
+          <RaiseTicket
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            currentUserEmail={session?.user?.email}
+            onBack={() => setCurrentView(View.MyTickets)}
+            onTicketCreated={() => setCurrentView(View.MyTickets)}
+          />
+        );
+      case View.MyTickets:
+        return (
+          <MyTickets
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            onBack={() => setCurrentView(View.Dashboard)}
+            onRaiseTicket={() => setCurrentView(View.RaiseTicket)}
+            onViewTicket={(ticket) => {
+              setSelectedTicketForView(ticket);
+              setCurrentView(View.TicketDetail);
+            }}
+          />
+        );
+      case View.TicketDetail:
+        return selectedTicketForView ? (
+          <TicketDetail
+            ticket={selectedTicketForView}
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            onBack={() => setCurrentView(View.MyTickets)}
+          />
+        ) : (
+          <MyTickets
+            currentUserId={session?.user?.id || ''}
+            currentUserName={profile.name}
+            onBack={() => setCurrentView(View.Dashboard)}
+            onRaiseTicket={() => setCurrentView(View.RaiseTicket)}
+            onViewTicket={(ticket) => {
+              setSelectedTicketForView(ticket);
+              setCurrentView(View.TicketDetail);
+            }}
+          />
+        );
       default:
         return <Dashboard sias={sias} allEvidence={allEvidence} profile={profile} onUpdateProfile={handleUpdateProfile} onRemoveSIA={handleRemoveSIA} onUpdateSIA={handleUpdateSIA} onAddSIA={handleAddSIA} onNavigateToEPA={handleNavigateToEPA} onNavigateToDOPs={handleNavigateToDOPs} onNavigateToOSATS={handleNavigateToOSATS} onNavigateToCBD={handleNavigateToCBD} onNavigateToCRS={handleNavigateToCRS} onNavigateToEvidence={() => setCurrentView(View.Evidence)} onNavigateToRecordForm={() => setCurrentView(View.RecordForm)} onNavigateToAddEvidence={handleNavigateToAddEvidence} onNavigateToGSAT={() => {
           setReturnTarget(null);
@@ -2747,6 +2829,50 @@ const App: React.FC = () => {
                           }
                         }}
                       />
+
+                      {/* Admin Dashboard Role */}
+                      <RoleMenuItem
+                        label="Admin Dashboard"
+                        icon={<Settings size={18} />}
+                        isAvailable={profile.roles?.includes(UserRole.Admin)}
+                        isActive={currentRole === UserRole.Admin && currentView === View.AdminDashboard}
+                        onClick={() => {
+                          if (profile.roles?.includes(UserRole.Admin)) {
+                            setCurrentRole(UserRole.Admin);
+                            setViewingTraineeId(null);
+                            setCurrentView(View.AdminDashboard);
+                            setIsSettingsMenuOpen(false);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-slate-200"></div>
+
+                    {/* Support Section */}
+                    <div className="p-2">
+                      <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Support</p>
+                      <button
+                        onClick={() => {
+                          setCurrentView(View.MyTickets);
+                          setIsSettingsMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <MessageSquare size={18} className="text-amber-500" />
+                        <span className="font-medium text-sm">My Tickets</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCurrentView(View.Inbox);
+                          setIsSettingsMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <Bell size={18} className="text-blue-500" />
+                        <span className="font-medium text-sm">Inbox</span>
+                      </button>
                     </div>
 
                     {/* Divider */}
@@ -2803,6 +2929,7 @@ const App: React.FC = () => {
       <Footer
         onNavigateToSupervisorDashboard={handleNavigateToSupervisorDashboard}
         onNavigateToARCPPanel={handleNavigateToARCPPanel}
+        onNavigateToAdminDashboard={() => setCurrentView(View.AdminDashboard)}
         currentUserRoles={profile.roles || [UserRole.Admin]} // Default to Admin for demo
       />
     </div>

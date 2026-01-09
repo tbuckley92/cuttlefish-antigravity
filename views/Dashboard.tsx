@@ -6,7 +6,7 @@ import {
   User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus,
   ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
   FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
-  ExternalLink, Activity, Clock
+  ExternalLink, Activity, Clock, MessageSquare, Bell
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { INITIAL_PROFILE, SPECIALTIES, DEANERIES } from '../constants';
@@ -30,6 +30,8 @@ interface DashboardProps {
   onNavigateToAddEvidence: (sia?: string, level?: number, type?: string) => void;
   onNavigateToGSAT: () => void;
   onNavigateToARCPPrep: () => void;
+  onNavigateToMyTickets?: () => void;
+  onNavigateToInbox?: () => void;
   isResident?: boolean; // true if user is a Resident (requires ES fields), false for Supervisors
 }
 
@@ -51,6 +53,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToAddEvidence,
   onNavigateToGSAT,
   onNavigateToARCPPrep,
+  onNavigateToMyTickets,
+  onNavigateToInbox,
   isResident = true
 }) => {
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
@@ -805,6 +809,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                       </button>
+                    </div>
+
+                    {/* Support Section */}
+                    <div className="pt-4 border-t border-slate-100 dark:border-white/5 mt-2">
+                      <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold mb-2">SUPPORT</p>
+                      <div className="flex flex-col gap-2">
+                        {onNavigateToMyTickets && (
+                          <button
+                            onClick={onNavigateToMyTickets}
+                            className="w-full py-3 rounded-xl bg-amber-600/10 border border-amber-500/20 text-amber-700 text-xs font-bold hover:bg-amber-600/20 transition-all flex items-center justify-center gap-2 group"
+                          >
+                            <MessageSquare size={14} /> My Tickets <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        )}
+                        {onNavigateToInbox && (
+                          <button
+                            onClick={onNavigateToInbox}
+                            className="w-full py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-700 text-xs font-bold hover:bg-blue-600/20 transition-all flex items-center justify-center gap-2 group"
+                          >
+                            <Bell size={14} /> Inbox <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </>
