@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     ArrowLeft, Inbox, FileText, Send, Trash2, Plus, Search, X, Users,
-    Calendar, Clock, CheckCircle2, AlertTriangle
+    Calendar, Clock, CheckCircle2, AlertTriangle, Paperclip
 } from '../components/Icons';
 import { GlassCard } from '../components/GlassCard';
 import {
-    DeaneryMessage, DeaneryUser, MessageStatus, UserRole, NotificationType, Notification
-
+    DeaneryMessage, DeaneryUser, MessageStatus, UserRole, NotificationType, Notification, MessageAttachment
 } from '../types';
+
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { uuidv4 } from '../utils/uuid';
 
@@ -15,7 +15,7 @@ import { uuidv4 } from '../utils/uuid';
 // TYPES
 // ============================================
 
-type MessageFolder = 'inbox' | 'drafts' | 'sent' | 'deleted';
+type MessageFolder = 'inbox' | 'drafts' | 'sent' | 'scheduled' | 'deleted';
 
 interface RecipientChip {
     id: string;
@@ -59,6 +59,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     const [scheduleMode, setScheduleMode] = useState<'now' | 'scheduled'>('now');
     const [scheduledAt, setScheduledAt] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Deanery users cache
     const [deaneryUsers, setDeaneryUsers] = useState<DeaneryUser[]>([]);
@@ -66,6 +68,21 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     // ============================================
     // DATA FETCHING
     // ============================================
+
+    // Process scheduled messages on mount (triggers background processing)
+    useEffect(() => {
+        const processScheduled = async () => {
+            if (!isSupabaseConfigured || !supabase) return;
+            try {
+                // Call the database function to move SCHEDULED -> SENT and create notifications
+                const { error } = await supabase.rpc('process_scheduled_messages');
+                if (error) console.error('Error processing scheduled messages:', error);
+            } catch (err) {
+                console.error('Failed to invoke process_scheduled_messages:', err);
+            }
+        };
+        processScheduled();
+    }, []);
 
     // Fetch deanery users (for recipient selection)
     useEffect(() => {
@@ -130,7 +147,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                         referenceType: n.reference_type,
                         emailSent: n.email_sent,
                         isRead: n.is_read,
-                        createdAt: n.created_at
+                        createdAt: n.created_at,
+                        metadata: n.metadata || {}
                     })));
                 }
             } else {
@@ -143,7 +161,9 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                 if (activeFolder === 'drafts') {
                     query = query.eq('status', 'DRAFT');
                 } else if (activeFolder === 'sent') {
-                    query = query.in('status', ['SENT', 'SCHEDULED']);
+                    query = query.eq('status', 'SENT');
+                } else if (activeFolder === 'scheduled') {
+                    query = query.eq('status', 'SCHEDULED');
                 } else if (activeFolder === 'deleted') {
                     query = query.eq('status', 'DELETED');
                 }
@@ -169,7 +189,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                         sentAt: m.sent_at,
                         deletedAt: m.deleted_at,
                         createdAt: m.created_at,
-                        updatedAt: m.updated_at
+                        updatedAt: m.updated_at,
+                        attachments: m.attachments || []
                     })));
                 }
             }
@@ -183,6 +204,24 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     // ============================================
     // RECIPIENT SEARCH
     // ============================================
+
+    useEffect(() => {
+        // Trigger processing of any due scheduled messages when dashboard loads
+        const processScheduled = async () => {
+            if (!supabase) return;
+            const { error } = await supabase.rpc('process_scheduled_messages');
+            if (error) {
+                console.error('Error processing scheduled messages:', error);
+            } else {
+                console.log('Processed scheduled messages check complete');
+                // Refresh messages if we are in scheduled or sent folder
+                if (activeFolder === 'scheduled' || activeFolder === 'sent') {
+                    // We could trigger a refresh here, but let's leave it for now
+                }
+            }
+        };
+        processScheduled();
+    }, []); // Run once on mount
 
     useEffect(() => {
         if (!recipientSearch.trim()) {
@@ -241,11 +280,54 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     // MESSAGE ACTIONS
     // ============================================
 
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !isSupabaseConfigured || !supabase) return;
+
+        setIsUploading(true);
+        const files: File[] = Array.from(e.target.files);
+
+        // Process each file
+        for (const file of files) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${uuidv4()}.${fileExt}`;
+            const filePath = `${currentUserId}/${fileName}`;
+
+            try {
+                // Use message-attachments bucket
+                const { error } = await supabase.storage
+                    .from('message-attachments')
+                    .upload(filePath, file);
+
+                if (error) throw error;
+
+                setAttachments(prev => [...prev, {
+                    id: uuidv4(),
+                    name: file.name,
+                    url: filePath, // Storing storage path
+                    type: file.type,
+                    size: file.size
+                }]);
+
+            } catch (err: any) {
+                console.error('Upload error:', err);
+                alert(`Failed to upload ${file.name}: ${err.message}`);
+            }
+        }
+        setIsUploading(false);
+        // clear input
+        e.target.value = '';
+    };
+
+    const removeAttachment = (id: string) => {
+        setAttachments(prev => prev.filter(a => a.id !== id));
+    };
+
     const resetCompose = () => {
         setRecipients([]);
         setRecipientSearch('');
         setSubject('');
         setBody('');
+        setAttachments([]);
         setScheduleMode('now');
         setScheduledAt('');
         setIsComposing(false);
@@ -266,7 +348,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
             subject: subject || '(No Subject)',
             body: body,
             status: 'DRAFT',
-            scheduled_at: scheduleMode === 'scheduled' && scheduledAt ? scheduledAt : null
+            scheduled_at: scheduleMode === 'scheduled' && scheduledAt ? scheduledAt : null,
+            attachments: attachments
         };
 
         const { error } = await supabase
@@ -315,8 +398,9 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                 subject: subject,
                 body: body,
                 status: isScheduled ? 'SCHEDULED' : 'SENT',
-                scheduled_at: isScheduled ? scheduledAt : null,
-                sent_at: isScheduled ? null : now
+                scheduled_at: isScheduled ? new Date(scheduledAt).toISOString() : null,
+                sent_at: isScheduled ? null : now,
+                attachments: attachments
             };
 
             const { error: msgError } = await supabase
@@ -333,9 +417,15 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                     role_context: 'trainee',
                     type: 'deanery_broadcast',
                     title: subject,
-                    body: body,
+                    body: body, // Provide a snippet? Body is full text. Inbox handles truncation.
+                    // Attachments are stored in Notification too so recipient can see them easily
+                    attachments: attachments,
                     reference_id: messageId,
                     reference_type: 'deanery_message',
+                    metadata: {
+                        sender: currentUserName,
+                        senderId: currentUserId
+                    },
                     email_sent: false,
                     is_read: false
                 }));
@@ -387,6 +477,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         setRecipients(recipientChips);
         setSubject(message.subject);
         setBody(message.body);
+        setAttachments(message.attachments || []);
         setScheduleMode(message.scheduledAt ? 'scheduled' : 'now');
         setScheduledAt(message.scheduledAt || '');
         setSelectedMessageId(message.id);
@@ -403,6 +494,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
             inbox: inboxNotifications.filter(n => !n.isRead).length,
             drafts: 0,
             sent: 0,
+            scheduled: 0,
             deleted: 0
         };
     }, [inboxNotifications]);
@@ -473,6 +565,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                                 { id: 'inbox' as MessageFolder, icon: Inbox, label: 'Inbox', count: folderCounts.inbox },
                                 { id: 'drafts' as MessageFolder, icon: FileText, label: 'Drafts', count: folderCounts.drafts },
                                 { id: 'sent' as MessageFolder, icon: Send, label: 'Sent', count: folderCounts.sent },
+                                { id: 'scheduled' as MessageFolder, icon: Clock, label: 'Scheduled', count: folderCounts.scheduled },
                                 { id: 'deleted' as MessageFolder, icon: Trash2, label: 'Deleted Items', count: folderCounts.deleted },
                             ].map(folder => (
                                 <button
@@ -600,65 +693,97 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                                 </div>
 
                                 {/* Body */}
-                                <div className="flex-1 mb-3">
+                                <div className="mb-3">
                                     <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Message</label>
                                     <textarea
                                         value={body}
                                         onChange={(e) => setBody(e.target.value)}
                                         placeholder="Write your message..."
-                                        className="w-full h-full min-h-[200px] px-3 py-2 border border-slate-200 rounded-xl bg-white/50 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 resize-none"
+                                        className="w-full h-64 px-3 py-2 border border-slate-200 rounded-xl bg-white/50 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 resize-none"
                                     />
                                 </div>
 
-                                {/* Schedule Options */}
-                                <div className="mb-4 flex items-center gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="schedule"
-                                            checked={scheduleMode === 'now'}
-                                            onChange={() => setScheduleMode('now')}
-                                            className="text-blue-500"
-                                        />
-                                        <span className="text-sm text-slate-700">Send Now</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="schedule"
-                                            checked={scheduleMode === 'scheduled'}
-                                            onChange={() => setScheduleMode('scheduled')}
-                                            className="text-blue-500"
-                                        />
-                                        <span className="text-sm text-slate-700">Schedule</span>
-                                    </label>
-                                    {scheduleMode === 'scheduled' && (
-                                        <input
-                                            type="datetime-local"
-                                            value={scheduledAt}
-                                            onChange={(e) => setScheduledAt(e.target.value)}
-                                            min={new Date().toISOString().slice(0, 16)}
-                                            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white/50"
-                                        />
-                                    )}
-                                </div>
+                                {/* Attachments List */}
+                                {attachments.length > 0 && (
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                        {attachments.map(att => (
+                                            <div key={att.id} className="inline-flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full text-sm border border-slate-200">
+                                                <Paperclip className="w-3 h-3 text-slate-500" />
+                                                <span className="text-slate-700 truncate max-w-[200px]">{att.name}</span>
+                                                <button onClick={() => removeAttachment(att.id)} className="text-slate-400 hover:text-red-500">
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
-                                {/* Actions */}
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        onClick={handleSaveDraft}
-                                        className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
-                                    >
-                                        Save Draft
-                                    </button>
-                                    <button
-                                        onClick={handleSend}
-                                        disabled={isSending}
-                                        className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50"
-                                    >
-                                        <Send className="w-4 h-4" />
-                                        {isSending ? 'Sending...' : scheduleMode === 'scheduled' ? 'Schedule' : 'Send'}
-                                    </button>
+                                {/* Footer Actions */}
+                                <div className="mt-auto border-t border-slate-100 pt-4 flex items-center justify-between">
+                                    {/* Left: Attachments & Schedule */}
+                                    <div className="flex items-center gap-4">
+                                        <label className={`p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors text-slate-500 hover:text-blue-500 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`} title="Attach File">
+                                            <Paperclip className="w-5 h-5" />
+                                            <input
+                                                type="file"
+                                                multiple
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                                disabled={isUploading}
+                                            />
+                                        </label>
+
+                                        <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="schedule"
+                                                    checked={scheduleMode === 'now'}
+                                                    onChange={() => setScheduleMode('now')}
+                                                    className="text-blue-500"
+                                                />
+                                                <span className="text-sm text-slate-700">Send Now</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="schedule"
+                                                    checked={scheduleMode === 'scheduled'}
+                                                    onChange={() => setScheduleMode('scheduled')}
+                                                    className="text-blue-500"
+                                                />
+                                                <span className="text-sm text-slate-700">Schedule</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Action Buttons and Date Picker */}
+                                    <div className="flex items-center gap-3">
+                                        {scheduleMode === 'scheduled' && (
+                                            <input
+                                                type="datetime-local"
+                                                value={scheduledAt}
+                                                onChange={(e) => setScheduledAt(e.target.value)}
+                                                min={new Date().toISOString().slice(0, 16)}
+                                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white/50"
+                                            />
+                                        )}
+
+                                        <button
+                                            onClick={handleSaveDraft}
+                                            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                                        >
+                                            Save Draft
+                                        </button>
+                                        <button
+                                            onClick={handleSend}
+                                            disabled={isSending || isUploading}
+                                            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50"
+                                        >
+                                            <Send className="w-4 h-4" />
+                                            {isSending ? 'Sending...' : scheduleMode === 'scheduled' ? 'Schedule' : 'Send'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ) : (
@@ -690,11 +815,18 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                                                         <div className="flex items-start gap-3">
                                                             <div className={`w-2 h-2 mt-2 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className={`text-sm ${!n.isRead ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>
-                                                                        {n.title}
-                                                                    </span>
-                                                                    <span className="text-xs text-slate-400">{formatDate(n.createdAt)}</span>
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1 min-w-0 pr-2">
+                                                                        <div className={`text-sm ${!n.isRead ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>
+                                                                            {n.title}
+                                                                        </div>
+                                                                        {n.metadata?.sender && (
+                                                                            <div className="text-xs text-slate-500 font-medium mt-0.5">
+                                                                                From: {n.metadata.sender}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(n.createdAt)}</span>
                                                                 </div>
                                                                 <p className="text-sm text-slate-500 truncate mt-0.5">{n.body}</p>
                                                             </div>

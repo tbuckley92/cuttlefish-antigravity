@@ -918,7 +918,16 @@ export type RoleContext = 'trainee' | 'supervisor' | 'arcp_panel' | 'arcp_superu
 
 export type MessageStatus = 'DRAFT' | 'SCHEDULED' | 'SENT' | 'DELETED';
 
+
 export type RecipientListType = 'trainees' | 'supervisors' | 'arcp_panel' | 'custom';
+
+export interface MessageAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+}
 
 export interface DeaneryMessage {
   id: string;
@@ -935,6 +944,7 @@ export interface DeaneryMessage {
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;
+  attachments?: MessageAttachment[];
 }
 
 export interface DeaneryUser {
@@ -980,8 +990,14 @@ export interface Notification {
   title: string;
   body?: string;
   referenceId?: string;
-  referenceType?: 'ticket' | 'evidence' | 'arcp_outcome';
+  referenceType?: 'ticket' | 'evidence' | 'arcp_outcome' | 'deanery_message';
   emailSent: boolean;
   isRead: boolean;
+  attachments?: MessageAttachment[];
   createdAt: string;
+  metadata?: {
+    sender?: string;
+    senderId?: string;
+    [key: string]: any;
+  };
 }

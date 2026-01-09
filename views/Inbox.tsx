@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Bell, Check, CheckCheck, Trash2, Filter, ExternalLink, AlertTriangle, FileText, ClipboardCheck } from '../components/Icons';
-import { Notification, NotificationType, RoleContext } from '../types';
+import { ArrowLeft, Bell, Check, CheckCheck, Trash2, Filter, ExternalLink, AlertTriangle, FileText, ClipboardCheck, Paperclip, Download, X, Mail } from '../components/Icons';
+import { Notification, NotificationType, RoleContext, MessageAttachment } from '../types';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 
 interface InboxProps {
@@ -21,6 +21,7 @@ const Inbox: React.FC<InboxProps> = ({
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterUnread, setFilterUnread] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
     const fetchNotifications = async () => {
         if (!isSupabaseConfigured || !supabase) return;
@@ -55,8 +56,11 @@ const Inbox: React.FC<InboxProps> = ({
                     referenceType: row.reference_type,
                     emailSent: row.email_sent,
                     isRead: row.is_read,
-                    createdAt: row.created_at
+                    createdAt: row.created_at,
+                    attachments: row.attachments || [],
+                    metadata: row.metadata || {},
                 }));
+                // @ts-ignore
                 setNotifications(mapped);
             }
         } catch (err) {
@@ -109,6 +113,27 @@ const Inbox: React.FC<InboxProps> = ({
             onNavigateToTicket(notification.referenceId);
         } else if (notification.referenceId && notification.referenceType === 'evidence' && onNavigateToEvidence) {
             onNavigateToEvidence(notification.referenceId);
+        } else if (notification.type === NotificationType.DeaneryBroadcast) {
+            setSelectedNotification(notification);
+        }
+    };
+
+    const handleDownloadAttachment = async (att: MessageAttachment) => {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        try {
+            // Create signed URL for download (valid for 60s)
+            const { data, error } = await supabase.storage
+                .from('message-attachments')
+                .createSignedUrl(att.url, 60);
+
+            if (error) throw error;
+            if (data?.signedUrl) {
+                window.open(data.signedUrl, '_blank');
+            }
+        } catch (err) {
+            console.error('Error downloading attachment:', err);
+            alert('Failed to download attachment');
         }
     };
 
@@ -120,6 +145,8 @@ const Inbox: React.FC<InboxProps> = ({
 
     const getNotificationIcon = (type: NotificationType) => {
         switch (type) {
+            case NotificationType.DeaneryBroadcast:
+                return <Mail className="w-5 h-5 text-blue-500" />;
             case NotificationType.TicketCreated:
             case NotificationType.TicketResponse:
             case NotificationType.TicketStatusChange:
@@ -235,27 +262,45 @@ const Inbox: React.FC<InboxProps> = ({
                                     </div>
 
                                     {/* Content */}
+                                    {/* Content */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <h4 className={`text-sm ${!notification.isRead ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-                                                    {notification.title}
-                                                </h4>
-                                                {notification.body && (
-                                                    <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{notification.body}</p>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-slate-400 whitespace-nowrap">
+                                        {/* Row 1: Sender & Date */}
+                                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                                            <span className={`text-sm font-bold ${!notification.isRead ? 'text-slate-900' : 'text-slate-700'}`}>
+                                                {notification.metadata?.sender || 'System Notification'}
+                                            </span>
+                                            <span className={`text-xs whitespace-nowrap ${!notification.isRead ? 'text-indigo-600 font-medium' : 'text-slate-500'}`}>
                                                 {formatDate(notification.createdAt)}
                                             </span>
                                         </div>
 
-                                        {/* Unread indicator */}
-                                        {!notification.isRead && (
-                                            <div className="w-2 h-2 rounded-full bg-indigo-500 absolute right-4 top-1/2 -translate-y-1/2" />
+                                        {/* Row 2: Subject */}
+                                        <div className={`text-sm mb-0.5 ${!notification.isRead ? 'text-indigo-600 font-medium' : 'text-slate-600'}`}>
+                                            {notification.title}
+                                        </div>
+
+                                        {/* Row 3: Body Preview */}
+                                        {notification.body && (
+                                            <p className="text-xs text-slate-500 line-clamp-1">{notification.body}</p>
+                                        )}
+
+                                        {/* Attachments Indicator */}
+                                        {notification.attachments && notification.attachments.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-1.5">
+                                                {notification.attachments.map(att => (
+                                                    <div key={att.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 rounded text-xs text-slate-500 border border-slate-100">
+                                                        <Paperclip className="w-3 h-3 flex-shrink-0 text-slate-400" />
+                                                        <span className="truncate max-w-[150px]">{att.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
 
+                                    {/* Unread indicator */}
+                                    {!notification.isRead && (
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500 absolute right-4 top-1/2 -translate-y-1/2" />
+                                    )}
                                     {/* Actions */}
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {!notification.isRead && (
@@ -281,10 +326,82 @@ const Inbox: React.FC<InboxProps> = ({
                                 </div>
                             ))}
                         </div>
-                    )}
-                </div>
-            </main>
-        </div>
+                    )
+                    }
+                </div >
+            </main >
+
+            {/* Message Detail Modal */}
+            {
+                selectedNotification && (
+                    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+                        <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-xl bg-white">
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                        <Bell className="w-5 h-5" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900">{selectedNotification.title}</h3>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedNotification(null)}
+                                    className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="text-sm text-slate-500 flex items-center justify-between">
+                                    {selectedNotification.metadata?.sender && (
+                                        <span className="font-medium text-slate-700">From: {selectedNotification.metadata.sender}</span>
+                                    )}
+                                    <span>{new Date(selectedNotification.createdAt).toLocaleString()}</span>
+                                </div>
+
+                                <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-wrap">
+                                    {selectedNotification.body}
+                                </div>
+
+                                {selectedNotification.attachments && selectedNotification.attachments.length > 0 && (
+                                    <div className="mt-6 pt-4 border-t border-slate-100">
+                                        <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                            <Paperclip className="w-4 h-4" /> Attachments
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {selectedNotification.attachments.map((att, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => handleDownloadAttachment(att)}
+                                                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left group"
+                                                >
+                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 group-hover:border-blue-200">
+                                                        <FileText className="w-5 h-5 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-medium text-slate-900 truncate">{att.name}</div>
+                                                        <div className="text-xs text-slate-500">{(att.size / 1024).toFixed(1)} KB</div>
+                                                    </div>
+                                                    <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setSelectedNotification(null)}
+                                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

@@ -34,12 +34,13 @@ import RaiseTicket from './views/RaiseTicket';
 import MyTickets from './views/MyTickets';
 import TicketDetail from './views/TicketDetail';
 import { Ticket, TicketStatus } from './types';
-import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock, MessageSquare, Bell } from './components/Icons';
+import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock, MessageSquare, Bell, X } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
 import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 import { Footer } from './components/Footer';
+import { GlassCard } from './components/GlassCard';
 import { Auth } from './views/Auth';
 import { ProfileSetup } from './views/ProfileSetup';
 import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
@@ -164,6 +165,32 @@ const App: React.FC = () => {
     }),
     []
   );
+
+  // Login Notification Alert State
+  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Check for unread notifications on login
+  useEffect(() => {
+    const checkUnread = async () => {
+      if (!session?.user || !isSupabaseConfigured || !supabase) return;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .eq('is_read', false);
+
+      if (!error && count && count > 0) {
+        setUnreadCount(count);
+        setShowUnreadAlert(true);
+      }
+    };
+
+    if (session?.user) {
+      checkUnread();
+    }
+  }, [session?.user?.id]);
 
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
@@ -2963,6 +2990,48 @@ const App: React.FC = () => {
       <main className={`pb-20 ${isViewingLinkedEvidence ? 'pt-24' : 'pt-2'}`}>
         {renderContent()}
       </main>
+
+      {/* Login Alert for Unread Messages */}
+      {showUnreadAlert && (
+        <div className="fixed bottom-24 right-6 z-50 animate-in slide-in-from-right duration-500">
+          <GlassCard className="p-5 border-l-4 border-l-indigo-500 shadow-2xl min-w-[340px] bg-white/95 backdrop-blur-xl">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-indigo-50 rounded-full flex-shrink-0">
+                <Bell className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-slate-800 text-base">New Messages</h4>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  You have <span className="font-bold text-indigo-600">{unreadCount}</span> unread message{unreadCount !== 1 ? 's' : ''} in your inbox.
+                </p>
+                <div className="flex items-center gap-3 mt-4">
+                  <button
+                    onClick={() => {
+                      setShowUnreadAlert(false);
+                      setCurrentView(View.Inbox);
+                    }}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                  >
+                    View Inbox
+                  </button>
+                  <button
+                    onClick={() => setShowUnreadAlert(false)}
+                    className="text-slate-500 hover:text-slate-800 px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUnreadAlert(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
 
       <Footer
         onNavigateToSupervisorDashboard={handleNavigateToSupervisorDashboard}
