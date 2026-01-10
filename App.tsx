@@ -26,6 +26,7 @@ import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import ARCPForm from './views/ARCPForm';
+import ESRForm from './views/ESRForm';
 import ARCPSuperuserDashboard from './views/ARCPSuperuserDashboard';
 // Ticket System Views
 import AdminDashboard from './views/Admin/AdminDashboard';
@@ -73,6 +74,7 @@ enum View {
   EPALegacyForm = 'epa-legacy-form',
   ARCPPanelDashboard = 'arcp-panel-dashboard',
   ARCPForm = 'arcp-form',
+  ESRForm = 'esr-form',
   // Ticket System Views
   AdminDashboard = 'admin-dashboard',
   Inbox = 'inbox',
@@ -124,6 +126,7 @@ const viewToEvidenceType = (view: View): EvidenceType | undefined => {
     case View.CRSForm: return EvidenceType.CRS;
     case View.MARForm: return EvidenceType.MAR;
     case View.MSFForm: return EvidenceType.MSF;
+    case View.ESRForm: return EvidenceType.ESR;
     default: return undefined;
   }
 };
@@ -429,6 +432,14 @@ const App: React.FC = () => {
           refractionCertificate: data.refraction_certificate ?? false,
           sias: data.sias ?? [],
           roles: data.roles ?? [],
+          // Map Phaco stats
+          phacoTotal: data.phaco_total || 0,
+          phacoPerformed: data.phaco_performed || 0,
+          phacoSupervised: data.phaco_supervised || 0,
+          phacoAssisted: data.phaco_assisted || 0,
+          phacoPcrCount: data.phaco_pcr_count || 0,
+          phacoPcrRate: data.phaco_pcr_rate || 0,
+          phacoStatsUpdatedAt: data.phaco_stats_updated_at
         });
         setSias(data.sias ?? []);
 
@@ -1029,6 +1040,9 @@ const App: React.FC = () => {
     } else if (item.type === EvidenceType.CRS) {
       setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.CRSForm);
+    } else if (item.type === EvidenceType.ESR) {
+      setSelectedFormParams({ sia: '', level: 0, id: item.id, status: item.status, originView: currentView });
+      setCurrentView(View.ESRForm);
     } else if (item.type === EvidenceType.GSAT) {
       setSelectedFormParams({ sia: '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.GSATForm);
@@ -1855,6 +1869,10 @@ const App: React.FC = () => {
               });
               setCurrentView(View.GSATForm);
             }}
+            onNavigateToESR={() => {
+              setSelectedFormParams(null);
+              setCurrentView(View.ESRForm);
+            }}
             onNavigateToARCPPrep={() => setCurrentView(View.ARCPPrep)}
             onNavigateToMyTickets={() => setCurrentView(View.MyTickets)}
             onNavigateToInbox={() => setCurrentView(View.Inbox)}
@@ -1921,6 +1939,9 @@ const App: React.FC = () => {
                   break;
                 case EvidenceType.CRS:
                   setCurrentView(View.CRSForm);
+                  break;
+                case EvidenceType.ESR:
+                  setCurrentView(View.ESRForm);
                   break;
                 default:
                   // For other types (MSF, Curriculum Catch Up, etc.), view in AddEvidence form
@@ -2151,6 +2172,10 @@ const App: React.FC = () => {
             setSelectedFormParams(null);
             setCurrentView(View.EPAOperatingListForm);
           }
+          else if (type === 'ESR') {
+            setSelectedFormParams(null);
+            setCurrentView(View.ESRForm);
+          }
           else if (type === 'MSF') handleNavigateToMSF();
         }} />;
       case View.EPAForm:
@@ -2226,6 +2251,23 @@ const App: React.FC = () => {
             allEvidence={allEvidence}
             initialSupervisorName={profile.supervisorName}
             initialSupervisorEmail={profile.supervisorEmail}
+          />
+        );
+      case View.ESRForm:
+        const existingESR = selectedFormParams?.id
+          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.ESR)
+          : null;
+        return (
+          <ESRForm
+            profile={profile}
+            allEvidence={allEvidence}
+            onBack={handleNavigateBack}
+            onSave={handleUpsertEvidence}
+            initialData={existingESR || undefined}
+            onViewActiveEPAs={() => setCurrentView(View.EyeLogbook)}
+            onViewEvidenceItem={(item) => handleEditEvidence(item)}
+            onNavigateToEvidence={() => setCurrentView(View.Evidence)}
+            onNavigateToRecordForm={() => setCurrentView(View.RecordForm)}
           />
         );
       case View.DOPsForm:

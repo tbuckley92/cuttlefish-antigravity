@@ -92,6 +92,14 @@ const formTypes = [
     color: 'text-slate-500',
     bgColor: 'bg-slate-500/5'
   },
+  {
+    id: 'ESR',
+    label: 'ESR',
+    subtitle: 'Educational Supervisor Report',
+    icon: <ClipboardCheck size={24} />,
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-500/5'
+  },
 ];
 
 const RecordForm: React.FC<RecordFormProps> = ({ onBack, onSelectForm }) => {

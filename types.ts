@@ -35,7 +35,8 @@ export enum EvidenceType {
   FourteenFish = 'FourteenFish',
   FormR = 'Form R',
   ARCPFullReview = 'ARCP Full Review',
-  ARCPInterimReview = 'ARCP Interim Review'
+  ARCPInterimReview = 'ARCP Interim Review',
+  ESR = 'Educational Supervisor Report'
 }
 
 export enum EvidenceStatus {
@@ -321,6 +322,17 @@ export interface EvidenceItem {
   gsatFormData?: {
     comments: Record<string, string>;
     linkedEvidence: Record<string, string[]>;
+  };
+  esrFormData?: {
+    pdpGoals: PDPGoal[];
+    linkedEvidence: {
+      gsat: string[];
+      epas: string[];
+      msf: string[];
+      lastEsr: string[];
+    };
+    traineeComments: string;
+    educationalSupervisorComments: string;
   };
   dopsFormData?: {
     dopsType?: string; // DOPS form type (e.g., "Custom", "Corneal scrape", etc.)

@@ -273,7 +273,14 @@ export const INITIAL_PROFILE: UserProfile = {
   frcophthPart1: false,
   frcophthPart2Written: false,
   frcophthPart2Viva: false,
-  refractionCertificate: false
+  refractionCertificate: false,
+  // Default Phaco stats
+  phacoTotal: 0,
+  phacoPerformed: 0,
+  phacoSupervised: 0,
+  phacoAssisted: 0,
+  phacoPcrCount: 0,
+  phacoPcrRate: 0
 };
 
 export const INITIAL_SIAS: SIA[] = [

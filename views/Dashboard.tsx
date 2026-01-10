@@ -29,6 +29,7 @@ interface DashboardProps {
   onNavigateToRecordForm: () => void;
   onNavigateToAddEvidence: (sia?: string, level?: number, type?: string) => void;
   onNavigateToGSAT: () => void;
+  onNavigateToESR: () => void;
   onNavigateToARCPPrep: () => void;
   onNavigateToMyTickets?: () => void;
   onNavigateToInbox?: () => void;
@@ -52,6 +53,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToRecordForm,
   onNavigateToAddEvidence,
   onNavigateToGSAT,
+  onNavigateToESR,
   onNavigateToARCPPrep,
   onNavigateToMyTickets,
   onNavigateToInbox,
@@ -795,13 +797,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
 
                   <div className="mt-4 flex flex-col gap-2">
-                    <button
-                      onClick={onNavigateToGSAT}
-                      className="w-full py-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-all flex items-center justify-center gap-2 group"
-                    >
-                      <BookOpen size={14} /> View GSAT Form <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-
                     <div className="flex flex-col gap-1.5">
                       <button
                         onClick={onNavigateToARCPPrep}
@@ -809,29 +804,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <Activity size={14} /> ARCP Prep <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                       </button>
-                    </div>
-
-                    {/* Support Section */}
-                    <div className="pt-4 border-t border-slate-100 dark:border-white/5 mt-2">
-                      <p className="text-[11px] uppercase tracking-widest text-[#94a3b8] font-bold mb-2">SUPPORT</p>
-                      <div className="flex flex-col gap-2">
-                        {onNavigateToMyTickets && (
-                          <button
-                            onClick={onNavigateToMyTickets}
-                            className="w-full py-3 rounded-xl bg-amber-600/10 border border-amber-500/20 text-amber-700 text-xs font-bold hover:bg-amber-600/20 transition-all flex items-center justify-center gap-2 group"
-                          >
-                            <MessageSquare size={14} /> My Tickets <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                          </button>
-                        )}
-                        {onNavigateToInbox && (
-                          <button
-                            onClick={onNavigateToInbox}
-                            className="w-full py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-700 text-xs font-bold hover:bg-blue-600/20 transition-all flex items-center justify-center gap-2 group"
-                          >
-                            <Bell size={14} /> Inbox <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </>
