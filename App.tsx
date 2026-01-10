@@ -97,6 +97,7 @@ interface FormParams {
   originView?: View; // View we came from when viewing linked evidence
   originFormParams?: FormParams; // Form params of the origin form
   editMode?: boolean; // Whether to open in edit mode
+  traineeId?: string;
 }
 
 interface ReturnTarget {
@@ -488,51 +489,56 @@ const App: React.FC = () => {
   const [selectedTicketForView, setSelectedTicketForView] = useState<Ticket | null>(null);
 
   // Fetch viewing trainee evidence when viewingTraineeId changes
-  useEffect(() => {
-    if (!viewingTraineeId || !isSupabaseConfigured || !supabase) {
-      setViewingTraineeEvidence([]);
+  // Fetch viewing trainee evidence when viewingTraineeId changes
+  const fetchTraineeEvidence = React.useCallback(async (overrideTraineeId?: string) => {
+    const targetId = overrideTraineeId || viewingTraineeId;
+    if (!targetId || !isSupabaseConfigured || !supabase) {
+      // Only clear if we are using the state ID and it's null
+      if (!overrideTraineeId && !viewingTraineeId) {
+        setViewingTraineeEvidence([]);
+      }
       return;
     }
 
-    const fetchTraineeEvidence = async () => {
-      // Fetch evidence for the viewed trainee
-      // 1. Fetch non-legacy
-      const nonLegacyPromise = supabase
-        .from('evidence')
-        .select('*')
-        .eq('trainee_id', viewingTraineeId)
-        .neq('type', 'Curriculum Catch Up')
-        .neq('type', 'FourteenFish')
-        .order('event_date', { ascending: false });
+    // Fetch evidence for the viewed trainee
+    // 1. Fetch non-legacy
+    const nonLegacyPromise = supabase
+      .from('evidence')
+      .select('*')
+      .eq('trainee_id', targetId)
+      .neq('type', 'Curriculum Catch Up')
+      .neq('type', 'FourteenFish')
+      .order('event_date', { ascending: false });
 
-      // 2. Fetch legacy (lightweight)
-      const legacyPromise = supabase
-        .from('evidence')
-        .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
-        .eq('trainee_id', viewingTraineeId)
-        .in('type', ['Curriculum Catch Up', 'FourteenFish'])
-        .order('event_date', { ascending: false });
+    // 2. Fetch legacy (lightweight)
+    const legacyPromise = supabase
+      .from('evidence')
+      .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
+      .eq('trainee_id', targetId)
+      .in('type', ['Curriculum Catch Up', 'FourteenFish'])
+      .order('event_date', { ascending: false });
 
-      const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
+    const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
 
-      if (nonLegacyResponse.error) console.error('Error fetching trainee modern evidence:', nonLegacyResponse.error);
-      if (legacyResponse.error) console.error('Error fetching trainee legacy evidence:', legacyResponse.error);
+    if (nonLegacyResponse.error) console.error('Error fetching trainee modern evidence:', nonLegacyResponse.error);
+    if (legacyResponse.error) console.error('Error fetching trainee legacy evidence:', legacyResponse.error);
 
-      const combinedData = [
-        ...(nonLegacyResponse.data || []),
-        ...(legacyResponse.data || [])
-      ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+    const combinedData = [
+      ...(nonLegacyResponse.data || []),
+      ...(legacyResponse.data || [])
+    ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
-      if (combinedData) {
-        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
-        // @ts-ignore
-        const mappedItems = combinedData.map(mapRowToEvidenceItem);
-        setViewingTraineeEvidence(mappedItems);
-      }
-    };
-
-    fetchTraineeEvidence();
+    if (combinedData) {
+      const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+      // @ts-ignore
+      const mappedItems = combinedData.map(mapRowToEvidenceItem);
+      setViewingTraineeEvidence(mappedItems);
+    }
   }, [viewingTraineeId]);
+
+  useEffect(() => {
+    fetchTraineeEvidence();
+  }, [fetchTraineeEvidence]);
 
 
   const handleUpdateProfile = async (nextProfile: UserProfile) => {
@@ -809,8 +815,6 @@ const App: React.FC = () => {
       updated_at: new Date().toISOString()
     };
 
-    console.log('Upserting ARCP prep:', payload);
-
     // Update local with explicit ID
     setArcpPrepData(prev => ({
       ...prev,
@@ -829,8 +833,6 @@ const App: React.FC = () => {
 
       if (error) {
         console.error("Error updating ARCP prep:", error);
-      } else {
-        console.log("ARCP prep updated successfully");
       }
     } else {
       // Insert new row
@@ -840,8 +842,6 @@ const App: React.FC = () => {
 
       if (error) {
         console.error("Error inserting ARCP prep:", error);
-      } else {
-        console.log("ARCP prep inserted successfully");
       }
     }
   };
@@ -858,8 +858,6 @@ const App: React.FC = () => {
       const hasLegacyFish = Object.keys(profile.fourteenFishCompletions || {}).length > 0;
 
       if (!hasLegacyCatchUp && !hasLegacyFish) return;
-
-      console.log('Checking for legacy progress migration...');
 
       const updates: any[] = [];
 
@@ -908,8 +906,6 @@ const App: React.FC = () => {
       }
 
       if (updates.length > 0) {
-        console.log(`Migrating ${updates.length} legacy progress records...`);
-
         // Batch upsert
         const { error } = await supabase
           .from('portfolio_progress')
@@ -918,7 +914,6 @@ const App: React.FC = () => {
         if (error) {
           console.error('Migration error:', error);
         } else {
-          console.log(`Successfully migrated ${updates.length} progress records.`);
           // Refresh local state to reflect migration immediately
           const { data: progressData } = await supabase
             .from('portfolio_progress')
@@ -929,8 +924,6 @@ const App: React.FC = () => {
             setPortfolioProgress(progressData);
           }
         }
-      } else {
-        console.log('No legacy progress records needed migration.');
       }
     };
 
@@ -1298,18 +1291,15 @@ const App: React.FC = () => {
   };
 
   const handleViewLinkedEvidence = (evidenceId: string, section?: number) => {
-    console.log('handleViewLinkedEvidence called with evidenceId:', evidenceId);
     const evidence = allEvidence.find(e => e.id === evidenceId);
     if (!evidence) {
       console.error('Evidence not found:', evidenceId, 'Available evidence:', allEvidence.map(e => e.id));
       return;
     }
-    console.log('Found evidence:', evidence.type, evidence.title);
 
     // Store current view and form params as origin context
     const originView = currentView;
     const originFormParams = selectedFormParams ? { ...selectedFormParams, initialSection: section } : undefined;
-    console.log('Origin view:', originView, 'Origin params:', originFormParams);
 
     // Force status to Submitted to ensure read-only mode
     const readOnlyStatus = EvidenceStatus.Submitted;
@@ -1733,13 +1723,10 @@ const App: React.FC = () => {
       .filter(e => (e as any).isSelectedForLink)
       .map(e => e.id);
 
-    console.log('Confirming link selection:', linkingReqIdx, 'with IDs:', selectedIds);
-
     // Check if ARCP Prep link - format: ARCP_PREP_LAST_EPAS or ARCP_PREP_CURRENT_EPAS or ARCP_PREP_FORMR
     if (linkingReqIdx.startsWith('ARCP_PREP_')) {
       // Special case for Form R
       if (linkingReqIdx === 'ARCP_PREP_FORMR') {
-        console.log('Saving ARCP Prep Form R:', selectedIds);
 
         // Update Form R linked array
         handleUpsertARCPPrepSafe({ linked_form_r: selectedIds });
@@ -1759,7 +1746,6 @@ const App: React.FC = () => {
 
       // Special case for Last ARCP general evidence
       if (linkingReqIdx === 'ARCP_PREP_LAST_ARCP') {
-        console.log('Saving ARCP Prep Last ARCP Evidence:', selectedIds);
 
         // Update Last ARCP evidence array
         handleUpsertARCPPrepSafe({ last_arcp_evidence: selectedIds });
@@ -1788,8 +1774,6 @@ const App: React.FC = () => {
         'msf': `${fieldPrefix}_msf`,
         'esr': `${fieldPrefix}_esr`
       } as const;
-
-      console.log('Saving ARCP Prep linked evidence:', section, target, selectedIds);
 
       // Update ARCP Prep data
       handleUpsertARCPPrepSafe({ [fieldMap[target as keyof typeof fieldMap]]: selectedIds });
@@ -2498,18 +2482,37 @@ const App: React.FC = () => {
           />
         );
       case View.ARCPForm:
-        const arcpEvidence = selectedFormParams?.id
-          ? (viewingTraineeId
-            ? viewingTraineeEvidence
+        // Use selectedFormParams.traineeId if available (handles context switch lag), otherwise viewingTraineeId
+        const targetTraineeId = selectedFormParams?.traineeId || viewingTraineeId;
+
+        // Try to find evidence in viewingTraineeEvidence (if context correct) or allEvidence (if own)
+        let arcpEvidence = selectedFormParams?.id
+          ? (targetTraineeId
+            // If we have a target trainee, search mostly in viewingTraineeEvidence, but if we just switched,
+            // viewingTraineeEvidence might still be for the OLD trainee if the fetch hasn't finished.
+            // However, searching [ ...viewingTraineeEvidence, ...allEvidence ] is safer as a fallback.
+            ? [...viewingTraineeEvidence, ...allEvidence]
             : allEvidence
           ).find(e => e.id === selectedFormParams.id)
           : null;
+
+        if (!arcpEvidence && selectedFormParams?.id) {
+          // Still finding data... show loading instead of error immediately
+          return (
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-500">Loading outcome data...</p>
+              </div>
+            </div>
+          );
+        }
 
         return (
           <ARCPForm
             initialData={arcpEvidence ? { ...arcpEvidence.data, id: arcpEvidence.id } : null}
             onBack={handleBackToOrigin}
-            traineeName={viewingTraineeId ? getTraineeSummary(viewingTraineeId)?.profile.name : profile.name}
+            traineeName={targetTraineeId ? getTraineeSummary(targetTraineeId)?.profile.name : profile.name}
             canEdit={profile.roles?.some(r => ['Admin', 'EducationalSupervisor', 'ARCPPanelMember', 'ARCPSuperuser'].includes(r))}
             initialEditMode={selectedFormParams?.editMode}
           />
@@ -2557,7 +2560,13 @@ const App: React.FC = () => {
                 summary.profile.arcpOutcome = outcome;
               }
             }}
-            onViewEvidenceItem={(item) => {
+            onViewEvidenceItem={async (item: any) => {
+              // Context switching for different trainee
+              if (item.traineeId && item.traineeId !== viewingTraineeId) {
+                setViewingTraineeId(item.traineeId);
+                await fetchTraineeEvidence(item.traineeId);
+              }
+
               // Navigate to the appropriate view based on evidence type
               // Force status to Submitted to ensure read-only mode by default for viewing
               // But handleEditEvidence uses editMode: true
@@ -2568,7 +2577,8 @@ const App: React.FC = () => {
                 level: item.level || 1,
                 id: item.id,
                 status: readOnlyStatus,
-                originView: View.ARCPPanelDashboard
+                originView: View.ARCPPanelDashboard,
+                traineeId: item.traineeId
               });
 
               switch (item.type) {
@@ -2602,7 +2612,15 @@ const App: React.FC = () => {
                   break;
               }
             }}
-            onEditEvidenceItem={handleEditEvidence}
+            onEditEvidenceItem={async (item: any) => {
+              // Context switching for different trainee
+              if (item.traineeId && item.traineeId !== viewingTraineeId) {
+                setViewingTraineeId(item.traineeId);
+                await fetchTraineeEvidence(item.traineeId);
+              }
+              handleEditEvidence(item);
+            }}
+            onRefreshEvidence={fetchTraineeEvidence}
           />
         );
       // Ticket System Views

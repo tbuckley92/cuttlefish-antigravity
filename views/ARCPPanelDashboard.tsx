@@ -21,11 +21,13 @@ interface ARCPPanelDashboardProps {
     onUpdateARCPOutcome: (traineeId: string, outcome: ARCPOutcome) => void;
     onViewEvidenceItem?: (item: EvidenceItem) => void;
     onEditEvidenceItem?: (item: EvidenceItem) => void;
+    onRefreshEvidence?: () => void;
 }
 
 const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
     currentUser, onBack, onViewTraineeGSAT, onViewActiveEPAs, onViewComplications,
-    onViewTraineeEvidence, onViewESR, onUpdateARCPOutcome, onViewEvidenceItem, onEditEvidenceItem
+    onViewTraineeEvidence, onViewESR, onUpdateARCPOutcome, onViewEvidenceItem, onEditEvidenceItem,
+    onRefreshEvidence
 }) => {
     // Database state
     const [profiles, setProfiles] = useState<UserProfile[]>([]);
@@ -541,6 +543,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                 console.error('Error creating ARCP outcome notification:', notifError);
             }
 
+            // 4. Refresh parent evidence list so that if we view this item, it exists in state
+            if (onRefreshEvidence) {
+                onRefreshEvidence();
+            }
+
             // Show success feedback
             const btn = document.getElementById('save-outcome-btn');
             if (btn) {
@@ -591,6 +598,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     .from('evidence')
                     .delete()
                     .eq('id', outcome.evidenceId);
+            }
+
+            // Refresh parent evidence list
+            if (onRefreshEvidence) {
+                onRefreshEvidence();
             }
 
             // Refresh outcomes list
@@ -650,6 +662,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     sia: fullItem.sia || undefined,
                     level: fullItem.level || undefined,
                     notes: fullItem.notes || undefined,
+                    traineeId: fullItem.trainee_id,
                     ...(fullItem.data || {})
                 };
                 onViewEvidenceItem(mappedItem);
@@ -1506,7 +1519,8 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                 title: `${outcome.reviewType} - ${outcome.outcome}`,
                                                 date: outcome.createdAt?.split('T')[0] || '',
                                                 status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft,
-                                            });
+                                                traineeId: outcome.traineeId
+                                            } as any);
                                         }
                                     }}
                                 >
@@ -1547,7 +1561,8 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                             type: outcome.reviewType === 'Full ARCP' ? EvidenceType.ARCPFullReview : EvidenceType.ARCPInterimReview,
                                                             title: `${outcome.reviewType} - ${outcome.outcome}`,
                                                             date: outcome.createdAt?.split('T')[0] || '',
-                                                            status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft
+                                                            status: outcome.status === ARCPOutcomeStatus.Confirmed ? EvidenceStatus.SignedOff : EvidenceStatus.Draft,
+                                                            traineeId: outcome.traineeId
                                                         };
                                                         onEditEvidenceItem(item);
                                                     } else {

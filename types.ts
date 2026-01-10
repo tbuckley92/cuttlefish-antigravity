@@ -286,6 +286,7 @@ export interface EvidenceItem {
   fileUrl?: string;
   // Sign-off specifics (in-person)
   supervisorGmc?: string;
+  traineeId?: string;
   supervisorName?: string;
   supervisorEmail?: string;
   // MSF specific
