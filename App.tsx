@@ -177,26 +177,30 @@ const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Check for unread notifications on login
-  useEffect(() => {
-    const checkUnread = async () => {
-      if (!session?.user || !isSupabaseConfigured || !supabase) return;
+  // Check for unread notifications on login
+  const checkUnread = async (userId: string, roleContext?: RoleContext) => {
+    if (!isSupabaseConfigured || !supabase) return;
 
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
-        .eq('is_read', false);
+    let query = supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
 
-      if (!error && count && count > 0) {
-        setUnreadCount(count);
-        setShowUnreadAlert(true);
-      }
-    };
-
-    if (session?.user) {
-      checkUnread();
+    if (roleContext) {
+      query = query.eq('role_context', roleContext);
     }
-  }, [session?.user?.id]);
+
+    const { count, error } = await query;
+
+    if (!error && count && count > 0) {
+      setUnreadCount(count);
+      setShowUnreadAlert(true);
+    }
+  };
+
+  // Initial check is now triggered by profile load or role change, not just session
+
 
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [inboxRoleContext, setInboxRoleContext] = useState<RoleContext>('trainee');
@@ -465,20 +469,18 @@ const App: React.FC = () => {
         let initialRole = UserRole.Trainee;
 
         if (availableRoles.length > 0) {
-          if (availableRoles.includes(UserRole.Trainee)) {
-            initialRole = UserRole.Trainee;
-          } else {
-            // User is not a trainee. Pick a role they have.
-            const preferredOrder = [
-              UserRole.Supervisor,
-              UserRole.EducationalSupervisor,
-              UserRole.ARCPSuperuser,
-              UserRole.ARCPPanelMember,
-              UserRole.Admin
-            ];
-            const bestRole = preferredOrder.find(r => availableRoles.includes(r));
-            initialRole = (bestRole || availableRoles[0]) as UserRole;
-          }
+          const preferredOrder = [
+            UserRole.Admin,
+            UserRole.ARCPSuperuser,
+            UserRole.ARCPPanelMember,
+            UserRole.EducationalSupervisor,
+            UserRole.Supervisor,
+            UserRole.Trainee
+          ];
+          const bestRole = preferredOrder.find(r => availableRoles.includes(r));
+
+          initialRole = (bestRole || availableRoles[0]) as UserRole;
+
         } else {
           // Fallback legacy logic
           if (data.base_role === 'SUPERVISOR') {
@@ -489,6 +491,29 @@ const App: React.FC = () => {
         }
 
         setCurrentRole(initialRole);
+
+        // Redirect to appropriate dashboard and check unread messages for that context
+        let targetContext: RoleContext = 'trainee';
+
+        if (initialRole === UserRole.Admin) {
+          setCurrentView(View.AdminDashboard);
+          targetContext = 'admin';
+        } else if (initialRole === UserRole.ARCPSuperuser) {
+          setCurrentView(View.ARCPSuperuserDashboard);
+          targetContext = 'admin'; // Or supervisor? usually admin/superuser context
+        } else if (initialRole === UserRole.ARCPPanelMember) {
+          setCurrentView(View.ARCPPanelDashboard);
+          targetContext = 'arcp_panel';
+        } else if (initialRole === UserRole.EducationalSupervisor || initialRole === UserRole.Supervisor) {
+          setCurrentView(View.SupervisorDashboard);
+          targetContext = 'supervisor';
+        } else {
+          setCurrentView(View.Dashboard);
+          targetContext = 'trainee';
+        }
+
+        // Check unread messages for this initial context
+        checkUnread(data.user_id, targetContext);
       }
 
       setProfileReady(true);
@@ -3331,6 +3356,23 @@ const App: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowUnreadAlert(false);
+                      // Set context based on current dashboard/role
+                      if (currentRole === UserRole.Supervisor || currentRole === UserRole.EducationalSupervisor) {
+                        setInboxRoleContext('supervisor');
+                        setReturnView(View.SupervisorDashboard);
+                      } else if (currentRole === UserRole.ARCPPanelMember) {
+                        setInboxRoleContext('arcp_panel');
+                        setReturnView(View.ARCPPanelDashboard);
+                      } else if (currentRole === UserRole.ARCPSuperuser) {
+                        setInboxRoleContext('admin'); // Assuming admin/superuser share context or logic
+                        setReturnView(View.ARCPSuperuserDashboard);
+                      } else if (currentRole === UserRole.Admin) {
+                        setInboxRoleContext('admin');
+                        setReturnView(View.AdminDashboard);
+                      } else {
+                        setInboxRoleContext('trainee');
+                        setReturnView(View.Dashboard);
+                      }
                       setCurrentView(View.Inbox);
                     }}
                     className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"

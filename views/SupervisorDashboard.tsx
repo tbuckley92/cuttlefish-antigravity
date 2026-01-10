@@ -265,12 +265,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                 </button>
               </div>
 
-              <div className="p-3 bg-slate-50/50 border-b border-slate-100">
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm text-xs font-medium text-slate-600 hover:text-indigo-600 transition-colors w-max">
-                  <Filter size={12} className="text-slate-400" />
-                  Unread only (2)
-                </button>
-              </div>
+
 
               <div className="flex-1 min-h-[200px] max-h-[400px] overflow-y-auto">
                 <NotificationList supervisor={supervisor} onAction={onViewInbox} />
@@ -468,9 +463,9 @@ const NotificationList: React.FC<{
           .select('*')
           .eq('user_id', supervisor.id)
           .eq('role_context', 'supervisor')
-          .eq('is_read', false)
+          // .eq('is_read', false) // Removed to show all recent
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(5);
 
         if (error) throw error;
         setNotifications(data || []);
@@ -520,17 +515,33 @@ const NotificationList: React.FC<{
         <div
           key={n.id}
           onClick={() => handleNotificationClick(n.id)}
-          className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+          className={`relative p-3 rounded-lg cursor-pointer transition-all border-l-4 group
+            ${!n.is_read
+              ? 'bg-blue-50/40 border-blue-500' // Unread: Blue tint + Blue border
+              : 'hover:bg-slate-50 border-transparent text-slate-500' // Read: Standard hover + Transparent border
+            }
+          `}
         >
           <div className="flex items-start gap-3">
-            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600 mt-0.5">
-              {/* Simple icon logic based on type */}
+            <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${!n.is_read ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
               {n.type === 'form_submission' ? <ClipboardCheck size={14} /> : <Mail size={14} />}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 mb-0.5 truncate pr-2">{n.title}</p>
-              <p className="text-[10px] font-medium text-slate-500 mb-1">{new Date(n.created_at).toLocaleDateString()}</p>
-              <p className="text-[10px] text-slate-400 line-clamp-2">{n.body}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between mb-0.5">
+                <p className={`text-xs truncate pr-2 ${!n.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                  {n.title}
+                </p>
+                {/* Optional: Add time here if we want right-aligned time */}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className={`text-[10px] line-clamp-1 ${!n.is_read ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
+                  {n.body}
+                </p>
+                <p className={`text-[10px] shrink-0 whitespace-nowrap ml-2 ${!n.is_read ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
+                  {new Date(n.created_at).toLocaleDateString()}
+                </p>
+              </div>
             </div>
           </div>
         </div>
