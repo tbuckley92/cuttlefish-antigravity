@@ -38,7 +38,7 @@ import { Ticket, TicketStatus } from './types';
 import { LayoutDashboard, Database, Plus, FileText, Activity, Users, ArrowLeft, Eye, ClipboardCheck, Calendar, Settings, LogOut, Lock, MessageSquare, Bell, X } from './components/Icons';
 import { Logo } from './components/Logo';
 import { INITIAL_SIAS, INITIAL_EVIDENCE, INITIAL_PROFILE, SPECIALTIES } from './constants';
-import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData } from './types';
+import { SIA, EvidenceItem, EvidenceType, EvidenceStatus, TrainingGrade, UserProfile, UserRole, SupervisorProfile, ARCPOutcome, PortfolioProgressItem, ARCPPrepData, RoleContext } from './types';
 import { MOCK_SUPERVISORS, getTraineeSummary } from './mockData';
 import { Footer } from './components/Footer';
 import { GlassCard } from './components/GlassCard';
@@ -166,6 +166,8 @@ const App: React.FC = () => {
       frcophthPart2Viva: false,
       refractionCertificate: false,
       sias: [],
+      gmcNumber: '',
+      rcophthNumber: '',
     }),
     []
   );
@@ -197,10 +199,13 @@ const App: React.FC = () => {
   }, [session?.user?.id]);
 
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
+  const [inboxRoleContext, setInboxRoleContext] = useState<RoleContext>('trainee');
+  const [returnView, setReturnView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<EvidenceItem | null>(null);
   const [addEvidenceKey, setAddEvidenceKey] = useState(0); // Counter for unique AddEvidence keys
   const [sias, setSias] = useState<SIA[]>(() => (isSupabaseConfigured ? [] : INITIAL_SIAS));
+  const [supervisorActiveTab, setSupervisorActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard');
 
   // Change default to empty array; we will load from DB if configured, or local storage if not
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
@@ -423,6 +428,9 @@ const App: React.FC = () => {
           supervisorName: data.supervisor_name ?? '',
           supervisorEmail: data.supervisor_email ?? '',
           supervisorGmc: data.supervisor_gmc ?? '',
+          // Map new fields
+          gmcNumber: data.gmc_number ?? '',
+          rcophthNumber: data.rcophth_number ?? '',
           predictedSIAs: data.predicted_sias ?? [],
           pdpGoals: data.pdp_goals ?? [],
           deanery: data.deanery ?? '',
@@ -551,6 +559,8 @@ const App: React.FC = () => {
     const payload: Record<string, any> = {
       name: nextProfile.name,
       grade: nextProfile.grade,
+      gmc_number: nextProfile.gmcNumber, // Added
+      rcophth_number: nextProfile.rcophthNumber, // Added
       supervisor_name: nextProfile.supervisorName,
       supervisor_email: nextProfile.supervisorEmail,
       supervisor_gmc: nextProfile.supervisorGmc ?? '',
@@ -2421,15 +2431,19 @@ const App: React.FC = () => {
           />
         );
       case View.SupervisorDashboard:
-        if (!currentSupervisor) {
-          // Default to first supervisor for demo
-          const defaultSupervisor = MOCK_SUPERVISORS[0];
-          setCurrentSupervisor(defaultSupervisor);
-          setCurrentRole(defaultSupervisor.role);
-        }
-        return currentSupervisor ? (
+        const supervisorToRender = (profile && (
+          ['EducationalSupervisor', 'ARCPPanelMember', 'Supervisor', 'Admin'].includes(profile.role || '') ||
+          ['EducationalSupervisor', 'ARCPPanelMember', 'Supervisor', 'Admin'].includes(currentRole)
+        ))
+          ? { ...profile, role: (profile.role || currentRole) as any } as SupervisorProfile
+          : currentSupervisor || MOCK_SUPERVISORS[0];
+
+        if (!supervisorToRender) return null;
+
+        return (
           <SupervisorDashboard
-            supervisor={currentSupervisor}
+            supervisor={supervisorToRender}
+            activeTab={supervisorActiveTab}
             onViewTraineeProgress={(traineeId) => {
               setViewingTraineeId(traineeId);
               setCurrentView(View.Progress);
@@ -2439,22 +2453,32 @@ const App: React.FC = () => {
               setCurrentView(View.Evidence);
             }}
             onViewARCPComponent={(traineeId, component) => {
-              // Navigate to ARCP Prep for the specific trainee
               setViewingTraineeId(traineeId);
-              // For now, just show a message - could navigate to ARCPPrep with trainee context
-              alert(`Viewing ${component} for trainee ${traineeId}`);
+              if (component === 'Logbook') {
+                setCurrentView(View.EyeLogbook);
+              } else if (component === 'ARCPPrep' || component === 'FormR') {
+                setCurrentView(View.ARCPPrep); // Or dedicated view if available
+              } else {
+                console.log(`Viewing ${component} for trainee ${traineeId}`);
+              }
             }}
             onUpdateARCPOutcome={(traineeId, outcome) => {
-              // Update the trainee's ARCP outcome in mock data
-              // In a real app, this would update the database
+              // In production this would be an API call
               const summary = getTraineeSummary(traineeId);
               if (summary) {
                 summary.profile.arcpOutcome = outcome;
-                alert(`ARCP Outcome ${outcome} confirmed for ${summary.profile.name}`);
               }
             }}
+            onViewInbox={() => {
+              setInboxRoleContext('supervisor');
+              setReturnView(View.SupervisorDashboard);
+              setCurrentView(View.Inbox);
+            }}
+            onUpdateProfile={async (updated) => {
+              await handleUpdateProfile(updated as UserProfile);
+            }}
           />
-        ) : null;
+        );
       case View.EyeLogbook:
         return (
           <EyeLogbook
@@ -2636,8 +2660,8 @@ const App: React.FC = () => {
         return (
           <Inbox
             currentUserId={session?.user?.id || ''}
-            roleContext="trainee"
-            onBack={() => setCurrentView(View.Dashboard)}
+            roleContext={inboxRoleContext}
+            onBack={() => setCurrentView(returnView)}
             onNavigateToTicket={(ticketId) => {
               // Find ticket and navigate to detail
               // For simplicity, navigate to MyTickets which shows the list
@@ -2844,7 +2868,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  {viewingTraineeId && (
+                  {viewingTraineeId ? (
                     <>
                       <NavTab
                         active={currentView === View.Progress}
@@ -2859,7 +2883,23 @@ const App: React.FC = () => {
                         label="TRAINEE EVIDENCE"
                       />
                     </>
-                  )}
+                  ) : currentView === View.SupervisorDashboard ? (
+                    // Supervisor Top Level Tabs
+                    <>
+                      <NavTab
+                        active={supervisorActiveTab === 'dashboard'}
+                        onClick={() => setSupervisorActiveTab('dashboard')}
+                        icon={<LayoutDashboard size={16} />}
+                        label="DASHBOARD"
+                      />
+                      <NavTab
+                        active={supervisorActiveTab === 'signoffs'}
+                        onClick={() => setSupervisorActiveTab('signoffs')}
+                        icon={<ClipboardCheck size={16} />}
+                        label="SIGN OFFS"
+                      />
+                    </>
+                  ) : null}
                 </>
               )}
             </div>
@@ -2990,6 +3030,8 @@ const App: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
+                          setInboxRoleContext(currentRole === UserRole.Trainee ? 'trainee' : 'supervisor');
+                          setReturnView(currentView);
                           setCurrentView(View.Inbox);
                           setIsSettingsMenuOpen(false);
                         }}

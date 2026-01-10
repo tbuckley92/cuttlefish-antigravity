@@ -112,7 +112,10 @@ export interface PDPGoal {
 
 export interface UserProfile {
   id?: string; // Add ID for multi-trainee support
-  name: string;
+  name: string; // Restored
+  email?: string; // Add email if missing
+  gmcNumber: string;
+  rcophthNumber?: string; // Added RCOphth number
   grade: TrainingGrade;
   location: string;
   fte: number;
@@ -893,7 +896,7 @@ export interface SupervisorProfile {
   id: string;
   name: string;
   email: string;
-  role: UserRole.EducationalSupervisor | UserRole.ARCPPanelMember;
+  role: UserRole.EducationalSupervisor | UserRole.ARCPPanelMember | UserRole.Supervisor | UserRole.Admin;
   deanery?: string; // For ARCP Panel Members
 }
 
