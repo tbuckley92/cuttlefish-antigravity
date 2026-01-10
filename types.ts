@@ -899,6 +899,9 @@ export interface SupervisorProfile {
   name: string;
   email: string;
   role: UserRole.EducationalSupervisor | UserRole.ARCPPanelMember | UserRole.Supervisor | UserRole.Admin;
+  roles?: UserRole[];
+  gmcNumber?: string;
+  rcophthNumber?: string;
   deanery?: string; // For ARCP Panel Members
 }
 
@@ -969,7 +972,7 @@ export interface DeaneryUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   deanery: string;
 }
 

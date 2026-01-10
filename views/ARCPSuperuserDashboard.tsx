@@ -21,6 +21,7 @@ interface RecipientChip {
     id: string;
     name: string;
     email: string;
+    roles: UserRole[];
 }
 
 interface ARCPSuperuserDashboardProps {
@@ -104,7 +105,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                     id: u.user_id,
                     name: u.name || 'Unknown',
                     email: u.email || '',
-                    role: u.roles?.[0] || UserRole.Trainee,
+                    roles: u.roles || [UserRole.Trainee],
                     deanery: u.deanery
                 }));
                 setDeaneryUsers(users);
@@ -252,13 +253,14 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         }
 
         const usersToAdd = deaneryUsers.filter(u =>
-            roleFilter.includes(u.role) && !recipients.find(r => r.id === u.id)
+            u.roles.some(role => roleFilter.includes(role)) && !recipients.find(r => r.id === u.id)
         );
 
         const newRecipients: RecipientChip[] = usersToAdd.map(u => ({
             id: u.id,
             name: u.name,
-            email: u.email
+            email: u.email,
+            roles: u.roles
         }));
 
         setRecipients(prev => [...prev, ...newRecipients]);
@@ -266,7 +268,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
 
     const addRecipient = (user: DeaneryUser) => {
         if (!recipients.find(r => r.id === user.id)) {
-            setRecipients(prev => [...prev, { id: user.id, name: user.name, email: user.email }]);
+            setRecipients(prev => [...prev, { id: user.id, name: user.name, email: user.email, roles: user.roles }]);
         }
         setRecipientSearch('');
         setSearchResults([]);
@@ -411,24 +413,40 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
 
             // If sending now (not scheduled), create notifications for recipients
             if (!isScheduled) {
-                const notifications = recipients.map(r => ({
-                    id: uuidv4(),
-                    user_id: r.id,
-                    role_context: 'trainee',
-                    type: 'deanery_broadcast',
-                    title: subject,
-                    body: body, // Provide a snippet? Body is full text. Inbox handles truncation.
-                    // Attachments are stored in Notification too so recipient can see them easily
-                    attachments: attachments,
-                    reference_id: messageId,
-                    reference_type: 'deanery_message',
-                    metadata: {
-                        sender: currentUserName,
-                        senderId: currentUserId
-                    },
-                    email_sent: false,
-                    is_read: false
-                }));
+                const notifications = recipients.map(r => {
+                    // Determine role context based on user roles
+                    // Prioritize Supervisor context if the user has supervisor roles
+                    let roleContext: 'trainee' | 'supervisor' | 'arcp_panel' | 'admin' = 'trainee';
+
+                    if (r.roles.some(role => [UserRole.Supervisor, UserRole.EducationalSupervisor].includes(role))) {
+                        roleContext = 'supervisor';
+                    } else if (r.roles.includes(UserRole.ARCPPanelMember)) {
+                        roleContext = 'arcp_panel';
+                    } else if (r.roles.includes(UserRole.Admin)) {
+                        roleContext = 'admin';
+                    } else {
+                        roleContext = 'trainee';
+                    }
+
+                    return {
+                        id: uuidv4(),
+                        user_id: r.id,
+                        role_context: roleContext,
+                        type: 'deanery_broadcast',
+                        title: subject,
+                        body: body, // Provide a snippet? Body is full text. Inbox handles truncation.
+                        // Attachments are stored in Notification too so recipient can see them easily
+                        attachments: attachments,
+                        reference_id: messageId,
+                        reference_type: 'deanery_message',
+                        metadata: {
+                            sender: currentUserName,
+                            senderId: currentUserId
+                        },
+                        email_sent: false,
+                        is_read: false
+                    };
+                });
 
                 const { error: notifError } = await supabase
                     .from('notifications')

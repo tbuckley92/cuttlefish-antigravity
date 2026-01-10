@@ -7,20 +7,29 @@ export const MOCK_SUPERVISORS: SupervisorProfile[] = [
     id: 'sup1',
     name: 'Dr. James Wright',
     email: 'j.wright@nhs.net',
-    role: UserRole.EducationalSupervisor
+    role: UserRole.EducationalSupervisor,
+    roles: [UserRole.EducationalSupervisor, UserRole.Supervisor],
+    gmcNumber: '1234567',
+    rcophthNumber: 'OPT-123'
   },
   {
     id: 'sup2',
     name: 'Dr. Sarah Roberts',
     email: 's.roberts@nhs.net',
-    role: UserRole.EducationalSupervisor
+    role: UserRole.EducationalSupervisor,
+    roles: [UserRole.EducationalSupervisor, UserRole.Supervisor],
+    gmcNumber: '2345678',
+    rcophthNumber: 'OPT-456'
   },
   {
     id: 'sup3',
     name: 'Dr. Michael Chen',
     email: 'm.chen@nhs.net',
     role: UserRole.ARCPPanelMember,
-    deanery: 'Thames Valley Deanery'
+    roles: [UserRole.ARCPPanelMember],
+    deanery: 'Thames Valley Deanery',
+    gmcNumber: '3456789',
+    rcophthNumber: 'OPT-789'
   }
 ];
 
@@ -29,6 +38,7 @@ export const MOCK_TRAINEES: UserProfile[] = [
   {
     id: 'trainee1',
     name: 'Dr. Alex Carter',
+    gmcNumber: '6543210',
     grade: TrainingGrade.ST4,
     location: 'Oxford',
     fte: 100,
@@ -50,6 +60,7 @@ export const MOCK_TRAINEES: UserProfile[] = [
   {
     id: 'trainee2',
     name: 'Dr. Emma Thompson',
+    gmcNumber: '7654321',
     grade: TrainingGrade.ST3,
     location: 'Reading',
     fte: 100,
@@ -71,6 +82,7 @@ export const MOCK_TRAINEES: UserProfile[] = [
   {
     id: 'trainee3',
     name: 'Dr. David Patel',
+    gmcNumber: '8765432',
     grade: TrainingGrade.ST5,
     location: 'Slough',
     fte: 100,
@@ -92,6 +104,7 @@ export const MOCK_TRAINEES: UserProfile[] = [
   {
     id: 'trainee4',
     name: 'Dr. Sophie Williams',
+    gmcNumber: '9876543',
     grade: TrainingGrade.ST2,
     location: 'Milton Keynes',
     fte: 100,
