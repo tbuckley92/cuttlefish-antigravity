@@ -12,7 +12,7 @@ import { MSFRespondent, EvidenceItem, EvidenceStatus, EvidenceType } from '../ty
 interface MSFSubmissionFormProps {
   evidence?: EvidenceItem;
   onBack: () => void;
-  onSave: (evidence: Partial<EvidenceItem>) => void;
+  onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
   onViewResponse: (respondentId: string) => void;
 }
 
@@ -121,10 +121,10 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     alert(`MSF invitations sent to ${validRespondents.length} respondents`);
   };
 
-  const handleCloseMSF = () => {
+  const handleCloseMSF = async () => {
     if (window.confirm("Are you sure you want to close this MSF? You won't be able to send more invites.")) {
       setStatus(EvidenceStatus.SignedOff);
-      onSave({ status: EvidenceStatus.SignedOff, msfRespondents: respondents });
+      await onSave({ status: EvidenceStatus.SignedOff, msfRespondents: respondents });
     }
   };
 
@@ -152,8 +152,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest">Multi-Source Feedback</p>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' :
-                  status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
-                    'bg-indigo-100 text-indigo-700'
+                status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' :
+                  'bg-indigo-100 text-indigo-700'
                 }`}>
                 {status}
               </span>

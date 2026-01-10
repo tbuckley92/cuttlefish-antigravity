@@ -21,8 +21,9 @@ interface MARFormProps {
   traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
-  onSave: (evidence: Partial<EvidenceItem>) => void;
+  onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
   allEvidence?: EvidenceItem[];
+  isSupervisor?: boolean;
 }
 
 const MAR_SECTIONS = [
@@ -105,7 +106,8 @@ const MARForm: React.FC<MARFormProps> = ({
   onBack,
   onSubmitted,
   onSave,
-  allEvidence = []
+  allEvidence = [],
+  isSupervisor = false
 }) => {
   const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
@@ -137,7 +139,7 @@ const MARForm: React.FC<MARFormProps> = ({
   const [overallPerformanceAtExpectedLevel, setOverallPerformanceAtExpectedLevel] = useState<boolean | null>(null);
   const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
 
-  const isLocked = status === EvidenceStatus.SignedOff;
+  const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
 
   // Auto-save functionality
   useEffect(() => {
@@ -237,7 +239,7 @@ const MARForm: React.FC<MARFormProps> = ({
     }
   }, [id, allEvidence]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
+  const saveToParent = async (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: Partial<EvidenceItem> = {
       id: formId,
       title: `MAR: ${specialty} - Level ${trainingLevel}`,
@@ -305,7 +307,7 @@ const MARForm: React.FC<MARFormProps> = ({
       }
     };
 
-    onSave(baseData);
+    await onSave(baseData);
   };
 
   const handleSaveDraft = () => {
@@ -315,22 +317,32 @@ const MARForm: React.FC<MARFormProps> = ({
     setTimeout(() => setShowSaveMessage(false), 2000);
   };
 
-  const handleEmailForm = () => {
+  const handleEmailForm = async () => {
     if (!assessorName || !assessorEmail) {
       alert("Please provide assessor name and email.");
       return;
     }
     setStatus(EvidenceStatus.Submitted);
-    saveToParent(EvidenceStatus.Submitted);
+    await saveToParent(EvidenceStatus.Submitted);
     alert("Form emailed to assessor");
-    onSubmitted?.();
+    if (onSubmitted) onSubmitted();
   };
 
-  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
+  const handleSupervisorSignOff = async () => {
+    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+      setStatus(EvidenceStatus.SignedOff);
+      await saveToParent(EvidenceStatus.SignedOff);
+      if (onSubmitted) onSubmitted();
+      alert("Form signed off successfully.");
+      onBack();
+    }
+  };
+
+  const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
     setAssessorName(name);
     setAssessorEmail(email);
-    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
+    await saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -910,7 +922,7 @@ const MARForm: React.FC<MARFormProps> = ({
 
           {/* Row 2: Action Buttons */}
           <div className="flex flex-wrap gap-3 justify-center lg:justify-end">
-            {!isLocked && (
+            {!isLocked && !isSupervisor && (
               <>
                 <button
                   onClick={handleSaveDraft}
@@ -933,6 +945,15 @@ const MARForm: React.FC<MARFormProps> = ({
                   <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
                 </button>
               </>
+            )}
+
+            {isSupervisor && status === EvidenceStatus.Submitted && (
+              <button
+                onClick={handleSupervisorSignOff}
+                className="h-10 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+              >
+                <ShieldCheck size={18} /> <span>SIGN OFF</span>
+              </button>
             )}
           </div>
 

@@ -27,13 +27,14 @@ interface EPAFormProps {
   traineeName?: string; // Add trainee name from profile
   onBack: () => void;
   onSubmitted?: () => void;
-  onSave: (evidence: Partial<EvidenceItem>) => void;
+  onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
   onLinkRequested: (reqIndex: number | string, sectionIndex: number, currentFormParams?: any) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
+  isSupervisor?: boolean;
 }
 
 // Helper to map EPA criterion names to CRS/OSATS form subtypes
@@ -247,22 +248,10 @@ const EPAForm: React.FC<EPAFormProps> = ({
   onViewLinkedEvidence,
   linkedEvidenceData,
   allEvidence = [],
-  onCompleteMandatoryForm
+  onCompleteMandatoryForm,
+  isSupervisor = false
 }) => {
-  // #region agent log
-  // Log the actual props object to see what React is passing
-  const propsObj = { id, sia, level, initialSupervisorName, initialSupervisorEmail, initialSection, autoScrollToIdx, initialStatus, originView, originFormParams, traineeName, onBack, onSubmitted, onSave, onLinkRequested, onRemoveLink, onViewLinkedEvidence, onCompleteMandatoryForm, linkedEvidenceData, allEvidence };
-  const receivedProps = {
-    hasOnViewLinkedEvidence: !!onViewLinkedEvidence,
-    onViewLinkedEvidenceType: typeof onViewLinkedEvidence,
-    onViewLinkedEvidenceValue: onViewLinkedEvidence ? 'defined' : 'undefined',
-    allPropsReceived: Object.keys(propsObj),
-    onViewLinkedEvidenceInProps: 'onViewLinkedEvidence' in propsObj,
-    onViewLinkedEvidenceValueInProps: propsObj.onViewLinkedEvidence ? 'defined' : 'undefined'
-  };
-  console.log('EPAForm.tsx: Props received, onViewLinkedEvidence:', onViewLinkedEvidence, 'in props:', 'onViewLinkedEvidence' in propsObj, 'propsObj.onViewLinkedEvidence:', propsObj.onViewLinkedEvidence);
-  fetch('http://127.0.0.1:7242/ingest/d806ef10-a7cf-4ba2-a7d3-41bd2e75b0c9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'EPAForm.tsx:189', message: 'EPAForm props received', data: receivedProps, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch((e) => { console.error('Log fetch failed:', e); });
-  // #endregion
+
   const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedLevel, setSelectedLevel] = useState(level);
@@ -292,12 +281,13 @@ const EPAForm: React.FC<EPAFormProps> = ({
     return LEVEL_3_SECTIONS;
   })();
 
-  // Lock based on status only (Submitted or SignedOff/Complete)
-  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
+  // Lock based on status only (Submitted or SignedOff/Complete) - UNLESS Supervisor
+  const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
 
-  // When viewing linked evidence (has originFormParams AND existing id), force read-only mode
+  // When viewing linked evidence (has originFormParams AND existing id), force read-only mode, 
+  // UNLESS it's the supervisor reviewing a submitted form
   // But when creating a new form from mandatory context (originFormParams but no id), NOT read-only
-  const isReadOnly = isLocked || (!!originFormParams && !!id);
+  const isReadOnly = isLocked || (!!originFormParams && !!id && !(isSupervisor && status === EvidenceStatus.Submitted));
 
   // Determine back button text based on origin
   const backButtonText = originFormParams ? 'Back to Form' : originView ? 'Back to Evidence' : 'Back';
@@ -375,27 +365,15 @@ const EPAForm: React.FC<EPAFormProps> = ({
 
         const levelPrefix = selectedLevel === 1 ? 'EPA-L1-' : selectedLevel === 2 ? 'EPA-L2-' : selectedLevel === 3 ? 'EPA-L3-' : selectedLevel === 4 ? 'EPA-L4-' : '';
 
-        // Load grading filtered by level
-        const levelGrading: Record<string, string> = {};
-        if (savedForm.epaFormData.grading && levelPrefix) {
-          Object.keys(savedForm.epaFormData.grading).forEach(key => {
-            if (key.startsWith(levelPrefix)) {
-              levelGrading[key] = savedForm.epaFormData.grading[key];
-            }
-          });
+        // Load ALL grading/comments to preserve data across levels and fix key format mismatch
+        // (Previous bug: keys were saved with "EPA - L4 -" but loaded with "EPA-L4-", causing empty load)
+        if (savedForm.epaFormData.grading) {
+          setGrading(savedForm.epaFormData.grading);
         }
-        setGrading(levelGrading);
 
-        // Load comments filtered by level
-        const levelComments: Record<string, string> = {};
-        if (savedForm.epaFormData.comments && levelPrefix) {
-          Object.keys(savedForm.epaFormData.comments).forEach(key => {
-            if (key.startsWith(levelPrefix)) {
-              levelComments[key] = savedForm.epaFormData.comments[key];
-            }
-          });
+        if (savedForm.epaFormData.comments) {
+          setComments(savedForm.epaFormData.comments);
         }
-        setComments(levelComments);
 
         // Load other fields
         if (savedForm.epaFormData.entrustment) {
@@ -435,9 +413,8 @@ const EPAForm: React.FC<EPAFormProps> = ({
     }
   }, [id, selectedLevel, allEvidence]);
 
-  // Handle saving data to parent
-  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
-    onSave({
+  const saveToParent = async (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
+    await onSave({
       id: formId,
       title: selectedSia === 'Operating List' && operatingListSubspecialty
         ? `EPA Level ${selectedLevel}: ${selectedSia} - ${operatingListSubspecialty}`
@@ -513,22 +490,33 @@ const EPAForm: React.FC<EPAFormProps> = ({
     });
   };
 
-  const handleEmailForm = () => {
+  const handleEmailForm = async () => {
     if (!supervisorName || !supervisorEmail) {
       alert("Please provide supervisor name and email.");
       return;
     }
     setStatus(EvidenceStatus.Submitted);
-    saveToParent(EvidenceStatus.Submitted);
+    await saveToParent(EvidenceStatus.Submitted);
     alert("Form emailed to supervisor");
     onSubmitted?.();
   };
 
-  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
+  const handleSupervisorSignOff = async () => {
+    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+      setStatus(EvidenceStatus.SignedOff);
+      await saveToParent(EvidenceStatus.SignedOff);
+      // Logic handled in saveToParent/onSave
+      if (onSubmitted) onSubmitted();
+      alert("Form signed off successfully.");
+      onBack();
+    }
+  };
+
+  const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
     setSupervisorName(name);
     setSupervisorEmail(email);
-    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
+    await saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -1753,7 +1741,7 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
               </span>
             )}
 
-            {!isReadOnly && (
+            {!isReadOnly && !isSupervisor && (
               <>
                 <button
                   onClick={handleSaveDraft}
@@ -1776,6 +1764,15 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                   <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
                 </button>
               </>
+            )}
+
+            {isSupervisor && status === EvidenceStatus.Submitted && (
+              <button
+                onClick={handleSupervisorSignOff}
+                className="h-10 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+              >
+                <ShieldCheck size={18} /> <span>SIGN OFF</span>
+              </button>
             )}
 
             {isReadOnly && (

@@ -17,8 +17,9 @@ interface EPAOperatingListFormProps {
     traineeName?: string;
     onBack: () => void;
     onSubmitted: () => void;
-    onSave: (item: Partial<EvidenceItem>) => void;
+    onSave: (item: Partial<EvidenceItem>) => Promise<void> | void;
     allEvidence?: EvidenceItem[];
+    isSupervisor?: boolean;
 }
 
 // Operating list criteria from operating_list_epa_l4.csv
@@ -61,7 +62,8 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
     onBack,
     onSubmitted,
     onSave,
-    allEvidence = []
+    allEvidence = [],
+    isSupervisor = false
 }) => {
     const [subspecialty, setSubspecialty] = useState(initialSubspecialty || '');
     const [supervisorName, setSupervisorName] = useState(initialSupervisorName || '');
@@ -77,8 +79,8 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
 
     const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
-    const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
-    const isReadOnly = isLocked || (!!originFormParams && !!id);
+    const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
+    const isReadOnly = (isLocked && !isSupervisor) || (!!originFormParams && !!id);
 
     // Determine if form came from COMPLETE EPA button
     const hasOriginContext = !!originFormParams && !id;
@@ -112,7 +114,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         }
     }, [subspecialty, supervisorName, supervisorEmail, ratings, comments, entrustment, aspectsEspeciallyGood]);
 
-    const saveToParent = (overrideStatus?: EvidenceStatus) => {
+    const saveToParent = async (overrideStatus?: EvidenceStatus) => {
         const formData: Partial<EvidenceItem> = {
             id,
             type: EvidenceType.EPAOperatingList,
@@ -129,7 +131,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                 supervisorEmail
             }
         };
-        onSave(formData);
+        await onSave(formData);
     };
 
     const handleSaveDraft = () => {
@@ -137,7 +139,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         alert("Draft saved");
     };
 
-    const handleEmailForm = () => {
+    const handleEmailForm = async () => {
         if (!supervisorName || !supervisorEmail) {
             alert("Please provide supervisor name and email.");
             return;
@@ -148,9 +150,19 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         }
 
         setStatus(EvidenceStatus.Submitted);
-        saveToParent(EvidenceStatus.Submitted);
+        await saveToParent(EvidenceStatus.Submitted);
         alert("Form emailed to supervisor");
         onSubmitted();
+    };
+
+    const handleSupervisorSignOff = async () => {
+        if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+            setStatus(EvidenceStatus.SignedOff);
+            await saveToParent(EvidenceStatus.SignedOff);
+            if (onSubmitted) onSubmitted();
+            alert("Form signed off successfully.");
+            onBack();
+        }
     };
 
     const handleMarkAllMeets = () => {
@@ -200,7 +212,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
         setIsSignOffOpen(true);
     };
 
-    const confirmSignOff = (gmc: string, name: string, email: string, signature: string) => {
+    const confirmSignOff = async (gmc: string, name: string, email: string, signature: string) => {
         setSupervisorName(name);
         setSupervisorEmail(email);
         const formData: Partial<EvidenceItem> = {
@@ -223,7 +235,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
             }
         };
 
-        onSave(formData);
+        await onSave(formData);
         setIsSignOffOpen(false);
         onSubmitted();
     };
@@ -462,7 +474,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                         </GlassCard>
 
                         {/* Action Buttons */}
-                        {!isReadOnly && (
+                        {!isReadOnly && !isSupervisor && (
                             <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 dark:border-white/10">
                                 <button
                                     onClick={handleSaveDraft}
@@ -483,6 +495,16 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                                     className="h-12 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2"
                                 >
                                     <ShieldCheck size={18} /> <span>IN PERSON SIGN OFF</span>
+                                </button>
+                            </div>
+                        )}
+                        {isSupervisor && status === EvidenceStatus.Submitted && (
+                            <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                                <button
+                                    onClick={handleSupervisorSignOff}
+                                    className="h-12 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2"
+                                >
+                                    <ShieldCheck size={18} /> <span>SIGN OFF</span>
                                 </button>
                             </div>
                         )}

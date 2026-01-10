@@ -17,8 +17,9 @@ interface ESRFormProps {
     onNavigateToEvidence: () => void;
     onNavigateToRecordForm: () => void;
     onBack: () => void;
-    onSave: (evidence: Partial<EvidenceItem>) => void;
+    onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
     initialData?: EvidenceItem;
+    isSupervisor?: boolean;
 }
 
 const ESRForm: React.FC<ESRFormProps> = ({
@@ -31,7 +32,8 @@ const ESRForm: React.FC<ESRFormProps> = ({
     onViewActiveEPAs,
     onViewEvidenceItem,
     onNavigateToEvidence,
-    onNavigateToRecordForm
+    onNavigateToRecordForm,
+    isSupervisor = false
 }) => {
     // --- State Management ---
     const [pdpGoals, setPdpGoals] = useState<PDPGoal[]>(
@@ -81,6 +83,10 @@ const ESRForm: React.FC<ESRFormProps> = ({
         pcrRate: profile.phacoPcrRate || 0
     }), [profile]);
 
+    // Determine locked status
+    const status = initialData?.status || EvidenceStatus.Draft;
+    const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
+
     // --- Helpers ---
     const getEvidenceForBox = (column: string, level: number): EvidenceItem[] => {
         const foundItems: EvidenceItem[] = [];
@@ -109,7 +115,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
     };
 
     // --- Handlers ---
-    const handleSave = (status: EvidenceStatus, gmc?: string, name?: string, email?: string) => {
+    const handleSave = async (status: EvidenceStatus, gmc?: string, name?: string, email?: string) => {
         if (status === EvidenceStatus.SignedOff && !comments.supervisor && !name) {
             // Note: Supervisor comments usually required, but if doing in-person sign off, maybe less critical?
             // Keeping the check for now.
@@ -142,7 +148,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
             data: formData
         };
 
-        onSave(evidenceItem);
+        await onSave(evidenceItem);
         // Only close if signed off or submitted? Or always?
         // Original code closed always.
         if (status !== EvidenceStatus.Draft || name) { // Close if signed off/submitted or explicit save (not auto-save draft if we had that)
@@ -155,11 +161,23 @@ const ESRForm: React.FC<ESRFormProps> = ({
         }
     };
 
-    const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
+    const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {
         setSupervisorName(name);
         setSupervisorEmail(email);
-        handleSave(EvidenceStatus.SignedOff, gmc, name, email);
+        await handleSave(EvidenceStatus.SignedOff, gmc, name, email);
         setIsSignOffOpen(false);
+    };
+
+    const handleSupervisorSignOff = async () => {
+        if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+            // For ESR, ensure supervisor comments are there?
+            if (!comments.supervisor) {
+                alert('Please add Supervisor Comments before signing off.');
+                return;
+            }
+            await handleSave(EvidenceStatus.SignedOff);
+            // handleSave calls onBack()
+        }
     };
 
     const handleLinkEvidence = (type: 'gsat' | 'epas' | 'msf' | 'lastEsr') => {
@@ -456,9 +474,11 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">GSAT EVIDENCE</span>
-                                            <button onClick={() => handleLinkEvidence('gsat')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
-                                                <Plus size={10} /> LINK
-                                            </button>
+                                            {!isLocked && (
+                                                <button onClick={() => handleLinkEvidence('gsat')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                                                    <Plus size={10} /> LINK
+                                                </button>
+                                            )}
                                         </div>
                                         {renderLinkedEvidenceList(linkedEvidenceIds.gsat, 'gsat')}
                                     </div>
@@ -467,9 +487,11 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">CURRENT EPAs</span>
-                                            <button onClick={() => handleLinkEvidence('epas')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
-                                                <Plus size={10} /> LINK
-                                            </button>
+                                            {!isLocked && (
+                                                <button onClick={() => handleLinkEvidence('epas')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                                                    <Plus size={10} /> LINK
+                                                </button>
+                                            )}
                                         </div>
                                         {renderLinkedEvidenceList(linkedEvidenceIds.epas, 'epas')}
                                     </div>
@@ -478,9 +500,11 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">MSF</span>
-                                            <button onClick={() => handleLinkEvidence('msf')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
-                                                <Plus size={10} /> LINK
-                                            </button>
+                                            {!isLocked && (
+                                                <button onClick={() => handleLinkEvidence('msf')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                                                    <Plus size={10} /> LINK
+                                                </button>
+                                            )}
                                         </div>
                                         {renderLinkedEvidenceList(linkedEvidenceIds.msf, 'msf')}
                                     </div>
@@ -489,9 +513,11 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">LAST ESR REVIEW</span>
-                                            <button onClick={() => handleLinkEvidence('lastEsr')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
-                                                <Plus size={10} /> LINK
-                                            </button>
+                                            {!isLocked && (
+                                                <button onClick={() => handleLinkEvidence('lastEsr')} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                                                    <Plus size={10} /> LINK
+                                                </button>
+                                            )}
                                         </div>
                                         {renderLinkedEvidenceList(linkedEvidenceIds.lastEsr, 'lastEsr')}
                                     </div>
@@ -504,6 +530,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                         <textarea
                                             value={comments.trainee}
                                             onChange={(e) => setComments(prev => ({ ...prev, trainee: e.target.value }))}
+                                            disabled={isLocked}
                                             className="w-full px-3 py-2 bg-slate-50 rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500 min-h-[80px]"
                                             placeholder="Enter trainee comments..."
                                         />
@@ -513,6 +540,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                         <textarea
                                             value={comments.supervisor}
                                             onChange={(e) => setComments(prev => ({ ...prev, supervisor: e.target.value }))}
+                                            disabled={isLocked && !isSupervisor}
                                             className="w-full px-3 py-2 bg-slate-50 rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500 min-h-[80px]"
                                             placeholder="Enter supervisor comments (required for sign off)..."
                                         />
@@ -571,24 +599,41 @@ const ESRForm: React.FC<ESRFormProps> = ({
                         {/* Action Buttons */}
                         <div className="pt-4 border-t border-slate-100 space-y-3">
                             <h4 className="text-sm font-semibold text-slate-900 mb-3">Actions</h4>
-                            <button
-                                onClick={() => handleSave(EvidenceStatus.Draft)}
-                                className="w-full py-2.5 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase"
-                            >
-                                <Save size={14} /> Save Draft
-                            </button>
-                            <button
-                                onClick={() => handleSave(EvidenceStatus.Submitted)}
-                                className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase"
-                            >
-                                <MessageSquare size={14} /> Email Form
-                            </button>
-                            <button
-                                onClick={() => setIsSignOffOpen(true)}
-                                className="w-full py-2.5 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase shadow-lg shadow-emerald-600/20"
-                            >
-                                <ShieldCheck size={14} /> IN PERSON SIGN OFF
-                            </button>
+                            {!isLocked && !isSupervisor && (
+                                <>
+                                    <button
+                                        onClick={() => handleSave(EvidenceStatus.Draft)}
+                                        className="w-full py-2.5 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase"
+                                    >
+                                        <Save size={14} /> Save Draft
+                                    </button>
+                                    <button
+                                        onClick={() => handleSave(EvidenceStatus.Submitted)}
+                                        className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase"
+                                    >
+                                        <MessageSquare size={14} /> Email Form
+                                    </button>
+                                    <button
+                                        onClick={() => setIsSignOffOpen(true)}
+                                        className="w-full py-2.5 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase shadow-lg shadow-emerald-600/20"
+                                    >
+                                        <ShieldCheck size={14} /> IN PERSON SIGN OFF
+                                    </button>
+                                </>
+                            )}
+
+                            {isSupervisor && status === EvidenceStatus.Submitted && (
+                                <button
+                                    onClick={handleSupervisorSignOff}
+                                    className="w-full py-2.5 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase shadow-lg shadow-emerald-600/20"
+                                >
+                                    <ShieldCheck size={14} /> SIGN OFF
+                                </button>
+                            )}
+
+                            {isLocked && status !== EvidenceStatus.Submitted && (
+                                <p className="text-center text-xs text-slate-500 italic">Form is locked.</p>
+                            )}
                         </div>
                     </div>
 

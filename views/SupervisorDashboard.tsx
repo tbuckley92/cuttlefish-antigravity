@@ -5,7 +5,7 @@ import {
   User, Mail, Calendar, Briefcase, ChevronRight,
   FileText, ClipboardCheck, Activity, BookOpen, Users,
   CheckCircle2, Clock, AlertCircle, ShieldCheck, Eye, ArrowLeft, Lock,
-  Inbox, Filter, Settings, Search, LayoutDashboard, X
+  Inbox, Filter, Settings, Search, LayoutDashboard, X, Bell
 } from '../components/Icons';
 import { SupervisorProfile, TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, ARCPReviewType, EvidenceItem, UserProfile } from '../types';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
@@ -271,33 +271,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
               </div>
 
               <div className="flex-1 min-h-[200px] max-h-[400px] overflow-y-auto">
-                {/* Mock Notifications */}
-                <div className="md:p-2 space-y-1">
-                  <div className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
-                    <div className="flex items-start gap-3">
-                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600 mt-0.5">
-                        <ClipboardCheck size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 mb-0.5">System Notification</p>
-                        <p className="text-[10px] font-medium text-slate-500 mb-1">ARCP Outcome Available</p>
-                        <p className="text-[10px] text-slate-400 line-clamp-2">Your ARCP outcome for Full ARCP has been available for review...</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
-                    <div className="flex items-start gap-3">
-                      <div className="p-1.5 rounded-lg bg-green-100 text-green-600 mt-0.5">
-                        <FileText size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-green-600 mb-0.5">System Notification</p>
-                        <p className="text-[10px] font-medium text-slate-500 mb-1">Educational Supervisor Report Signed</p>
-                        <p className="text-[10px] text-slate-400 line-clamp-2">Your Educational Supervisor Report - Jan 2026 has been signed.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <NotificationList supervisor={supervisor} onAction={onViewInbox} />
               </div>
 
               <div className="p-3 border-t border-slate-100 bg-slate-50/30">
@@ -482,6 +456,95 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 };
 
 export default SupervisorDashboard;
+
+// Internal Notification List Component to keep main component clean
+const NotificationList: React.FC<{
+  supervisor: SupervisorProfile;
+  onAction?: () => void;
+}> = ({ supervisor, onAction }) => {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!isSupabaseConfigured || !supabase || !supervisor.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', supervisor.id)
+          .eq('role_context', 'supervisor')
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setNotifications(data || []);
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotifications();
+
+    // Subscribe to realtime changes would be ideal here if enabled
+  }, [supervisor.id]);
+
+  const handleNotificationClick = async (notificationId: string) => {
+    // Mark as read
+    if (isSupabaseConfigured && supabase) {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    }
+
+    // Trigger parent action (View Inbox)
+    if (onAction) onAction();
+  };
+
+  if (isLoading) {
+    return <div className="p-4 text-center text-[10px] text-slate-400">Loading...</div>;
+  }
+
+  if (notifications.length === 0) {
+    return (
+      <div className="p-6 text-center text-slate-400 flex flex-col items-center justify-center h-full">
+        <Bell size={20} className="text-slate-200 mb-2" />
+        <span className="text-xs">No new notifications</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-1 space-y-1">
+      {notifications.map(n => (
+        <div
+          key={n.id}
+          onClick={() => handleNotificationClick(n.id)}
+          className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600 mt-0.5">
+              {/* Simple icon logic based on type */}
+              {n.type === 'form_submission' ? <ClipboardCheck size={14} /> : <Mail size={14} />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 mb-0.5 truncate pr-2">{n.title}</p>
+              <p className="text-[10px] font-medium text-slate-500 mb-1">{new Date(n.created_at).toLocaleDateString()}</p>
+              <p className="text-[10px] text-slate-400 line-clamp-2">{n.body}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // ==========================================
 // SUB-COMPONENTS

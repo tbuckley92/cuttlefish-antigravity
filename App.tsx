@@ -207,6 +207,11 @@ const App: React.FC = () => {
   const [sias, setSias] = useState<SIA[]>(() => (isSupabaseConfigured ? [] : INITIAL_SIAS));
   const [supervisorActiveTab, setSupervisorActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard');
 
+  // Reset inboxRoleContext when session changes (e.g. logout/login)
+  useEffect(() => {
+    setInboxRoleContext('trainee');
+  }, [session?.user?.id]);
+
   // Change default to empty array; we will load from DB if configured, or local storage if not
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
     if (isSupabaseConfigured) return [];
@@ -452,12 +457,36 @@ const App: React.FC = () => {
         });
         setSias(data.sias ?? []);
 
-        // Map base role into the existing UI role switch.
-        if (data.base_role === 'SUPERVISOR') {
-          setCurrentRole(UserRole.EducationalSupervisor);
+        // Determine initial role based on available roles
+        const availableRoles: UserRole[] = data.roles || [];
+
+        let initialRole = UserRole.Trainee;
+
+        if (availableRoles.length > 0) {
+          if (availableRoles.includes(UserRole.Trainee)) {
+            initialRole = UserRole.Trainee;
+          } else {
+            // User is not a trainee. Pick a role they have.
+            const preferredOrder = [
+              UserRole.Supervisor,
+              UserRole.EducationalSupervisor,
+              UserRole.ARCPSuperuser,
+              UserRole.ARCPPanelMember,
+              UserRole.Admin
+            ];
+            const bestRole = preferredOrder.find(r => availableRoles.includes(r));
+            initialRole = (bestRole || availableRoles[0]) as UserRole;
+          }
         } else {
-          setCurrentRole(UserRole.Trainee);
+          // Fallback legacy logic
+          if (data.base_role === 'SUPERVISOR') {
+            initialRole = UserRole.EducationalSupervisor;
+          } else {
+            initialRole = UserRole.Trainee;
+          }
         }
+
+        setCurrentRole(initialRole);
       }
 
       setProfileReady(true);
@@ -601,6 +630,47 @@ const App: React.FC = () => {
 
 
   const handleUpsertEvidence = async (item: Partial<EvidenceItem> & { id?: string }) => {
+    if (!session?.user || !isSupabaseConfigured) return;
+
+    let itemToSave = { ...item };
+
+    // Auto-stamp Supervisor details if signing off as supervisor
+    // This ensures the actual logged-in supervisor's details are recorded,
+    // overriding whatever might have been in the form state (which could be just name/email without GMC)
+    const isActingAsSupervisor = inboxRoleContext === 'supervisor' ||
+      currentRole === UserRole.Supervisor ||
+      currentRole === UserRole.EducationalSupervisor ||
+      currentRole === UserRole.Admin ||
+      currentRole === UserRole.ARCPPanelMember;
+
+    if (itemToSave.status === EvidenceStatus.SignedOff && isActingAsSupervisor && viewingTraineeId) {
+      // We are a supervisor signing off someone else's evidence
+      // Fetch our recent profile data to ensure accuracy
+      const { data: myProfile } = await supabase!.from('user_profile').select('*').eq('user_id', session.user.id).single();
+      if (myProfile) {
+        const svName = myProfile.name;
+        const svEmail = session.user.email || myProfile.supervisorEmail; // Fallback to auth email
+        const svGmc = myProfile.gmc_number;
+
+        console.log("Auto-stamping Supervisor Details:", svName, svGmc);
+
+        itemToSave.supervisorName = svName;
+        itemToSave.supervisorEmail = svEmail;
+        itemToSave.supervisorGmc = svGmc;
+
+        // Also update internal form data if structure matches known types
+        if (itemToSave.epaFormData) {
+          itemToSave.epaFormData.supervisorName = svName;
+          itemToSave.epaFormData.supervisorEmail = svEmail;
+          // epaFormData doesn't usually store GMC, but we update the top-level which is key
+        }
+        if (itemToSave.dopsFormData) {
+          // Update DOPS specific fields if needed
+        }
+        // Similar pattern for other forms if they store supervisor details internally
+        // Most forms rely on the top level EvidenceItem fields for display in tables
+      }
+    }
     // Capture ID for mandatory form context (CRS/OSATS launched from EPA)
     const ctx = mandatoryContext;
     const isMatchingMandatoryType = ctx && (
@@ -653,10 +723,14 @@ const App: React.FC = () => {
         const { mapEvidenceItemToRow } = await import('./utils/evidenceMapper');
         const rowData = mapEvidenceItemToRow(optimisticItem);
 
-        // ensure trainee_id is set
+        // ensure trainee_id is set correctly
+        // If we are a supervisor viewing a trainee, use that trainee's ID.
+        // Otherwise fallback to session user (we are the trainee or logging for ourselves)
+        const targetTraineeId = viewingTraineeId || session.user.id;
+
         const payload = {
           ...rowData,
-          trainee_id: session.user.id
+          trainee_id: targetTraineeId
         };
 
         const { error } = await supabase
@@ -1300,6 +1374,84 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleNavigateToEvidenceFromNotification = async (evidenceId: string) => {
+    // 1. Fetch the specific evidence item first to identify type and trainee
+    if (!isSupabaseConfigured || !supabase) return;
+
+    // We need to fetch it regardless of RLS because we might be the supervisor
+    // The RLS shoud allow read if we are the supervisor.
+    const { data: evidence, error } = await supabase
+      .from('evidence')
+      .select('*')
+      .eq('id', evidenceId)
+      .single();
+
+    if (error || !evidence) {
+      console.error("Could not fetch evidence from notification", error);
+      alert("Could not load the evidence. It may have been deleted or you do not have permission.");
+      return;
+    }
+
+    const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+    // @ts-ignore
+    const item = mapRowToEvidenceItem(evidence);
+
+    // 2. Switch context if it's not my own evidence
+    if (item.traineeId && item.traineeId !== session?.user?.id) {
+      setViewingTraineeId(item.traineeId);
+      // Trigger fetch of their evidence (optional, but good for context)
+      await fetchTraineeEvidence(item.traineeId);
+    } else {
+      setViewingTraineeId(null);
+    }
+
+    // 3. Set view params
+    setSelectedFormParams({
+      sia: item.sia || '',
+      level: item.level || 1,
+      id: item.id,
+      status: item.status, // Should be Submitted or SignedOff
+      originView: View.Inbox,
+      traineeId: item.traineeId
+    });
+
+    // 4. Navigate
+    switch (item.type) {
+      case EvidenceType.EPA:
+        setCurrentView(View.EPAForm);
+        break;
+      case EvidenceType.GSAT:
+        setCurrentView(View.GSATForm);
+        break;
+      case EvidenceType.DOPs:
+        setCurrentView(View.DOPsForm);
+        break;
+      case EvidenceType.OSATs:
+        setCurrentView(View.OSATSForm);
+        break;
+      case EvidenceType.CbD:
+        setCurrentView(View.CBDForm);
+        break;
+      case EvidenceType.CRS:
+        setCurrentView(View.CRSForm);
+        break;
+      case EvidenceType.ESR:
+        setCurrentView(View.ESRForm);
+        break;
+      case EvidenceType.EPAOperatingList:
+        setCurrentView(View.EPAOperatingListForm);
+        break;
+      case EvidenceType.ARCPFullReview:
+      case EvidenceType.ARCPInterimReview:
+        setCurrentView(View.ARCPForm);
+        break;
+      default:
+        setEditingEvidence(item);
+        setCurrentView(View.AddEvidence);
+        break;
+    }
+  };
+
   const handleViewLinkedEvidence = (evidenceId: string, section?: number) => {
     const evidence = allEvidence.find(e => e.id === evidenceId);
     if (!evidence) {
@@ -1833,6 +1985,9 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    // Determine context-aware evidence list (Trainee's evidence if viewing trainee, else own evidence)
+    const activeEvidenceList = viewingTraineeId ? viewingTraineeEvidence : allEvidence;
+
     switch (currentView) {
       case View.Dashboard:
         return (
@@ -1979,7 +2134,7 @@ const App: React.FC = () => {
         );
       case View.EPALegacyForm:
         const existingLegacyItem = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id)
           : null;
 
         // Reconstruct initial data if viewing
@@ -2175,7 +2330,7 @@ const App: React.FC = () => {
       case View.EPAForm:
         // Load linked evidence from saved form if editing, filtered by level
         const existingEPA = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPA)
           : null;
 
         // Filter linked evidence to only include keys for the current level AND SIA
@@ -2225,7 +2380,8 @@ const App: React.FC = () => {
             onViewLinkedEvidence={handleViewLinkedEvidence}
             onCompleteMandatoryForm={handleCompleteMandatoryForm}
             autoScrollToIdx={returnTarget?.index}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.GSATForm:
@@ -2242,19 +2398,20 @@ const App: React.FC = () => {
             onRemoveLink={handleRemoveLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
             initialSupervisorName={profile.supervisorName}
             initialSupervisorEmail={profile.supervisorEmail}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.ESRForm:
         const existingESR = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.ESR)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.ESR)
           : null;
         return (
           <ESRForm
             profile={profile}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
             onBack={handleNavigateBack}
             onSave={handleUpsertEvidence}
             initialData={existingESR || undefined}
@@ -2262,11 +2419,12 @@ const App: React.FC = () => {
             onViewEvidenceItem={(item) => handleEditEvidence(item)}
             onNavigateToEvidence={() => setCurrentView(View.Evidence)}
             onNavigateToRecordForm={() => setCurrentView(View.RecordForm)}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.DOPsForm:
         const existingDOPs = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.DOPs)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.DOPs)
           : null;
         return (
           <DOPsForm
@@ -2281,12 +2439,13 @@ const App: React.FC = () => {
             onBack={handleNavigateBack}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.OSATSForm:
         const existingOSATs = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.OSATs)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.OSATs)
           : null;
         return (
           <OSATSForm
@@ -2303,12 +2462,13 @@ const App: React.FC = () => {
             onBack={handleBackToOrigin}
             onSubmitted={handleOSATSSubmitted}
             onSave={handleUpsertEvidence}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.CBDForm:
         const existingCBD = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CbD)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CbD)
           : null;
         return (
           <CBDForm
@@ -2322,12 +2482,13 @@ const App: React.FC = () => {
             onBack={handleBackToOrigin}
             onSubmitted={handleCBDSubmitted}
             onSave={handleUpsertEvidence}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.CRSForm:
         const existingCRS = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CRS)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.CRS)
           : null;
         return (
           <CRSForm
@@ -2344,12 +2505,13 @@ const App: React.FC = () => {
             onBack={handleBackToOrigin}
             onSubmitted={handleCRSSubmitted}
             onSave={handleUpsertEvidence}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.MARForm:
         const existingMAR = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.MAR)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.MAR)
           : null;
         return (
           <MARForm
@@ -2363,12 +2525,13 @@ const App: React.FC = () => {
             onBack={handleBackToOrigin}
             onSubmitted={handleFormSubmitted}
             onSave={handleUpsertEvidence}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.EPAOperatingListForm:
         const existingEPAOpList = selectedFormParams?.id
-          ? allEvidence.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPAOperatingList)
+          ? activeEvidenceList.find(e => e.id === selectedFormParams.id && e.type === EvidenceType.EPAOperatingList)
           : null;
         return (
           <EPAOperatingListForm
@@ -2382,17 +2545,18 @@ const App: React.FC = () => {
             traineeName={profile.name}
             onBack={handleBackToOrigin}
             onSubmitted={handleEPAOperatingListSubmitted}
-            onSave={(item) => {
+            onSave={async (item) => {
               // Ensure we capture the ID created by handleUpsertEvidence
               const itemId = item.id || uuidv4();
-              handleUpsertEvidence({ ...item, id: itemId });
+              await handleUpsertEvidence({ ...item, id: itemId });
 
               const ctx = mandatoryContext;
               if (ctx && ctx.expectedType === 'EPAOperatingList') {
                 mandatoryCreatedIdRef.current = itemId;
               }
             }}
-            allEvidence={allEvidence}
+            allEvidence={activeEvidenceList}
+            isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
       case View.ARCPPrep:
@@ -2667,6 +2831,7 @@ const App: React.FC = () => {
               // For simplicity, navigate to MyTickets which shows the list
               setCurrentView(View.MyTickets);
             }}
+            onNavigateToEvidence={handleNavigateToEvidenceFromNotification}
           />
         );
       case View.RaiseTicket:

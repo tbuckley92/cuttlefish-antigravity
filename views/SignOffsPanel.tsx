@@ -27,15 +27,25 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
         const fetchSupervisorEvidence = async () => {
             // Use GMC number for stable matching, fallback to email if GMC missing (though GMC is preferred)
             const identifier = supervisor.gmcNumber;
-            if (!isSupabaseConfigured || !supabase || !identifier) return;
+            const email = supervisor.email;
+
+            if (!isSupabaseConfigured || !supabase || (!identifier && !email)) return;
 
             setIsLoading(true);
             try {
-                // Fetch all evidence where supervisor_gmc matches
+                // Fetch evidence where supervisor_gmc matches OR supervisor_email matches
+                // We construct an OR filter string: "supervisor_gmc.eq.VALUE,supervisor_email.eq.VALUE"
+                let filter = '';
+                if (identifier) filter += `supervisor_gmc.eq.${identifier}`;
+                if (email) {
+                    if (filter) filter += ',';
+                    filter += `supervisor_email.eq.${email}`;
+                }
+
                 const { data, error } = await supabase
                     .from('evidence')
                     .select('*')
-                    .eq('supervisor_gmc', identifier)
+                    .or(filter)
                     .order('event_date', { ascending: false });
 
                 if (error) throw error;

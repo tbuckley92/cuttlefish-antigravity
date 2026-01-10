@@ -23,7 +23,7 @@ interface GSATFormProps {
   originFormParams?: any; // FormParams type
   onBack: () => void;
   onSubmitted?: () => void;
-  onSave: (evidence: Partial<EvidenceItem>) => void;
+  onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
   onLinkRequested: (reqIndex: number, domain: string, sectionIndex: number) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string) => void;
@@ -31,6 +31,7 @@ interface GSATFormProps {
   allEvidence?: EvidenceItem[];
   initialSupervisorName?: string;
   initialSupervisorEmail?: string;
+  isSupervisor?: boolean;
 }
 
 const domains = [
@@ -60,7 +61,8 @@ const GSATForm: React.FC<GSATFormProps> = ({
   linkedEvidenceData,
   allEvidence = [],
   initialSupervisorName,
-  initialSupervisorEmail
+  initialSupervisorEmail,
+  isSupervisor = false
 }) => {
   const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -84,11 +86,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
     r.specialty === currentDomain
   );
 
-  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted || !!originView;
+  const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor) || !!originView;
 
   // Handle saving data to parent
-  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
-    onSave({
+  const saveToParent = async (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
+    await onSave({
       id: formId,
       title: `GSAT Matrix Level ${level}`,
       type: EvidenceType.GSAT,
@@ -147,16 +149,26 @@ const GSATForm: React.FC<GSATFormProps> = ({
     }, 600);
   };
 
-  const handleEmailForm = () => {
+  const handleEmailForm = async () => {
     setStatus(EvidenceStatus.Submitted);
-    saveToParent(EvidenceStatus.Submitted);
+    await saveToParent(EvidenceStatus.Submitted);
     alert(`GSAT Form emailed to ${supervisorName}`);
-    onSubmitted?.();
+    if (onSubmitted) onSubmitted();
   };
 
-  const handleSignOffConfirm = (gmc: string, name: string, email: string, signature: string) => {
+  const handleSupervisorSignOff = async () => {
+    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+      setStatus(EvidenceStatus.SignedOff);
+      await saveToParent(EvidenceStatus.SignedOff);
+      if (onSubmitted) onSubmitted();
+      alert("Form signed off successfully.");
+      if (onBack) onBack();
+    }
+  };
+
+  const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
-    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
+    await saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
     if (onSubmitted) onSubmitted();
   };
@@ -482,7 +494,7 @@ const GSATForm: React.FC<GSATFormProps> = ({
               </span>
             )}
 
-            {!isLocked && (
+            {!isLocked && !isSupervisor && (
               <>
                 <button
                   key="save-draft"
@@ -508,6 +520,15 @@ const GSATForm: React.FC<GSATFormProps> = ({
                   <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
                 </button>
               </>
+            )}
+
+            {isSupervisor && status === EvidenceStatus.Submitted && (
+              <button
+                onClick={handleSupervisorSignOff}
+                className="h-10 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+              >
+                <ShieldCheck size={18} /> <span>SIGN OFF</span>
+              </button>
             )}
 
             {isLocked && (

@@ -25,9 +25,10 @@ interface CRSFormProps {
   traineeName?: string;
   onBack: () => void;
   onSubmitted?: () => void;
-  onSave: (evidence: Partial<EvidenceItem>) => void;
+  onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
   allEvidence?: EvidenceItem[];
+  isSupervisor?: boolean;
 }
 
 const CRS_TYPES = ["Consultation skills", "Vision", "Fields", "Pupil", "IOP", "Retinoscopy", "External eye", "78D/90D lens", "Slit lamp funduscopy", "Slit lamp anterior segment", "Direct Ophthalmoscopy", "Indirect Ophthalmoscopy", "Gonioscopy", "Contact lenses", "Ocular motility"];
@@ -457,7 +458,8 @@ const CRSForm: React.FC<CRSFormProps> = ({
   onBack,
   onSubmitted,
   onSave,
-  allEvidence = []
+  allEvidence = [],
+  isSupervisor = false
 }) => {
   const [formId] = useState(id || uuidv4());
   const [activeSection, setActiveSection] = useState(0);
@@ -619,7 +621,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
   });
   const [consultationSkillsSpecialty, setConsultationSkillsSpecialty] = useState("No specialty SIA");
 
-  const isLocked = status === EvidenceStatus.SignedOff || status === EvidenceStatus.Submitted;
+  const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
   const isVisionForm = selectedCrsType === "Vision";
   const isRetinoscopyForm = selectedCrsType === "Retinoscopy";
   const isIndirectOphthalmoscopyForm = selectedCrsType === "Indirect Ophthalmoscopy";
@@ -718,7 +720,17 @@ const CRSForm: React.FC<CRSFormProps> = ({
     return () => clearInterval(timer);
   }, [isLocked, isStructuredForm, sectionARatings, sectionBRatings, sectionCRatings, visualAcuityMethod, colourVisionMethod, comments, visualAcuityOther, colourVisionOther, retinoscopySectionARatings, retinoscopySectionBRatings, retinoscopyComments, indirectOphthalmoscopySectionARatings, indirectOphthalmoscopySectionBRatings, indirectOphthalmoscopyComments, pupilSectionARatings, pupilSectionBRatings, pupilComments, contactLensesSectionARatings, contactLensesSectionBRatings, contactLensesComments, lens78D90DSectionARatings, lens78D90DSectionBRatings, lens78D90DComments, gonioscopySectionARatings, gonioscopySectionBRatings, gonioscopyComments, directOphthalmoscopySectionARatings, directOphthalmoscopySectionBRatings, directOphthalmoscopyComments, slitLampSectionARatings, slitLampSectionBRatings, slitLampSectionCRatings, slitLampComments, iopSectionARatings, iopSectionBRatings, iopSectionCRatings, iopComments, iopTechnique, iopOtherTechnique, ocularMotilitySectionARatings, ocularMotilitySectionBRatings, ocularMotilitySectionCRatings, ocularMotilityComments, externalEyeSectionARatings, externalEyeSectionBRatings, externalEyeSectionCRatings, externalEyeComments, fieldsSectionARatings, fieldsSectionBRatings, fieldsComments, consultationSkillsSectionARatings, consultationSkillsSectionBRatings, consultationSkillsSectionCRatings, consultationSkillsSectionDRatings, consultationSkillsComments, consultationSkillsSpecialty]);
 
-  const saveToParent = (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
+  const handleSupervisorSignOff = async () => {
+    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
+      setStatus(EvidenceStatus.SignedOff);
+      await saveToParent(EvidenceStatus.SignedOff);
+      if (onSubmitted) onSubmitted();
+      alert("Form signed off successfully.");
+      onBack();
+    }
+  };
+
+  const saveToParent = async (newStatus: EvidenceStatus = status, gmc?: string, name?: string, email?: string) => {
     const baseData: any = {
       id: formId,
       title: `CRS: ${selectedCrsType} - Level ${trainingLevel}`,
@@ -1144,24 +1156,24 @@ const CRSForm: React.FC<CRSFormProps> = ({
     }, 600);
   };
 
-  const handleEmailForm = () => {
+  const handleEmailForm = async () => {
     if (!assessorName || !assessorEmail) {
-      alert("Please provide assessor name and email.");
+      alert("Please provide supervisor name and email.");
       return;
     }
     setStatus(EvidenceStatus.Submitted);
-    saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to assessor");
-    onSubmitted?.();
+    await saveToParent(EvidenceStatus.Submitted);
+    alert("Form emailed to supervisor");
+    if (onSubmitted) onSubmitted();
   };
 
-  const handleSignOffConfirm = (gmc: string, name: string, email: string) => {
+  const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {
     setStatus(EvidenceStatus.SignedOff);
     setAssessorName(name);
     setAssessorEmail(email);
-    saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
+    await saveToParent(EvidenceStatus.SignedOff, gmc, name, email);
     setIsSignOffOpen(false);
-    onSubmitted?.();
+    if (onSubmitted) onSubmitted();
   };
 
   const handleRatingChange = (section: 'A' | 'B' | 'C' | 'D' | 'E', key: string, value: string, formType: 'vision' | 'retinoscopy' | 'indirectOphthalmoscopy' | 'pupil' | 'contactLenses' | 'lens78D90D' | 'gonioscopy' | 'directOphthalmoscopy' | 'slitLamp' | 'iop' | 'ocularMotility' | 'externalEye' | 'fields' | 'consultationSkills' = 'vision') => {
@@ -4597,7 +4609,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </span>
             )}
 
-            {!isLocked && (
+            {!isLocked && !isSupervisor && (
               <>
                 <button
                   onClick={handleSaveDraft}
@@ -4622,7 +4634,16 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </>
             )}
 
-            {isLocked && (
+            {isSupervisor && status === EvidenceStatus.Submitted && (
+              <button
+                onClick={handleSupervisorSignOff}
+                className="h-10 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
+              >
+                <ShieldCheck size={18} /> <span>SIGN OFF</span>
+              </button>
+            )}
+
+            {isLocked && !isSupervisor && (
               <button onClick={onBack} className="h-10 px-8 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest">Close View</button>
             )}
           </div>

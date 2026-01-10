@@ -54,6 +54,7 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
         supervisorGmc: baseFields.supervisor_gmc || undefined,
         supervisorName: baseFields.supervisor_name || undefined,
         supervisorEmail: baseFields.supervisor_email || undefined,
+        traineeId: baseFields.trainee_id,
 
         // Spread the entire data object. 
         // This restores all the form-specific fields like epaFormData, dopsFormData, linkedEvidence, etc.
