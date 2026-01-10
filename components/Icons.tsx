@@ -8,7 +8,7 @@ import {
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
   FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut,
-  Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip
+  Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus
 } from 'lucide-react';
 
 export {
@@ -21,5 +21,5 @@ export {
   Scissors, BarChart2, Clipboard, ShieldCheck, Info, Send, ExternalLink, Eye,
   FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut,
-  Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip
+  Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus
 };

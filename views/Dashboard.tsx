@@ -6,11 +6,12 @@ import {
   User, Calendar, MapPin, Briefcase, Mail, Edit2, Plus,
   ChevronRight, ClipboardCheck, CheckCircle2, X, Trash2,
   FileText, Database, BookOpen, Clipboard, ShieldCheck, AlertCircle, Save,
-  ExternalLink, Activity, Clock, MessageSquare, Bell
+  ExternalLink, Activity, Clock, MessageSquare, Bell, Search, UserMinus
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { INITIAL_PROFILE, SPECIALTIES, DEANERIES } from '../constants';
 import { TrainingGrade, EvidenceType, UserProfile, SIA, PDPGoal, EvidenceItem, EvidenceStatus } from '../types';
+import { supabase } from '../utils/supabaseClient'; // Import supabase
 
 interface DashboardProps {
   sias: SIA[];
@@ -70,6 +71,71 @@ const Dashboard: React.FC<DashboardProps> = ({
     supervisorEmail: '',
     supervisorGmc: ''
   });
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Debounced Search
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!searchQuery || searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Search user_profile for supervisors in same Deanery (optional constraint)
+        let query = supabase
+          .from('user_profile')
+          .select('name, email, gmc_number, deanery, base_role')
+          .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .neq('user_id', profile.id) // Exclude self
+          .limit(5);
+
+        // Optional: Filter by deanery if profile has one
+        if (profile.deanery) {
+          query = query.eq('deanery', profile.deanery);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setSearchResults(data || []);
+      } catch (err) {
+        console.error("Error searching users:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(searchUsers, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, profile.id, profile.deanery]);
+
+  const selectSupervisor = (user: any) => {
+    setTempSupervisor({
+      supervisorName: user.name,
+      supervisorEmail: user.email,
+      supervisorGmc: user.gmc_number || ''
+    });
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleDisconnectSupervisor = () => {
+    if (confirm("Are you sure you want to end this supervision relationship? This will mark the current period as complete in your history.")) {
+      onUpdateProfile({
+        ...profile,
+        supervisorName: null, // Set to null/undefined
+        supervisorEmail: null,
+        supervisorGmc: null
+        // @ts-ignore - allowing nulls for disconnect
+      } as any);
+      setIsEditingSupervisor(false);
+    }
+  };
 
   // Update tempProfile when profile prop changes
   useEffect(() => {
@@ -737,6 +803,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                 >
                   {isEditingSupervisor ? <X size={12} /> : <Edit2 size={12} />}
                 </button>
+                {!isEditingSupervisor && profile.supervisorEmail && (
+                  <button
+                    onClick={handleDisconnectSupervisor}
+                    className="p-1.5 rounded-full bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 transition-colors flex-shrink-0 ml-1"
+                    title="Disconnect / End Relationship"
+                  >
+                    <UserMinus size={12} />
+                  </button>
+                )}
               </div>
               {esValidationError && isEditingSupervisor && (
                 <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 text-xs">
@@ -745,27 +820,74 @@ const Dashboard: React.FC<DashboardProps> = ({
               )}
               {isEditingSupervisor ? (
                 <div className="space-y-3">
-                  <div className="space-y-2">
+                  {/* Search Section */}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                      <Search size={14} className="text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-100 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="Search Deanery Users..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {isSearching && (
+                      <div className="absolute inset-y-0 right-3 flex items-center">
+                        <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                      </div>
+                    )}
+
+                    {/* Search Results Dropdown */}
+                    {searchResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto">
+                        <div className="p-1">
+                          {searchResults.map(user => (
+                            <div
+                              key={user.email}
+                              onClick={() => selectSupervisor(user)}
+                              className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <p className="text-sm font-bold text-slate-800">{user.name}</p>
+                              <p className="text-xs text-slate-500">{user.email}</p>
+                              <div className="flex gap-2 mt-1">
+                                <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-600 uppercase font-bold">{user.base_role}</span>
+                                {user.deanery && <span className="text-[10px] text-slate-400">{user.deanery}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-px bg-slate-200 my-2"></div>
+
+                  <div className="space-y-2 opacity-75">
+                    <label className="text-[10px] uppercase text-slate-400 font-bold tracking-widest pl-1">Confirmed Details</label>
                     <input
                       type="text"
                       value={tempSupervisor.supervisorName}
                       onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorName: e.target.value }))}
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm"
-                      placeholder="Supervisor Name *"
+                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-sm mb-1"
+                      placeholder="Supervisor Name"
+                      readOnly // Encourage Search, but could be editable if needed
                     />
                     <input
                       type="email"
                       value={tempSupervisor.supervisorEmail}
                       onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorEmail: e.target.value }))}
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono"
-                      placeholder="Supervisor Email *"
+                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs font-mono"
+                      placeholder="Supervisor Email"
+                      readOnly
                     />
                     <input
                       type="text"
                       value={tempSupervisor.supervisorGmc}
                       onChange={(e) => setTempSupervisor(prev => ({ ...prev, supervisorGmc: e.target.value }))}
-                      className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-sm"
-                      placeholder="Supervisor GMC *"
+                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-sm"
+                      placeholder="Supervisor GMC"
+                      readOnly
                     />
                   </div>
                   <div className="flex gap-2">

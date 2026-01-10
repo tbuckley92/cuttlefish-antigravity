@@ -5,10 +5,11 @@ import {
   ArrowLeft, ChevronRight, CheckCircle2,
   Clock, FileText, BookOpen, Users, User,
   ClipboardCheck, Activity, X,
-  UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon
+  UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon, Search
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile, ARCPPrepData, ARCPReviewType, PDPGoal } from '../types';
+import { supabase } from '../utils/supabaseClient';
 
 interface ARCPPrepProps {
   sias: SIA[];
@@ -52,6 +53,50 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   const [localLastESEmail, setLocalLastESEmail] = useState(arcpPrepData?.last_es?.email || '');
   const [localLastESGmc, setLocalLastESGmc] = useState(arcpPrepData?.last_es?.gmc || '');
   const [isEditingLastES, setIsEditingLastES] = useState(!arcpPrepData?.last_es?.name);
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Debounced Search for Supervisor
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!isEditingLastES || !searchQuery || searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Search user_profile for supervisors
+        const { data, error } = await supabase
+          .from('user_profile')
+          .select('name, email, gmc_number, deanery')
+          .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .neq('user_id', profile.id) // Exclude self
+          .limit(5);
+
+        if (error) throw error;
+        setSearchResults(data || []);
+      } catch (err) {
+        console.error("Error searching users:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(searchUsers, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, isEditingLastES, profile.id]);
+
+  const selectSupervisor = (user: any) => {
+    setLocalLastESName(user.name);
+    setLocalLastESEmail(user.email);
+    setLocalLastESGmc(user.gmc_number || '');
+    setSearchQuery('');
+    setSearchResults([]);
+  };
 
   // Save timestamps
   const [lastManualSave, setLastManualSave] = useState<Date | null>(null);
@@ -670,43 +715,93 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                 </div>
 
                 {isEditingLastES ? (
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Name</label>
+                  <div className="space-y-4">
+                    {/* Search Field */}
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Search size={12} className="text-slate-400" />
+                        <label className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Search Supervisor</label>
+                      </div>
                       <input
                         type="text"
-                        value={localLastESName}
-                        onChange={(e) => setLocalLastESName(e.target.value)}
-                        placeholder="Enter name..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by name or email..."
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-teal-500 shadow-sm transition-all placeholder:font-normal"
                       />
+
+                      {/* Search Results Dropdown */}
+                      {searchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="max-h-48 overflow-y-auto">
+                            {searchResults.map((user, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => selectSupervisor(user)}
+                                className="w-full p-2.5 text-left hover:bg-teal-50 transition-colors flex items-center justify-between group border-b border-slate-50 last:border-none"
+                              >
+                                <div>
+                                  <p className="text-xs font-bold text-slate-800">{user.name}</p>
+                                  <p className="text-[10px] text-slate-500">{user.email}</p>
+                                </div>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <ChevronRight size={14} className="text-teal-500" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {isSearching && (
+                        <div className="absolute right-3 top-[34px] animate-spin text-teal-500">
+                          <Activity size={12} />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Email</label>
-                      <input
-                        type="email"
-                        value={localLastESEmail}
-                        onChange={(e) => setLocalLastESEmail(e.target.value)}
-                        placeholder="Enter email..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
-                      />
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-center gap-1.5 pb-2 border-b border-slate-200/60">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Details</span>
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Name</label>
+                        <input
+                          type="text"
+                          value={localLastESName}
+                          onChange={(e) => setLocalLastESName(e.target.value)}
+                          placeholder="Name"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Email</label>
+                        <input
+                          type="email"
+                          value={localLastESEmail}
+                          onChange={(e) => setLocalLastESEmail(e.target.value)}
+                          placeholder="Email"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">GMC Number</label>
+                        <input
+                          type="text"
+                          value={localLastESGmc}
+                          onChange={(e) => setLocalLastESGmc(e.target.value)}
+                          placeholder="GMC"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">GMC Number</label>
-                      <input
-                        type="text"
-                        value={localLastESGmc}
-                        onChange={(e) => setLocalLastESGmc(e.target.value)}
-                        placeholder="Enter GMC number..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-teal-500"
-                      />
-                    </div>
+
                     <button
                       onClick={handleSaveAll}
-                      className="w-full mt-2 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-teal-500 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-teal-500 transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20"
                     >
-                      <Save size={12} />
-                      Save
+                      <Save size={14} />
+                      Save Supervisor
                     </button>
                   </div>
                 ) : (

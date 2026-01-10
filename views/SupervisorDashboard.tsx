@@ -36,6 +36,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 }) => {
   // const [activeTab, setActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard'); // Removed internal state
   const [trainees, setTrainees] = useState<TraineeSummary[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [statsExpanded, setStatsExpanded] = useState<Record<string, boolean>>({});
 
@@ -171,6 +172,8 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 
     fetchTrainees();
   }, [supervisor]);
+
+
 
   // Filter trainees relevant to this supervisor
   const myTrainees = useMemo(() => {
@@ -335,29 +338,7 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
               />
             )}
 
-            {/* Inactive Section - Only showing on dashboard tab for now */}
-            {activeTab === 'dashboard' && (
-              <div className="pt-8">
-                <h2 className="text-xl font-bold text-slate-800 mb-4">Inactive relationships</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Mock Inactive Cards */}
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
-                    <div>
-                      <h3 className="font-bold text-slate-700">Dr. Emma Thompson</h3>
-                      <span className="inline-block mt-1 px-2 py-0.5 bg-slate-200 text-slate-600 text-[10px] font-bold rounded">ST3</span>
-                    </div>
-                    <Lock size={16} className="text-slate-400" />
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
-                    <div>
-                      <h3 className="font-bold text-slate-700">Dr. James Chen</h3>
-                      <span className="inline-block mt-1 px-2 py-0.5 bg-slate-200 text-slate-600 text-[10px] font-bold rounded">ST5 (G)</span>
-                    </div>
-                    <Lock size={16} className="text-slate-400" />
-                  </div>
-                </div>
-              </div>
-            )}
+
 
           </div>
         </div>
