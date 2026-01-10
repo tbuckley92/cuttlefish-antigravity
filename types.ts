@@ -292,6 +292,8 @@ export interface EvidenceItem {
   traineeId?: string;
   supervisorName?: string;
   supervisorEmail?: string;
+  signedOffBy?: string;
+  signedOffAt?: string;
   // MSF specific
   msfRespondents?: MSFRespondent[];
   // Dynamic fields for specific types

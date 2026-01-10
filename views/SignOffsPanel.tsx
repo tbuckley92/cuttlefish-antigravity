@@ -34,13 +34,18 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
             setIsLoading(true);
             try {
                 // Fetch evidence where supervisor_gmc matches OR supervisor_email matches
-                // We construct an OR filter string: "supervisor_gmc.eq.VALUE,supervisor_email.eq.VALUE"
+                const supervisorId = (supervisor as any).id; // Try to get the UUID
+
                 let filter = '';
-                if (identifier) filter += `supervisor_gmc.eq.${identifier}`;
-                if (email) {
-                    if (filter) filter += ',';
-                    filter += `supervisor_email.eq.${email}`;
-                }
+                const conditions = [];
+                if (identifier) conditions.push(`supervisor_gmc.eq.${identifier}`);
+                if (email) conditions.push(`supervisor_email.ilike.${email}`); // ilike for case-insensitivity
+                if (supervisorId) conditions.push(`signed_off_by.eq.${supervisorId}`);
+
+                filter = conditions.join(',');
+
+                console.log(`Fetching supervisor evidence for ${supervisor.name} (GMC: ${identifier}, Email: ${email}, ID: ${supervisorId})`);
+                console.log(`Using filter: ${filter}`);
 
                 const { data, error } = await supabase
                     .from('evidence')
@@ -48,15 +53,23 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
                     .or(filter)
                     .order('event_date', { ascending: false });
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase error fetching supervisor evidence:', error);
+                    throw error;
+                }
+
+                console.log(`Fetched ${data?.length || 0} total evidence items for supervisor.`);
 
                 if (data) {
                     const { mapRowToEvidenceItem } = await import('../utils/evidenceMapper');
-                    // @ts-ignore
-                    const items: EvidenceItem[] = data.map(mapRowToEvidenceItem);
+                    const items = data.map(mapRowToEvidenceItem);
 
                     setSubmittedEvidence(items.filter(i => i.status === EvidenceStatus.Submitted));
-                    setSignedOffEvidence(items.filter(i => i.status === EvidenceStatus.SignedOff));
+
+                    // Be robust: handle 'COMPLETE' or 'SignedOff' statuses
+                    setSignedOffEvidence(items.filter(i =>
+                        i.status === EvidenceStatus.SignedOff || (i.status as string) === 'SignedOff'
+                    ));
                 }
             } catch (err) {
                 console.error("Error fetching supervisor evidence:", err);

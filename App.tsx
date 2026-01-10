@@ -434,6 +434,8 @@ const App: React.FC = () => {
           supervisorEmail: data.supervisor_email ?? '',
           supervisorGmc: data.supervisor_gmc ?? '',
           // Map new fields
+          id: data.user_id, // Map database user_id to profile.id
+          email: data.email, // Map database email to profile.email
           gmcNumber: data.gmc_number ?? '',
           rcophthNumber: data.rcophth_number ?? '',
           predictedSIAs: data.predicted_sias ?? [],
@@ -657,6 +659,8 @@ const App: React.FC = () => {
         itemToSave.supervisorName = svName;
         itemToSave.supervisorEmail = svEmail;
         itemToSave.supervisorGmc = svGmc;
+        itemToSave.signedOffBy = session.user.id;
+        itemToSave.signedOffAt = new Date().toISOString();
 
         // Also update internal form data if structure matches known types
         if (itemToSave.epaFormData) {
@@ -746,7 +750,7 @@ const App: React.FC = () => {
           if (item.status === EvidenceStatus.SignedOff) {
             const notificationPayload = {
               id: uuidv4(),
-              user_id: session.user.id,
+              user_id: targetTraineeId, // Correctly notify the trainee
               role_context: 'trainee',
               type: 'form_signed',
               title: `${optimisticItem.type} Signed Off`,

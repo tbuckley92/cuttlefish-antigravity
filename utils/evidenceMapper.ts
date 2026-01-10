@@ -43,6 +43,14 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
 
     // Base object with common fields
     const item: any = {
+        // 1. Spread the data object FIRST. 
+        // This restores all the form-specific fields like epaFormData, dopsFormData, linkedEvidence, etc.
+        ...(data || {}),
+        data: data, // Preserve the raw data object for new types like ARCP Outcome
+
+        // 2. Overlay known database columns LAST.
+        // This ensures the status, title, etc. from the DB columns (the source of truth)
+        // are not overwritten by stale data inside the JSONB payload.
         id: baseFields.id,
         type: baseFields.type as EvidenceType,
         status: baseFields.status as EvidenceStatus,
@@ -54,12 +62,9 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
         supervisorGmc: baseFields.supervisor_gmc || undefined,
         supervisorName: baseFields.supervisor_name || undefined,
         supervisorEmail: baseFields.supervisor_email || undefined,
+        signedOffBy: baseFields.signed_off_by || undefined,
+        signedOffAt: baseFields.signed_off_at || undefined,
         traineeId: baseFields.trainee_id,
-
-        // Spread the entire data object. 
-        // This restores all the form-specific fields like epaFormData, dopsFormData, linkedEvidence, etc.
-        data: data, // Preserve the raw data object for new types like ARCP Outcome
-        ...(data || {})
     };
 
     // Ensure arrays are initialized if missing in data (safety fallback)
@@ -86,6 +91,8 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
         supervisorGmc,
         supervisorName,
         supervisorEmail,
+        signedOffBy,
+        signedOffAt,
         ...rest // Everything else goes into the 'data' JSONB column
     } = item;
 
@@ -101,6 +108,8 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
         supervisor_gmc: supervisorGmc || null,
         supervisor_name: supervisorName || null,
         supervisor_email: supervisorEmail || null,
+        signed_off_by: signedOffBy || null,
+        signed_off_at: signedOffAt || null,
         data: rest // Store form-specific data in the JSONB column
     };
 };
