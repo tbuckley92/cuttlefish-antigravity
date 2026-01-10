@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { SignOffsPanel } from './SignOffsPanel';
 import { GlassCard } from '../components/GlassCard';
 import {
   User, Mail, Calendar, Briefcase, ChevronRight,
@@ -350,13 +351,26 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 text-slate-300">
-                  <ClipboardCheck size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-700">Sign Offs</h3>
-                <p className="text-slate-500 text-sm mt-1">Pending sign-offs view coming soon.</p>
-              </div>
+              <SignOffsPanel
+                supervisor={supervisor}
+                onViewEvidence={(e) => {
+                  // If it's submitted, we want to open it for sign-off (ideally navigating to the form)
+                  // For now, let's assume we can trigger the view logic:
+                  // We need to know who the trainee is to view it properly? 
+                  // or if we have the evidence item, we can open it.
+                  // The parent has 'onViewTraineeEvidence'.
+                  // Ideally we need a way to open a specific evidence ID.
+                  // For now, let's just use the trainee view callback if possible, or assume external handler.
+                  // Let's pass the traineeId from the evidence item to the parent handler if available.
+                  if (e.traineeId) {
+                    onViewTraineeEvidence(e.traineeId);
+                    // Note: This just opens their list, doesn't open the specific item. 
+                    // Future enhancement: Deep link to item.
+                  } else {
+                    alert("Cannot open evidence: Trainee ID missing on record.");
+                  }
+                }}
+              />
             )}
 
             {/* Inactive Section - Only showing on dashboard tab for now */}
@@ -559,17 +573,7 @@ const TraineeCard: React.FC<{
                                 */}
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">View full profile:</span>
-                  <button
-                    onClick={() => onView(p.id!)}
-                    className="text-indigo-600 font-bold hover:underline flex items-center gap-1"
-                  >
-                    OPEN <ChevronRight size={10} />
-                  </button>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -607,7 +611,7 @@ const TraineeCard: React.FC<{
             </div>
 
             <div className="flex items-end gap-2 mb-1">
-              <span className="text-3xl font-bold text-slate-800 tracking-tight">{p.phacoPerformed + p.phacoSupervised}</span>
+              <span className="text-3xl font-bold text-slate-800 tracking-tight">{p.phacoPerformed}</span>
               <span className="text-[10px] text-slate-500 mb-1.5">Phacoemulsification with IOL</span>
             </div>
 
