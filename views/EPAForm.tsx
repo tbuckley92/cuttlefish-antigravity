@@ -544,7 +544,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       else if (activeSection === 4) criteria = LEVEL_1_CRITERIA.sectionE;
       else if (activeSection === 5) criteria = LEVEL_1_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA - L1 - ${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
+        newGrading[`EPA - L1 -${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
       });
     } else if (selectedLevel === 2) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';
@@ -555,7 +555,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
       else if (activeSection === 4) criteria = LEVEL_2_CRITERIA.sectionE;
       else if (activeSection === 5) criteria = LEVEL_2_CRITERIA.sectionF;
       criteria.forEach((_, idx) => {
-        newGrading[`EPA - L2 - ${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
+        newGrading[`EPA - L2 -${selectedSia} -${sectionKey} -${idx} `] = "Yes it does (YES)";
       });
     } else if (selectedLevel === 3 || selectedLevel === 4) {
       const sectionKey = activeSection === 1 ? 'B' : activeSection === 2 ? 'C' : activeSection === 3 ? 'D' : activeSection === 4 ? 'E' : 'F';

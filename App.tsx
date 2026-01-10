@@ -2645,6 +2645,58 @@ const App: React.FC = () => {
             onUpdateProfile={async (updated) => {
               await handleUpdateProfile(updated as UserProfile);
             }}
+            onViewEvidenceItem={async (item: any) => {
+              // Context switching for different trainee
+              if (item.traineeId && item.traineeId !== viewingTraineeId) {
+                setViewingTraineeId(item.traineeId);
+                await fetchTraineeEvidence(item.traineeId);
+              }
+
+              // Logic for Submitted vs SignedOff
+              const isSubmitted = item.status === EvidenceStatus.Submitted;
+              // If Submitted, we want to sign off -> Edit Mode
+              // If SignedOff, we want to view -> ReadOnly Mode
+
+              setSelectedFormParams({
+                sia: item.sia || '',
+                level: item.level || 1,
+                id: item.id,
+                status: item.status,
+                originView: View.SupervisorDashboard,
+                traineeId: item.traineeId,
+                editMode: isSubmitted // Enable edit mode for submitted items
+              });
+
+              // Navigate
+              switch (item.type) {
+                case EvidenceType.EPA:
+                  setCurrentView(View.EPAForm);
+                  break;
+                case EvidenceType.GSAT:
+                  setCurrentView(View.GSATForm);
+                  break;
+                case EvidenceType.DOPs:
+                  setCurrentView(View.DOPsForm);
+                  break;
+                case EvidenceType.OSATs:
+                  setCurrentView(View.OSATSForm);
+                  break;
+                case EvidenceType.CbD:
+                  setCurrentView(View.CBDForm);
+                  break;
+                case EvidenceType.CRS:
+                  setCurrentView(View.CRSForm);
+                  break;
+                case EvidenceType.ARCPFullReview:
+                case EvidenceType.ARCPInterimReview:
+                  setCurrentView(View.ARCPForm);
+                  break;
+                default:
+                  setEditingEvidence(item);
+                  setCurrentView(View.AddEvidence);
+                  break;
+              }
+            }}
           />
         );
       case View.EyeLogbook:

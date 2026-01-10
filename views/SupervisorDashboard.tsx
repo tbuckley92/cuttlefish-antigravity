@@ -20,6 +20,7 @@ interface SupervisorDashboardProps {
   onUpdateARCPOutcome: (traineeId: string, outcome: ARCPOutcome) => void;
   onViewInbox?: () => void;
   onUpdateProfile?: (profile: Partial<SupervisorProfile>) => Promise<void>;
+  onViewEvidenceItem?: (item: EvidenceItem) => void;
 }
 
 const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
@@ -30,7 +31,8 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
   onViewARCPComponent,
   onUpdateARCPOutcome,
   onViewInbox,
-  onUpdateProfile
+  onUpdateProfile,
+  onViewEvidenceItem
 }) => {
   // const [activeTab, setActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard'); // Removed internal state
   const [trainees, setTrainees] = useState<TraineeSummary[]>([]);
@@ -328,20 +330,11 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
               <SignOffsPanel
                 supervisor={supervisor}
                 onViewEvidence={(e) => {
-                  // If it's submitted, we want to open it for sign-off (ideally navigating to the form)
-                  // For now, let's assume we can trigger the view logic:
-                  // We need to know who the trainee is to view it properly? 
-                  // or if we have the evidence item, we can open it.
-                  // The parent has 'onViewTraineeEvidence'.
-                  // Ideally we need a way to open a specific evidence ID.
-                  // For now, let's just use the trainee view callback if possible, or assume external handler.
-                  // Let's pass the traineeId from the evidence item to the parent handler if available.
-                  if (e.traineeId) {
+                  if (onViewEvidenceItem) {
+                    onViewEvidenceItem(e);
+                  } else if (e.traineeId) {
+                    // Fallback to list view if item view not available
                     onViewTraineeEvidence(e.traineeId);
-                    // Note: This just opens their list, doesn't open the specific item. 
-                    // Future enhancement: Deep link to item.
-                  } else {
-                    alert("Cannot open evidence: Trainee ID missing on record.");
                   }
                 }}
               />
