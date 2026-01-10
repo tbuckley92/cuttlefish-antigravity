@@ -535,12 +535,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 pb-24">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-                <button
-                    onClick={onBack}
-                    className="p-2 rounded-xl bg-white/60 hover:bg-white/80 transition-colors"
-                >
-                    <ArrowLeft className="w-5 h-5 text-slate-600" />
-                </button>
+
                 <div>
                     <h1 className="text-xl font-bold text-slate-800">Message Centre</h1>
                     <p className="text-sm text-slate-500">{currentUserDeanery}</p>
