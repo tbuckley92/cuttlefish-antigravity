@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { uuidv4 } from '../utils/uuid';
-import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft, CheckCircle2, MessageSquare, Zap } from '../components/Icons';
+import { UploadCloud, Eye, X, BarChart2, FileText, Search, ChevronLeft, ChevronRight, Grid, List, PieChart, AlertTriangle, Plus, Edit2, Trash2, ArrowLeft, CheckCircle2, MessageSquare, Zap, Filter, MousePointerClick } from '../components/Icons';
 import * as pdfjsLib from 'pdfjs-dist';
 import { generateEvidencePDF, generateComplicationLogPDF, ComplicationPDFData } from '../utils/pdfGenerator';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
@@ -169,6 +169,8 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
   // Procedure Stats filter
   const [procedureFilter, setProcedureFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [procedureSearchQuery, setProcedureSearchQuery] = useState('');
 
   // Complication Log state
   const [showComplicationLog, setShowComplicationLog] = useState<boolean>(() => {
@@ -1133,9 +1135,26 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
   // Get unique values for filters
   const uniqueProcedures = useMemo(() => {
-    const procs = new Set(entries.map(e => e.procedure));
-    return Array.from(procs).sort();
-  }, [entries]);
+    let procs = Array.from(new Set(entries.map(e => e.procedure))).sort();
+
+    // Filter by Category if selected
+    if (categoryFilter !== 'all') {
+      const categoryKeywords: string[] = ESR_CATEGORIES[categoryFilter] || [];
+      procs = procs.filter((proc: string) => {
+        const procLower = proc.toLowerCase();
+        return categoryKeywords.some((keyword: string) => procLower.includes(keyword.toLowerCase()));
+      });
+    }
+
+    // Filter by Search Query
+    if (procedureSearchQuery) {
+      const q = procedureSearchQuery.toLowerCase();
+      // @ts-ignore - proc is derived from LogbookEntry.procedure which is string
+      procs = procs.filter((proc: string) => proc.toLowerCase().includes(q));
+    }
+
+    return procs;
+  }, [entries, categoryFilter, procedureSearchQuery]);
 
   const uniqueGrades = useMemo(() => {
     const grades = new Set(entries.map(e => e.grade).filter(g => g));
@@ -1271,6 +1290,21 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
     if (procedureFilter !== 'all') {
       filtered = filtered.filter(e => e.procedure === procedureFilter);
+    } else {
+      // Apply Category Filter if "All Procedures" is selected
+      if (categoryFilter !== 'all') {
+        const categoryKeywords: string[] = ESR_CATEGORIES[categoryFilter] || [];
+        filtered = filtered.filter(e => {
+          const procLower = e.procedure.toLowerCase();
+          return categoryKeywords.some((keyword: string) => procLower.includes(keyword.toLowerCase()));
+        });
+      }
+
+      // Apply Search Filter if "All Procedures" is selected
+      if (procedureSearchQuery) {
+        const q = procedureSearchQuery.toLowerCase();
+        filtered = filtered.filter(e => e.procedure.toLowerCase().includes(q));
+      }
     }
 
     // Group by month
@@ -1293,7 +1327,7 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       .map(({ month, count }) => ({ month, count }));
 
     return chartData;
-  }, [entries, procedureFilter, timePeriod, customStartDate, customEndDate]);
+  }, [entries, procedureFilter, categoryFilter, timePeriod, customStartDate, customEndDate]);
 
   // Role breakdown for Procedure Stats
   const procedureStatsRoleBreakdown = useMemo(() => {
@@ -1301,6 +1335,21 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
     if (procedureFilter !== 'all') {
       filtered = filtered.filter(e => e.procedure === procedureFilter);
+    } else {
+      // Apply Category Filter if "All Procedures" is selected
+      if (categoryFilter !== 'all') {
+        const categoryKeywords: string[] = ESR_CATEGORIES[categoryFilter] || [];
+        filtered = filtered.filter(e => {
+          const procLower = e.procedure.toLowerCase();
+          return categoryKeywords.some((keyword: string) => procLower.includes(keyword.toLowerCase()));
+        });
+      }
+
+      // Apply Search Filter if "All Procedures" is selected
+      if (procedureSearchQuery) {
+        const q = procedureSearchQuery.toLowerCase();
+        filtered = filtered.filter(e => e.procedure.toLowerCase().includes(q));
+      }
     }
 
     return filtered.reduce((acc, e) => {
@@ -1308,15 +1357,30 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       acc[role] = (acc[role] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  }, [entries, procedureFilter, timePeriod, customStartDate, customEndDate]);
+  }, [entries, procedureFilter, categoryFilter, procedureSearchQuery, timePeriod, customStartDate, customEndDate]);
 
   const totalStatsEntries = useMemo(() => {
     let filtered = getTimeFilteredEntries(entries);
     if (procedureFilter !== 'all') {
       filtered = filtered.filter(e => e.procedure === procedureFilter);
+    } else {
+      // Apply Category Filter if "All Procedures" is selected
+      if (categoryFilter !== 'all') {
+        const categoryKeywords: string[] = ESR_CATEGORIES[categoryFilter] || [];
+        filtered = filtered.filter(e => {
+          const procLower = e.procedure.toLowerCase();
+          return categoryKeywords.some((keyword: string) => procLower.includes(keyword.toLowerCase()));
+        });
+      }
+
+      // Apply Search Filter if "All Procedures" is selected
+      if (procedureSearchQuery) {
+        const q = procedureSearchQuery.toLowerCase();
+        filtered = filtered.filter(e => e.procedure.toLowerCase().includes(q));
+      }
     }
     return filtered.length;
-  }, [entries, procedureFilter, timePeriod, customStartDate, customEndDate]);
+  }, [entries, procedureFilter, categoryFilter, procedureSearchQuery, timePeriod, customStartDate, customEndDate]);
 
   // Complication Log helpers
   const resetComplicationForm = () => {
@@ -1601,41 +1665,25 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
   return (
     <div className="max-w-7xl mx-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         {onBack && (
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-4"
+            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-900 transition-colors mb-2"
           >
             <ArrowLeft size={16} /> Back
           </button>
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
-              <Eye size={24} className="text-white" />
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
+              <Eye size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Eye Logbook</h1>
-              <p className="text-sm text-slate-500">Upload your EyeLogbook.co.uk summary PDF to view and analyze your surgical cases</p>
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">Eye Logbook</h1>
+              <p className="text-xs text-slate-500">Upload your EyeLogbook.co.uk summary PDF</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowComplicationLog(!showComplicationLog)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${showComplicationLog
-              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
-              : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-              }`}
-          >
-            <AlertTriangle size={16} />
-            Complication Log
-            {complicationCases.length > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${showComplicationLog ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-800'
-                }`}>
-                {complicationCases.length}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
@@ -1838,26 +1886,13 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
       ) : (
         <>
           {/* Upload Section */}
-          <GlassCard className="p-6 mb-6">
+          <GlassCard className="p-4 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">
-                  Upload Summary PDF
-                </label>
-                <div className="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                  <p className="text-xs text-slate-700 mb-2">
-                    <strong>Upload PDF report from EyeLogbook called "All Entries" (suitable for CCT)</strong>
-                  </p>
-                  <p className="text-xs text-slate-600 mb-1">When generating the PDF, select:</p>
-                  <ul className="text-xs text-slate-600 list-disc list-inside space-y-0.5 ml-2">
-                    <li>Grouped by College Type (CCT Required Format)</li>
-                    <li>Include Patient IDs (Required for CCT Output)</li>
-                  </ul>
-                </div>
                 {!uploadedFile && !fileName ? (
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="group relative h-24 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer"
+                    className="group relative h-16 border-2 border-dashed rounded-xl flex items-center justify-center transition-all border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-500/5 cursor-pointer"
                   >
                     <input
                       type="file"
@@ -1866,32 +1901,34 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
                       onChange={handleFileChange}
                       className="hidden"
                     />
-                    <UploadCloud size={24} className="mb-2 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-indigo-600">
-                      Click to upload PDF from EyeLogbook.co.uk
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <UploadCloud size={20} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400 group-hover:text-indigo-600">
+                        Upload "All Entries" PDF
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <FileText size={20} className="text-indigo-600" />
+                      <FileText size={16} className="text-indigo-600" />
                       <div>
                         <p className="text-sm font-medium text-slate-900">{uploadedFile?.name || fileName}</p>
-                        <p className="text-xs text-slate-500">
-                          {entries.length} procedures extracted
+                        <p className="text-[10px] text-slate-500">
+                          {entries.length} procedures
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={removeFile}
-                      className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400 hover:text-rose-500"
+                      className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-rose-500"
                     >
-                      <X size={18} />
+                      <X size={16} />
                     </button>
                   </div>
                 )}
                 {isProcessing && (
-                  <p className="text-xs text-slate-500 text-center mt-2">Processing PDF...</p>
+                  <p className="text-xs text-slate-500 text-center mt-1">Processing PDF...</p>
                 )}
               </div>
             </div>
@@ -1899,15 +1936,28 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
 
           {/* Tab Navigation */}
           {entries.length > 0 && (
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+              <div className="flex flex-wrap gap-2">
                 <TabButton tab="logbook" label="Logbook" icon={<List size={16} />} />
                 <TabButton tab="esr-grid" label="ESR Grid" icon={<Grid size={16} />} />
                 <TabButton tab="procedure-stats" label="Procedure Stats" icon={<PieChart size={16} />} />
               </div>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm">
-                v2.1 (Fixed)
-              </span>
+              <button
+                onClick={() => setShowComplicationLog(!showComplicationLog)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${showComplicationLog
+                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                  }`}
+              >
+                <AlertTriangle size={16} />
+                Complication Log
+                {complicationCases.length > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${showComplicationLog ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-800'
+                    }`}>
+                    {complicationCases.length}
+                  </span>
+                )}
+              </button>
             </div>
           )}
 
@@ -2197,15 +2247,61 @@ const EyeLogbook: React.FC<EyeLogbookProps> = ({ userId, deanery, onEvidenceCrea
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Procedure Filter */}
                 <GlassCard className="p-6">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-3 block">
-                    Procedure
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">
+                      Procedure
+                    </label>
+                    <button
+                      onClick={() => {
+                        setProcedureFilter('Phacoemulsification with IOL');
+                        setCategoryFilter('all');
+                        setProcedureSearchQuery('');
+                      }}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <MousePointerClick size={12} />
+                      Phaco + IOL
+                    </button>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="mb-3">
+                    <div className="relative">
+                      <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={categoryFilter}
+                        onChange={(e) => {
+                          setCategoryFilter(e.target.value);
+                          setProcedureFilter('all'); // Reset procedure when category changes
+                        }}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500/50 transition-all font-medium text-slate-600"
+                      >
+                        <option value="all">filter by Category</option>
+                        {Object.keys(ESR_CATEGORIES).map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="mb-2 relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={procedureSearchQuery}
+                      onChange={(e) => setProcedureSearchQuery(e.target.value)}
+                      placeholder="Search procedures..."
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-indigo-500/50 transition-all"
+                    />
+                  </div>
+
                   <select
                     value={procedureFilter}
                     onChange={(e) => setProcedureFilter(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all mb-3"
+                    className="w-full px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-900 font-medium rounded-xl text-sm outline-none focus:border-indigo-500/50 transition-all mb-3"
                   >
-                    <option value="all">All Procedures</option>
+                    <option value="all">All Procedures ({uniqueProcedures.length})</option>
                     {uniqueProcedures.map(proc => (
                       <option key={proc} value={proc}>{proc}</option>
                     ))}
