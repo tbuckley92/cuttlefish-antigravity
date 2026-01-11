@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     ArrowLeft, Inbox, FileText, Send, Trash2, Plus, Search, X, Users,
-    Calendar, Clock, CheckCircle2, AlertTriangle, Paperclip
+    Calendar, Clock, CheckCircle2, AlertTriangle, Paperclip, UserPlus,
+    UserMinus, Shield, MoreHorizontal, ChevronRight, Settings, MapPin, ShieldCheck
 } from '../components/Icons';
 import { GlassCard } from '../components/GlassCard';
 import {
@@ -47,9 +48,17 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     const [activeFolder, setActiveFolder] = useState<MessageFolder>('inbox');
     const [messages, setMessages] = useState<DeaneryMessage[]>([]);
     const [inboxNotifications, setInboxNotifications] = useState<Notification[]>([]);
-    const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+    // Selected message for reading pane
+    const [selectedMessage, setSelectedMessage] = useState<DeaneryMessage | Notification | null>(null);
     const [isComposing, setIsComposing] = useState(false);
+
+    // Panel Management State
+    const [showAddMember, setShowAddMember] = useState(false);
+    const [memberSearch, setMemberSearch] = useState('');
+
+    // Message List State
     const [isLoading, setIsLoading] = useState(true);
+    const [messageSearch, setMessageSearch] = useState('');
 
     // Compose state
     const [recipients, setRecipients] = useState<RecipientChip[]>([]);
@@ -70,14 +79,12 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     // DATA FETCHING
     // ============================================
 
-    // Process scheduled messages on mount (triggers background processing)
+    // Process scheduled messages on mount
     useEffect(() => {
         const processScheduled = async () => {
             if (!isSupabaseConfigured || !supabase) return;
             try {
-                // Call the database function to move SCHEDULED -> SENT and create notifications
-                const { error } = await supabase.rpc('process_scheduled_messages');
-                if (error) console.error('Error processing scheduled messages:', error);
+                await supabase.rpc('process_scheduled_messages');
             } catch (err) {
                 console.error('Failed to invoke process_scheduled_messages:', err);
             }
@@ -85,33 +92,34 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         processScheduled();
     }, []);
 
-    // Fetch deanery users (for recipient selection)
+    // Fetch deanery users
+    const fetchDeaneryUsers = async () => {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        const { data, error } = await supabase
+            .from('user_profile')
+            .select('user_id, name, email, roles, deanery, gmc_number')
+            .eq('deanery', currentUserDeanery);
+
+        if (error) {
+            console.error('Error fetching deanery users:', error);
+            return;
+        }
+
+        if (data) {
+            const users: DeaneryUser[] = data.map(u => ({
+                id: u.user_id,
+                name: u.name || 'Unknown',
+                email: u.email || '',
+                roles: u.roles || [UserRole.Trainee],
+                deanery: u.deanery,
+                gmcNumber: u.gmc_number
+            }));
+            setDeaneryUsers(users);
+        }
+    };
+
     useEffect(() => {
-        const fetchDeaneryUsers = async () => {
-            if (!isSupabaseConfigured || !supabase) return;
-
-            const { data, error } = await supabase
-                .from('user_profile')
-                .select('user_id, name, email, roles, deanery')
-                .eq('deanery', currentUserDeanery);
-
-            if (error) {
-                console.error('Error fetching deanery users:', error);
-                return;
-            }
-
-            if (data) {
-                const users: DeaneryUser[] = data.map(u => ({
-                    id: u.user_id,
-                    name: u.name || 'Unknown',
-                    email: u.email || '',
-                    roles: u.roles || [UserRole.Trainee],
-                    deanery: u.deanery
-                }));
-                setDeaneryUsers(users);
-            }
-        };
-
         fetchDeaneryUsers();
     }, [currentUserDeanery]);
 
@@ -119,6 +127,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     useEffect(() => {
         const fetchMessages = async () => {
             setIsLoading(true);
+            setSelectedMessage(null); // Deselect when switching folders
 
             if (!isSupabaseConfigured || !supabase) {
                 setIsLoading(false);
@@ -126,7 +135,6 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
             }
 
             if (activeFolder === 'inbox') {
-                // Inbox shows notifications received
                 const { data, error } = await supabase
                     .from('notifications')
                     .select('*')
@@ -134,9 +142,8 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                     .eq('type', 'deanery_broadcast')
                     .order('created_at', { ascending: false });
 
-                if (error) {
-                    console.error('Error fetching inbox:', error);
-                } else if (data) {
+                if (error) console.error('Error fetching inbox:', error);
+                else if (data) {
                     setInboxNotifications(data.map(n => ({
                         id: n.id,
                         userId: n.user_id,
@@ -149,33 +156,27 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                         emailSent: n.email_sent,
                         isRead: n.is_read,
                         createdAt: n.created_at,
-                        metadata: n.metadata || {}
+                        metadata: n.metadata || {},
+                        attachments: n.attachments
                     })));
                 }
             } else {
-                // Other folders show sent messages
                 let query = supabase
                     .from('deanery_messages')
                     .select('*')
                     .eq('sender_id', currentUserId);
 
-                if (activeFolder === 'drafts') {
-                    query = query.eq('status', 'DRAFT');
-                } else if (activeFolder === 'sent') {
-                    query = query.eq('status', 'SENT');
-                } else if (activeFolder === 'scheduled') {
-                    query = query.eq('status', 'SCHEDULED');
-                } else if (activeFolder === 'deleted') {
-                    query = query.eq('status', 'DELETED');
-                }
+                if (activeFolder === 'drafts') query = query.eq('status', 'DRAFT');
+                else if (activeFolder === 'sent') query = query.eq('status', 'SENT');
+                else if (activeFolder === 'scheduled') query = query.eq('status', 'SCHEDULED');
+                else if (activeFolder === 'deleted') query = query.eq('status', 'DELETED');
 
                 query = query.order('created_at', { ascending: false });
 
                 const { data, error } = await query;
 
-                if (error) {
-                    console.error('Error fetching messages:', error);
-                } else if (data) {
+                if (error) console.error('Error fetching messages:', error);
+                else if (data) {
                     setMessages(data.map(m => ({
                         id: m.id,
                         senderId: m.sender_id,
@@ -195,7 +196,6 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                     })));
                 }
             }
-
             setIsLoading(false);
         };
 
@@ -203,26 +203,46 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     }, [activeFolder, currentUserId]);
 
     // ============================================
-    // RECIPIENT SEARCH
+    // PANEL MANAGEMENT
     // ============================================
 
-    useEffect(() => {
-        // Trigger processing of any due scheduled messages when dashboard loads
-        const processScheduled = async () => {
-            if (!supabase) return;
-            const { error } = await supabase.rpc('process_scheduled_messages');
-            if (error) {
-                console.error('Error processing scheduled messages:', error);
-            } else {
-                console.log('Processed scheduled messages check complete');
-                // Refresh messages if we are in scheduled or sent folder
-                if (activeFolder === 'scheduled' || activeFolder === 'sent') {
-                    // We could trigger a refresh here, but let's leave it for now
-                }
-            }
-        };
-        processScheduled();
-    }, []); // Run once on mount
+    const panelMembers = useMemo(() => {
+        return deaneryUsers.filter(u => u.roles.includes(UserRole.ARCPPanelMember));
+    }, [deaneryUsers]);
+
+    const availableForPanel = useMemo(() => {
+        if (!memberSearch.trim()) return [];
+        return deaneryUsers.filter(u =>
+            !u.roles.includes(UserRole.ARCPPanelMember) &&
+            (u.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                u.email.toLowerCase().includes(memberSearch.toLowerCase()))
+        ).slice(0, 5);
+    }, [deaneryUsers, memberSearch]);
+
+    const handleTogglePanelRole = async (userId: string, enable: boolean) => {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        try {
+            const { error } = await supabase.rpc('toggle_arcp_panel_role', {
+                target_user_id: userId,
+                enable: enable
+            });
+
+            if (error) throw error;
+
+            // Refresh users to reflect changes
+            await fetchDeaneryUsers();
+            setMemberSearch('');
+            setShowAddMember(false);
+        } catch (err: any) {
+            console.error('Error toggling role:', err);
+            alert(`Failed to update role: ${err.message}`);
+        }
+    };
+
+    // ============================================
+    // RECIPIENT SEARCH
+    // ============================================
 
     useEffect(() => {
         if (!recipientSearch.trim()) {
@@ -288,14 +308,12 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         setIsUploading(true);
         const files: File[] = Array.from(e.target.files);
 
-        // Process each file
         for (const file of files) {
             const fileExt = file.name.split('.').pop();
             const fileName = `${uuidv4()}.${fileExt}`;
             const filePath = `${currentUserId}/${fileName}`;
 
             try {
-                // Use message-attachments bucket
                 const { error } = await supabase.storage
                     .from('message-attachments')
                     .upload(filePath, file);
@@ -305,7 +323,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                 setAttachments(prev => [...prev, {
                     id: uuidv4(),
                     name: file.name,
-                    url: filePath, // Storing storage path
+                    url: filePath,
                     type: file.type,
                     size: file.size
                 }]);
@@ -316,7 +334,6 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
             }
         }
         setIsUploading(false);
-        // clear input
         e.target.value = '';
     };
 
@@ -333,13 +350,17 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         setScheduleMode('now');
         setScheduledAt('');
         setIsComposing(false);
-        setSelectedMessageId(null);
     };
 
     const handleSaveDraft = async () => {
         if (!isSupabaseConfigured || !supabase) return;
 
-        const messageId = selectedMessageId || uuidv4();
+        // If editing an existing message, use its ID? 
+        // For simplicity, we create new drafts or update if we had an ID.
+        // But for this redesign, let's treat compose as new. 
+        // If editing a draft, we'd need to store the editing ID.
+        const messageId = uuidv4();
+
         const payload = {
             id: messageId,
             sender_id: currentUserId,
@@ -354,9 +375,7 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
             attachments: attachments
         };
 
-        const { error } = await supabase
-            .from('deanery_messages')
-            .upsert(payload);
+        const { error } = await supabase.from('deanery_messages').upsert(payload);
 
         if (error) {
             console.error('Error saving draft:', error);
@@ -385,11 +404,10 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         }
 
         try {
-            const messageId = selectedMessageId || uuidv4();
+            const messageId = uuidv4();
             const isScheduled = scheduleMode === 'scheduled' && scheduledAt;
             const now = new Date().toISOString();
 
-            // Save/update the message
             const messagePayload = {
                 id: messageId,
                 sender_id: currentUserId,
@@ -411,21 +429,13 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
 
             if (msgError) throw msgError;
 
-            // If sending now (not scheduled), create notifications for recipients
             if (!isScheduled) {
                 const notifications = recipients.map(r => {
-                    // Determine role context based on user roles
-                    // Prioritize Supervisor context if the user has supervisor roles
                     let roleContext: 'trainee' | 'supervisor' | 'arcp_panel' | 'admin' = 'trainee';
-
                     if (r.roles.some(role => [UserRole.Supervisor, UserRole.EducationalSupervisor].includes(role))) {
                         roleContext = 'supervisor';
                     } else if (r.roles.includes(UserRole.ARCPPanelMember)) {
                         roleContext = 'arcp_panel';
-                    } else if (r.roles.includes(UserRole.Admin)) {
-                        roleContext = 'admin';
-                    } else {
-                        roleContext = 'trainee';
                     }
 
                     return {
@@ -434,27 +444,17 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
                         role_context: roleContext,
                         type: 'deanery_broadcast',
                         title: subject,
-                        body: body, // Provide a snippet? Body is full text. Inbox handles truncation.
-                        // Attachments are stored in Notification too so recipient can see them easily
+                        body: body,
                         attachments: attachments,
                         reference_id: messageId,
                         reference_type: 'deanery_message',
-                        metadata: {
-                            sender: currentUserName,
-                            senderId: currentUserId
-                        },
+                        metadata: { sender: currentUserName, senderId: currentUserId },
                         email_sent: false,
                         is_read: false
                     };
                 });
 
-                const { error: notifError } = await supabase
-                    .from('notifications')
-                    .insert(notifications);
-
-                if (notifError) {
-                    console.error('Error creating notifications:', notifError);
-                }
+                await supabase.from('notifications').insert(notifications);
             }
 
             resetCompose();
@@ -470,25 +470,28 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
     const handleDeleteMessage = async (id: string) => {
         if (!isSupabaseConfigured || !supabase) return;
 
-        const { error } = await supabase
-            .from('deanery_messages')
-            .update({ status: 'DELETED', deleted_at: new Date().toISOString() })
-            .eq('id', id);
-
-        if (error) {
-            console.error('Error deleting message:', error);
+        // If it's a notification (inbox)
+        if (activeFolder === 'inbox') {
+            // For notifications, we arguably just mark them read or archive? 
+            // But let's assume delete means remove notification
+            await supabase.from('notifications').delete().eq('id', id);
+            setInboxNotifications(prev => prev.filter(n => n.id !== id));
         } else {
+            // For messages
+            await supabase
+                .from('deanery_messages')
+                .update({ status: 'DELETED', deleted_at: new Date().toISOString() })
+                .eq('id', id);
             setMessages(prev => prev.filter(m => m.id !== id));
-            setSelectedMessageId(null);
         }
+        setSelectedMessage(null);
     };
 
     const handleOpenDraft = (message: DeaneryMessage) => {
-        // Load draft into compose panel
         const recipientChips: RecipientChip[] = message.recipientIds
             .map(id => {
                 const user = deaneryUsers.find(u => u.id === id);
-                return user ? { id: user.id, name: user.name, email: user.email } : null;
+                return user ? { id: user.id, name: user.name, email: user.email, roles: user.roles } : null;
             })
             .filter((r): r is RecipientChip => r !== null);
 
@@ -498,16 +501,15 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         setAttachments(message.attachments || []);
         setScheduleMode(message.scheduledAt ? 'scheduled' : 'now');
         setScheduledAt(message.scheduledAt || '');
-        setSelectedMessageId(message.id);
         setIsComposing(true);
+        setSelectedMessage(null);
     };
 
     // ============================================
-    // FOLDER COUNTS
+    // DERIVED
     // ============================================
 
     const folderCounts = useMemo(() => {
-        // These would ideally come from separate count queries, but for now we'll show indicators
         return {
             inbox: inboxNotifications.filter(n => !n.isRead).length,
             drafts: 0,
@@ -517,16 +519,11 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
         };
     }, [inboxNotifications]);
 
-    // ============================================
-    // RENDER HELPERS
-    // ============================================
-
+    // Format date helpers
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
-        const isToday = date.toDateString() === now.toDateString();
-
-        if (isToday) {
+        if (date.toDateString() === now.toDateString()) {
             return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         }
         return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -534,362 +531,475 @@ const ARCPSuperuserDashboard: React.FC<ARCPSuperuserDashboardProps> = ({
 
     const getStatusBadge = (status: MessageStatus) => {
         switch (status) {
-            case 'SCHEDULED':
-                return <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 flex items-center gap-1"><Clock className="w-3 h-3" /> Scheduled</span>;
-            case 'SENT':
-                return <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Sent</span>;
-            case 'DRAFT':
-                return <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-600">Draft</span>;
-            default:
-                return null;
+            case 'SCHEDULED': return <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-100 text-amber-700">Scheduled</span>;
+            case 'SENT': return <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-100 text-emerald-700">Sent</span>;
+            case 'DRAFT': return <span className="px-1.5 py-0.5 text-[10px] rounded bg-slate-100 text-slate-600">Draft</span>;
+            default: return null;
         }
     };
+
+    const filteredList = useMemo(() => {
+        if (activeFolder === 'inbox') {
+            if (!messageSearch) return inboxNotifications;
+            return inboxNotifications.filter(n =>
+                n.title.toLowerCase().includes(messageSearch.toLowerCase()) ||
+                n.body?.toLowerCase().includes(messageSearch.toLowerCase())
+            );
+        } else {
+            if (!messageSearch) return messages;
+            return messages.filter(m =>
+                m.subject.toLowerCase().includes(messageSearch.toLowerCase()) ||
+                m.body.toLowerCase().includes(messageSearch.toLowerCase())
+            );
+        }
+    }, [activeFolder, inboxNotifications, messages, messageSearch]);
 
     // ============================================
     // RENDER
     // ============================================
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 pb-24">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1600px] mx-auto px-4 pb-4 font-sans">
+            <div className="flex-1 flex bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
-                <div>
-                    <h1 className="text-xl font-bold text-slate-800">Message Centre</h1>
-                    <p className="text-sm text-slate-500">{currentUserDeanery}</p>
-                </div>
-            </div>
+                {/* COLUMN 1: Profile & Widget Card */}
+                <div className="w-80 flex-shrink-0 flex flex-col p-4 gap-4 border-r border-slate-200 bg-white min-h-0">
+                    <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors flex-shrink-0">
+                        <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
 
-            {/* Main Layout */}
-            <div className="flex gap-4">
-                {/* Folder Sidebar */}
-                <div className="w-48 flex-shrink-0">
-                    <GlassCard className="p-2">
-                        <button
-                            onClick={() => { setIsComposing(true); setSelectedMessageId(null); }}
-                            className="w-full mb-3 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg shadow-blue-500/25"
-                        >
-                            <Plus className="w-4 h-4" />
-                            New Message
-                        </button>
-
-                        <nav className="space-y-1">
-                            {[
-                                { id: 'inbox' as MessageFolder, icon: Inbox, label: 'Inbox', count: folderCounts.inbox },
-                                { id: 'drafts' as MessageFolder, icon: FileText, label: 'Drafts', count: folderCounts.drafts },
-                                { id: 'sent' as MessageFolder, icon: Send, label: 'Sent', count: folderCounts.sent },
-                                { id: 'scheduled' as MessageFolder, icon: Clock, label: 'Scheduled', count: folderCounts.scheduled },
-                                { id: 'deleted' as MessageFolder, icon: Trash2, label: 'Deleted Items', count: folderCounts.deleted },
-                            ].map(folder => (
-                                <button
-                                    key={folder.id}
-                                    onClick={() => { setActiveFolder(folder.id); setIsComposing(false); setSelectedMessageId(null); }}
-                                    className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors ${activeFolder === folder.id && !isComposing
-                                        ? 'bg-blue-100 text-blue-700 font-medium'
-                                        : 'text-slate-600 hover:bg-slate-100'
-                                        }`}
-                                >
-                                    <folder.icon className="w-4 h-4" />
-                                    <span className="flex-1 text-left">{folder.label}</span>
-                                    {folder.count > 0 && (
-                                        <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-500 text-white font-medium">
-                                            {folder.count}
-                                        </span>
-                                    )}
+                    {/* Profile Card */}
+                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 flex-shrink-0">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg font-bold shadow-sm">
+                                {currentUserName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </div>
+                            <div>
+                                <h2 className="font-bold text-slate-900 text-base">{currentUserName}</h2>
+                                <button className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
+                                    Edit Profile <Settings size={10} />
                                 </button>
-                            ))}
-                        </nav>
-                    </GlassCard>
-                </div>
+                            </div>
+                        </div>
 
-                {/* Content Area */}
-                <div className="flex-1">
-                    <GlassCard className="h-[calc(100vh-180px)] flex flex-col">
-                        {isComposing ? (
-                            /* Compose Panel */
-                            <div className="flex-1 flex flex-col p-4">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-lg font-semibold text-slate-800">
-                                        {selectedMessageId ? 'Edit Draft' : 'New Message'}
-                                    </h2>
-                                    <button
-                                        onClick={resetCompose}
-                                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
+                        <div className="space-y-[11px]">
+                            <div className="flex items-start gap-2">
+                                <div className="text-slate-400 mt-0.5 flex-shrink-0"><MapPin size={13} /></div>
+                                <div>
+                                    <div className="text-[#94a3b8] text-[9px] uppercase tracking-widest font-bold mb-0">Active Deanery Connections</div>
+                                    <div className="text-slate-900 font-medium text-[13px] tracking-tight">{currentUserDeanery}</div>
                                 </div>
+                            </div>
 
-                                {/* Recipients */}
-                                <div className="mb-3">
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">To</label>
-                                    <div className="border border-slate-200 rounded-xl p-2 bg-white/50 min-h-[44px]">
-                                        <div className="flex flex-wrap gap-1.5 mb-2">
-                                            {recipients.map(r => (
-                                                <span
-                                                    key={r.id}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                                                >
-                                                    {r.name}
-                                                    <button
-                                                        onClick={() => removeRecipient(r.id)}
-                                                        className="hover:bg-blue-200 rounded-full p-0.5"
-                                                    >
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={recipientSearch}
-                                                onChange={(e) => setRecipientSearch(e.target.value)}
-                                                placeholder="Type to search..."
-                                                className="w-full bg-transparent text-sm outline-none placeholder-slate-400"
-                                            />
-                                            {searchResults.length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-10 max-h-48 overflow-y-auto">
-                                                    {searchResults.map(user => (
-                                                        <button
-                                                            key={user.id}
-                                                            onClick={() => addRecipient(user)}
-                                                            className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
-                                                        >
-                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium">
-                                                                {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-slate-800">{user.name}</div>
-                                                                <div className="text-xs text-slate-500">{user.email}</div>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Mailing list buttons */}
-                                    <div className="flex gap-2 mt-2">
-                                        <button
-                                            onClick={() => addMailingList('trainees')}
-                                            className="px-3 py-1.5 text-xs rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 flex items-center gap-1"
-                                        >
-                                            <Users className="w-3 h-3" /> Trainees
-                                        </button>
-                                        <button
-                                            onClick={() => addMailingList('supervisors')}
-                                            className="px-3 py-1.5 text-xs rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
-                                        >
-                                            <Users className="w-3 h-3" /> Supervisors
-                                        </button>
-                                        <button
-                                            onClick={() => addMailingList('arcp_panel')}
-                                            className="px-3 py-1.5 text-xs rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
-                                        >
-                                            <Users className="w-3 h-3" /> ARCP Panel
-                                        </button>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-start gap-2">
+                                    <div className="text-slate-400 mt-0.5 flex-shrink-0"><ShieldCheck size={13} /></div>
+                                    <div>
+                                        <div className="text-[#94a3b8] text-[9px] uppercase tracking-widest font-bold mb-0">GMC No.</div>
+                                        <div className="text-slate-700 font-mono text-[11px] font-medium">1234567</div>
                                     </div>
                                 </div>
-
-                                {/* Subject */}
-                                <div className="mb-3">
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Subject</label>
-                                    <input
-                                        type="text"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        placeholder="Message subject..."
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white/50 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                                    />
-                                </div>
-
-                                {/* Body */}
-                                <div className="mb-3">
-                                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Message</label>
-                                    <textarea
-                                        value={body}
-                                        onChange={(e) => setBody(e.target.value)}
-                                        placeholder="Write your message..."
-                                        className="w-full h-64 px-3 py-2 border border-slate-200 rounded-xl bg-white/50 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 resize-none"
-                                    />
-                                </div>
-
-                                {/* Attachments List */}
-                                {attachments.length > 0 && (
-                                    <div className="mb-4 flex flex-wrap gap-2">
-                                        {attachments.map(att => (
-                                            <div key={att.id} className="inline-flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-full text-sm border border-slate-200">
-                                                <Paperclip className="w-3 h-3 text-slate-500" />
-                                                <span className="text-slate-700 truncate max-w-[200px]">{att.name}</span>
-                                                <button onClick={() => removeAttachment(att.id)} className="text-slate-400 hover:text-red-500">
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Footer Actions */}
-                                <div className="mt-auto border-t border-slate-100 pt-4 flex items-center justify-between">
-                                    {/* Left: Attachments & Schedule */}
-                                    <div className="flex items-center gap-4">
-                                        <label className={`p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors text-slate-500 hover:text-blue-500 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`} title="Attach File">
-                                            <Paperclip className="w-5 h-5" />
-                                            <input
-                                                type="file"
-                                                multiple
-                                                className="hidden"
-                                                onChange={handleFileSelect}
-                                                disabled={isUploading}
-                                            />
-                                        </label>
-
-                                        <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="schedule"
-                                                    checked={scheduleMode === 'now'}
-                                                    onChange={() => setScheduleMode('now')}
-                                                    className="text-blue-500"
-                                                />
-                                                <span className="text-sm text-slate-700">Send Now</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="schedule"
-                                                    checked={scheduleMode === 'scheduled'}
-                                                    onChange={() => setScheduleMode('scheduled')}
-                                                    className="text-blue-500"
-                                                />
-                                                <span className="text-sm text-slate-700">Schedule</span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Action Buttons and Date Picker */}
-                                    <div className="flex items-center gap-3">
-                                        {scheduleMode === 'scheduled' && (
-                                            <input
-                                                type="datetime-local"
-                                                value={scheduledAt}
-                                                onChange={(e) => setScheduledAt(e.target.value)}
-                                                min={new Date().toISOString().slice(0, 16)}
-                                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white/50"
-                                            />
-                                        )}
-
-                                        <button
-                                            onClick={handleSaveDraft}
-                                            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
-                                        >
-                                            Save Draft
-                                        </button>
-                                        <button
-                                            onClick={handleSend}
-                                            disabled={isSending || isUploading}
-                                            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium flex items-center gap-2 hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50"
-                                        >
-                                            <Send className="w-4 h-4" />
-                                            {isSending ? 'Sending...' : scheduleMode === 'scheduled' ? 'Schedule' : 'Send'}
-                                        </button>
+                                <div className="flex items-start gap-2">
+                                    <div className="text-slate-400 mt-0.5 flex-shrink-0"><ShieldCheck size={13} /></div>
+                                    <div>
+                                        <div className="text-[#94a3b8] text-[9px] uppercase tracking-widest font-bold mb-0">RCOphth No.</div>
+                                        <div className="text-slate-700 font-mono text-[11px] font-medium">110423</div>
                                     </div>
                                 </div>
                             </div>
-                        ) : (
-                            /* Message List */
-                            <div className="flex-1 flex flex-col">
-                                <div className="p-4 border-b border-slate-200/50">
-                                    <h2 className="text-lg font-semibold text-slate-800 capitalize">{activeFolder}</h2>
-                                </div>
 
-                                {isLoading ? (
-                                    <div className="flex-1 flex items-center justify-center">
-                                        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                            <div className="pt-3 border-t border-slate-100">
+                                <div className="text-[#94a3b8] text-[9px] uppercase tracking-widest font-bold mb-2">Roles</div>
+                                <div className="inline-block px-2.5 py-1 bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold tracking-tight">ARCP Panel Superuser</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ARCP Panel Widget */}
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-sm flex-1 min-h-0">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
+                            <div>
+                                <h3 className="font-semibold text-slate-800 text-sm">ARCP Panel</h3>
+                                <div className="text-[11px] text-slate-500">Deanery: {currentUserDeanery}</div>
+                            </div>
+                            <button
+                                onClick={() => setShowAddMember(true)}
+                                className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                            >
+                                <UserPlus className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {panelMembers.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400 text-sm">No panel members assigned.</div>
+                            ) : (
+                                panelMembers.map(member => (
+                                    <div key={member.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 group border border-transparent hover:border-slate-100 transition-all">
+                                        <div>
+                                            <div className="font-medium text-slate-800 text-sm">{member.name}</div>
+                                            <div className="text-xs text-slate-500 font-mono">GMC: {member.gmcNumber || 'N/A'}</div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleTogglePanelRole(member.id, false)}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                            title="Remove Role"
+                                        >
+                                            <UserMinus className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                ) : (
-                                    <div className="flex-1 overflow-y-auto">
-                                        {activeFolder === 'inbox' ? (
-                                            inboxNotifications.length === 0 ? (
-                                                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                                    <Inbox className="w-12 h-12 mb-2 opacity-50" />
-                                                    <p>No messages</p>
-                                                </div>
-                                            ) : (
-                                                inboxNotifications.map(n => (
-                                                    <div
-                                                        key={n.id}
-                                                        className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer ${!n.isRead ? 'bg-blue-50/30' : ''
-                                                            }`}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-2 h-2 mt-2 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-start justify-between">
-                                                                    <div className="flex-1 min-w-0 pr-2">
-                                                                        <div className={`text-sm ${!n.isRead ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>
-                                                                            {n.title}
-                                                                        </div>
-                                                                        {n.metadata?.sender && (
-                                                                            <div className="text-xs text-slate-500 font-medium mt-0.5">
-                                                                                From: {n.metadata.sender}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                    <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(n.createdAt)}</span>
-                                                                </div>
-                                                                <p className="text-sm text-slate-500 truncate mt-0.5">{n.body}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )
-                                        ) : messages.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                                <FileText className="w-12 h-12 mb-2 opacity-50" />
-                                                <p>No messages in {activeFolder}</p>
-                                            </div>
-                                        ) : (
-                                            messages.map(m => (
-                                                <div
-                                                    key={m.id}
-                                                    onClick={() => activeFolder === 'drafts' ? handleOpenDraft(m) : setSelectedMessageId(m.id)}
-                                                    className="px-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer"
-                                                >
-                                                    <div className="flex items-start justify-between">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-medium text-slate-800 truncate">{m.subject}</span>
-                                                                {getStatusBadge(m.status)}
-                                                            </div>
-                                                            <p className="text-sm text-slate-500 truncate mt-0.5">{m.body}</p>
-                                                            <p className="text-xs text-slate-400 mt-1">
-                                                                To: {m.recipientIds.length} recipient{m.recipientIds.length !== 1 ? 's' : ''}
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            <span className="text-xs text-slate-400">{formatDate(m.createdAt)}</span>
-                                                            {activeFolder !== 'deleted' && (
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteMessage(m.id); }}
-                                                                    className="p-1 hover:bg-red-100 rounded text-slate-400 hover:text-red-500"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
+                                ))
+                            )}
+                        </div>
+
+                        {/* Add Member Popover/Area */}
+                        {showAddMember && (
+                            <div className="p-3 border-t border-slate-100 bg-slate-50 animate-in slide-in-from-bottom-2 fade-in flex-shrink-0">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold text-slate-500">Add Member</span>
+                                    <button onClick={() => setShowAddMember(false)}><X className="w-4 h-4 text-slate-400" /></button>
+                                </div>
+                                <div className="relative">
+                                    <Search className="w-3 h-3 absolute left-2.5 top-2.5 text-slate-400" />
+                                    <input
+                                        autoFocus
+                                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none"
+                                        placeholder="Search users..."
+                                        value={memberSearch}
+                                        onChange={e => setMemberSearch(e.target.value)}
+                                    />
+                                </div>
+                                <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                    {availableForPanel.map(u => (
+                                        <button
+                                            key={u.id}
+                                            onClick={() => handleTogglePanelRole(u.id, true)}
+                                            className="w-full text-left px-2 py-1.5 text-sm hover:bg-blue-50 text-slate-700 rounded-md flex items-center justify-between group"
+                                        >
+                                            <span className="truncate">{u.name}</span>
+                                            <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100 text-blue-500" />
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                    </GlassCard>
+                    </div>
+                </div>
+
+                {/* COLUMN 2: Message Navigation */}
+                <div className="w-60 bg-white border-r border-slate-200 flex flex-col p-3 gap-2">
+                    <button
+                        onClick={() => { setIsComposing(true); setSelectedMessage(null); }}
+                        className="w-full mb-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-sm"
+                    >
+                        <Plus className="w-5 h-5" />
+                        New Message
+                    </button>
+
+                    <nav className="space-y-0.5">
+                        {[
+                            { id: 'inbox' as MessageFolder, icon: Inbox, label: 'Inbox', count: folderCounts.inbox },
+                            { id: 'drafts' as MessageFolder, icon: FileText, label: 'Drafts', count: folderCounts.drafts },
+                            { id: 'sent' as MessageFolder, icon: Send, label: 'Sent', count: folderCounts.sent },
+                            { id: 'scheduled' as MessageFolder, icon: Clock, label: 'Scheduled', count: folderCounts.scheduled },
+                            { id: 'deleted' as MessageFolder, icon: Trash2, label: 'Deleted Items', count: folderCounts.deleted },
+                        ].map(folder => (
+                            <button
+                                key={folder.id}
+                                onClick={() => { setActiveFolder(folder.id); setIsComposing(false); setSelectedMessage(null); }}
+                                className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-3 text-sm transition-colors ${activeFolder === folder.id && !isComposing
+                                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                                    : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <folder.icon className={`w-4 h-4 ${activeFolder === folder.id ? 'text-blue-600' : 'text-slate-400'}`} />
+                                <span className="flex-1 text-left">{folder.label}</span>
+                                {folder.count > 0 && (
+                                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-bold min-w-[20px] text-center">
+                                        {folder.count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+
+                {/* COLUMN 3: Message List */}
+                <div className="w-80 bg-white border-r border-slate-200 flex flex-col">
+                    <div className="p-4 border-b border-slate-100">
+                        <h2 className="text-xl font-bold text-slate-800 capitalize mb-3">{activeFolder}</h2>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                            <input
+                                className="w-full pl-9 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none text-slate-700 placeholder-slate-400"
+                                placeholder="Search..."
+                                value={messageSearch}
+                                onChange={(e) => setMessageSearch(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto">
+                        {isLoading ? (
+                            <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>
+                        ) : filteredList.length === 0 ? (
+                            <div className="text-center p-8 text-slate-400 text-sm">No messages found</div>
+                        ) : (
+                            filteredList.map((item: any) => { // Using any cast for simplicity as types differ slightly
+                                const isSelected = selectedMessage?.id === item.id;
+                                const isRead = activeFolder === 'inbox' ? item.isRead : true;
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => {
+                                            if (activeFolder === 'drafts') {
+                                                handleOpenDraft(item);
+                                            } else {
+                                                setSelectedMessage(item);
+                                                setIsComposing(false);
+                                                // TODO: Mark as read if inland
+                                            }
+                                        }}
+                                        className={`p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50/60 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h4 className={`text-sm truncate pr-2 ${!isRead ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                                                {activeFolder === 'sent' || activeFolder === 'drafts'
+                                                    ? `To: ${item.recipientIds?.length || 0} recipients`
+                                                    : (item.metadata?.sender || 'System')}
+                                            </h4>
+                                            <span className={`text-xs whitespace-nowrap ${!isRead ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
+                                                {formatDate(item.createdAt)}
+                                            </span>
+                                        </div>
+                                        <div className={`text-sm mb-1 truncate ${!isRead ? 'font-bold text-slate-900' : 'text-slate-800'}`}>
+                                            {item.subject || item.title}
+                                        </div>
+                                        <div className="text-xs text-slate-500 truncate">
+                                            {item.body}
+                                        </div>
+                                        {activeFolder !== 'inbox' && item.status && (
+                                            <div className="mt-2">
+                                                {getStatusBadge(item.status as MessageStatus)}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* COLUMN 4: Content Pane */}
+                <div className="flex-1 bg-slate-50/30 flex flex-col min-w-0">
+                    {isComposing ? (
+                        /* COMPOSE VIEW */
+                        <div className="flex-1 flex flex-col bg-white h-full">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-slate-800">New Message</h2>
+                                <div className="flex gap-2">
+                                    <button onClick={handleSaveDraft} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">
+                                        Save Draft
+                                    </button>
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={isSending}
+                                        className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-sm flex items-center gap-2"
+                                    >
+                                        <Send className="w-4 h-4" /> Send
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 flex-1 overflow-y-auto">
+                                <div className="space-y-4 max-w-4xl mx-auto">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">To</label>
+                                        <div className="p-2 border border-slate-200 rounded-xl flex flex-wrap gap-2 items-center bg-white focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-shadow min-h-[50px]">
+                                            {recipients.map(r => (
+                                                <span key={r.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                                                    {r.name}
+                                                    <button onClick={() => removeRecipient(r.id)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                                                </span>
+                                            ))}
+                                            <input
+                                                className="flex-1 min-w-[200px] outline-none text-sm bg-transparent"
+                                                placeholder="Type to search..."
+                                                value={recipientSearch}
+                                                onChange={e => setRecipientSearch(e.target.value)}
+                                            />
+                                        </div>
+                                        {searchResults.length > 0 && (
+                                            <div className="absolute z-10 w-96 bg-white rounded-xl shadow-xl border border-slate-200 mt-1 max-h-60 overflow-y-auto">
+                                                {searchResults.map(user => (
+                                                    <button key={user.id} onClick={() => addRecipient(user)} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+                                                            {user.name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-medium text-slate-800">{user.name}</div>
+                                                            <div className="text-xs text-slate-500">{user.email}</div>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="flex gap-2 pt-1">
+                                            <button onClick={() => addMailingList('trainees')} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">+ Trainees</button>
+                                            <button onClick={() => addMailingList('supervisors')} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">+ Supervisors</button>
+                                            <button onClick={() => addMailingList('arcp_panel')} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">+ ARCP Panel</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subject</label>
+                                        <input
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
+                                            placeholder="Message subject..."
+                                            value={subject}
+                                            onChange={e => setSubject(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1 h-full flex flex-col">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Message</label>
+                                        <textarea
+                                            className="w-full h-80 px-4 py-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all resize-none"
+                                            placeholder="Write your message..."
+                                            value={body}
+                                            onChange={e => setBody(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Attachments */}
+                                    <div>
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <label className="cursor-pointer flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 transition-colors">
+                                                <Paperclip className="w-4 h-4" />
+                                                Attach Files
+                                                <input type="file" multiple className="hidden" onChange={handleFileSelect} disabled={isUploading} />
+                                            </label>
+
+                                            <div className="h-4 w-px bg-slate-200" />
+
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" checked={scheduleMode === 'now'} onChange={() => setScheduleMode('now')} className="text-blue-600" />
+                                                    <span className="text-sm text-slate-700">Send Now</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" checked={scheduleMode === 'scheduled'} onChange={() => setScheduleMode('scheduled')} className="text-blue-600" />
+                                                    <span className="text-sm text-slate-700">Schedule</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {scheduleMode === 'scheduled' && (
+                                            <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100 inline-block">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={scheduledAt}
+                                                    onChange={e => setScheduledAt(e.target.value)}
+                                                    className="bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-sm outline-none"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {attachments.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {attachments.map(att => (
+                                                    <div key={att.id} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg border border-slate-200">
+                                                        <Paperclip className="w-3 h-3 text-slate-400" />
+                                                        <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]">{att.name}</span>
+                                                        <button onClick={() => removeAttachment(att.id)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : selectedMessage ? (
+                        /* READING PANE */
+                        <div className="flex-1 flex flex-col bg-white h-full">
+                            {/* Header */}
+                            <div className="px-8 py-6 border-b border-slate-100">
+                                <h1 className="text-2xl font-bold text-slate-900 mb-2">{(selectedMessage as any).title || (selectedMessage as any).subject}</h1>
+
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm">
+                                            {((selectedMessage as any).senderName || (selectedMessage as any).metadata?.sender || '?').charAt(0)}
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-slate-800">
+                                                {(selectedMessage as any).senderName || (selectedMessage as any).metadata?.sender || 'Unknown Sender'}
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                                {new Date((selectedMessage as any).createdAt || (selectedMessage as any).sentAt).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {activeFolder !== 'deleted' && (
+                                            <button
+                                                onClick={() => handleDeleteMessage(selectedMessage.id)}
+                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete Message"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Body */}
+                            <div className="flex-1 p-8 overflow-y-auto">
+                                <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    {(selectedMessage as any).body}
+                                </div>
+
+                                {/* Attachments */}
+                                {(selectedMessage as any).attachments?.length > 0 && (
+                                    <div className="mt-8 pt-6 border-t border-slate-100">
+                                        <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                            <Paperclip className="w-4 h-4" /> Attachments
+                                        </h4>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {(selectedMessage as any).attachments.map((att: MessageAttachment) => (
+                                                <a
+                                                    key={att.id}
+                                                    href={`https://your-project.supabase.co/storage/v1/object/public/message-attachments/${att.url}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
+                                                >
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:text-blue-500 transition-colors">
+                                                        <FileText className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-medium text-slate-700 group-hover:text-blue-700 truncate">{att.name}</div>
+                                                        <div className="text-xs text-slate-400">{Math.round(att.size / 1024)} KB</div>
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* EMPTY STATE */
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                                <Inbox className="w-8 h-8 opacity-50" />
+                            </div>
+                            <p className="text-lg font-medium text-slate-500">Select a message to read</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

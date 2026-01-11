@@ -307,7 +307,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     id: p.user_id,
                     name: p.name,
                     email: p.email,
-                    role: UserRole.Trainee,
+                    role: (p.roles && p.roles.length > 0) ? p.roles[0] : (p.role || UserRole.Trainee), // Better role inference
                     deanery: p.deanery,
                     location: p.deanery || '',
                     gmcNumber: p.gmc_number,
@@ -330,6 +330,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     sias: p.sias ? (Array.isArray(p.sias) ? p.sias : JSON.parse(p.sias)) : [],
                     predictedSIAs: p.predicted_sias || [],
                     pdpGoals: p.pdp_goals || [],
+                    roles: p.roles || [], // Map roles array
                     // Phaco stats from stored values
                     phacoTotal: p.phaco_total || 0,
                     phacoPerformed: p.phaco_performed || 0,
@@ -484,7 +485,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
         }
 
         const deaneryMembers = profiles.filter(p =>
-            (p.role === UserRole.ARCPPanelMember || p.role === UserRole.Admin || p.role === 'ARCPSuperuser') &&
+            ((p.roles && p.roles.includes(UserRole.ARCPPanelMember)) ||
+                (p.roles && p.roles.includes(UserRole.ARCPSuperuser)) ||
+                p.role === UserRole.ARCPPanelMember ||
+                p.role === UserRole.Admin ||
+                p.role === UserRole.ARCPSuperuser) &&
             p.deanery === currentSummary.profile.deanery
         );
         setPanelMembers(deaneryMembers);

@@ -9,7 +9,7 @@ import {
   FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut,
   Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus,
-  CheckSquare, Square
+  CheckSquare, Square, UserPlus, Shield
 } from 'lucide-react';
 
 export {
@@ -23,5 +23,5 @@ export {
   FileDown, Download, Lock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut,
   Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus,
-  CheckSquare, Square
+  CheckSquare, Square, UserPlus, Shield
 };
