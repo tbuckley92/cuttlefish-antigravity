@@ -11,11 +11,13 @@ import { generateEvidencePDF } from '../utils/pdfGenerator';
 import { createEvidenceZip } from '../utils/zipGenerator';
 import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
 import { getEvidenceFileUrl } from '../utils/storageUtils';
+import { generateLogbookHTML } from '../utils/htmlGenerator';
 
 
 interface MyEvidenceProps {
   allEvidence: EvidenceItem[];
   profile: UserProfile;
+  sias: SIA[]; // Added SIAs prop
   selectionMode?: boolean;
   onConfirmSelection?: (ids: string[]) => void;
   onCancel?: () => void;
@@ -48,6 +50,7 @@ const DELETABLE_COMPLETE_TYPES = [
 const MyEvidence: React.FC<MyEvidenceProps> = ({
   allEvidence,
   profile,
+  sias, // Destructure sias
   selectionMode = false,
   onConfirmSelection,
   onCancel,
@@ -271,6 +274,77 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     ).length;
   }, [filteredEvidence, selectedForExport]);
 
+  /* HTML Export Handler with Data Fetching */
+  const handleExportHTML = async () => {
+    setIsExporting(true); // Re-use exporting state to show loading UI
+    try {
+      let logbookEntries: any[] = [];
+      let complicationCases: any[] = [];
+
+      if (isSupabaseConfigured && supabase && profile.id) { // Use profile.id (which should be userId)
+        // 1. Fetch Logbook Entries
+        const { data: logs, error: logError } = await supabase
+          .from('eyelogbook')
+          .select('*')
+          .eq('trainee_id', profile.id)
+          .order('procedure_date', { ascending: false })
+          .limit(10000);
+
+        if (logError) console.error('Error fetching logs for export:', logError);
+        else logbookEntries = logs || [];
+
+        // 2. Fetch Complications
+        const { data: comps, error: compError } = await supabase
+          .from('eyelogbook_complication')
+          .select('*')
+          .eq('trainee_id', profile.id)
+          .order('procedure_date', { ascending: false })
+          .limit(10000);
+
+        if (compError) console.error('Error fetching complications for export:', compError);
+        else complicationCases = comps || [];
+      }
+
+      // 3. Fetch Portfolio Progress (if not passed as prop, which it currently isn't in MyEvidence)
+      // We need to fetch this to render the matrix accurately
+      let progressItems: any[] = [];
+      if (isSupabaseConfigured && supabase && profile.id) {
+        const { data: prog, error: progError } = await supabase
+          .from('portfolio_progress')
+          .select('*')
+          .eq('trainee_id', profile.id);
+        if (progError) console.error('Error fetching progress for export', progError);
+        else progressItems = prog || [];
+      }
+
+
+      const htmlContent = generateLogbookHTML(
+        profile,
+        allEvidence,
+        sias,
+        progressItems, // Pass fetched progress
+        logbookEntries,
+        complicationCases
+      );
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      link.download = `Portfolio_Archive_${profile.name.replace(/\s+/g, '_')}_${dateStr}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('HTML Export Error:', error);
+      alert('Failed to generate HTML export.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className={`max-w-7xl mx-auto p-6 flex flex-col gap-6 animate-in fade-in duration-300 ${selectionMode ? 'mt-12' : ''}`}>
 
@@ -326,6 +400,18 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           </button>
         </div>
         <div className="hidden md:flex items-center gap-4">
+          {/* HTML Export Button */}
+          {!selectionMode && !isSupervisorView && (
+            <button
+              onClick={handleExportHTML}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
+              title="Download offline-viewable HTML archive"
+            >
+              <FileDown size={16} />
+              EXPORT PORTFOLIO
+            </button>
+          )}
+
           {completeCount > 0 && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -345,7 +431,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={16} />
-            {isExporting ? 'Exporting...' : `EXPORT (${selectedForExport.length})`}
+            {isExporting ? 'Exporting...' : `EXPORT FILES (${selectedForExport.length})`}
           </button>
         </div>
       </div>

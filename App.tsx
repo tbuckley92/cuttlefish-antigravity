@@ -2064,6 +2064,7 @@ const App: React.FC = () => {
           <MyEvidence
             allEvidence={evidenceData}
             profile={evidenceProfile}
+            sias={sias} // Pass SIAs state
             selectionMode={isSelectionMode}
             onConfirmSelection={handleConfirmLinkSelection}
             onCancel={handleCancelSelection}
