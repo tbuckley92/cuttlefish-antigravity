@@ -41,7 +41,7 @@ INSERT INTO public.supervisor_history (
     source
 ) VALUES (
     'fcc862eb-5949-4bdf-9f00-038a7a022ff1',
-    'tim.bucktwo@example.com', -- Hardcoded fallbacks if auth.uid() fails in editor
+    'thomas.buckley@ouh.nhs.uk', -- Hardcoded fallbacks if auth.uid() fails in editor
     'Tim Bucktwo',
     '1234567',
     CURRENT_DATE - 7,

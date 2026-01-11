@@ -173,16 +173,15 @@ export const ARCPForm: React.FC<ARCPFormProps> = ({ initialData, onBack, trainee
                         {data.reviewType || 'ARCP Review'}
                     </h1>
                     <p className="text-sm text-slate-500 dark:text-white/40">
-                        {formatDate(data.lockDate)} • {data.status}
+                        {formatDate(data.lockDate)} {data.status === ARCPOutcomeStatus.Pending && `• ${data.status}`}
                     </p>
                 </div>
                 {/* Status Badge */}
-                <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${data.status === ARCPOutcomeStatus.Confirmed
-                    ? 'bg-green-100 text-green-700 border-green-200'
-                    : 'bg-amber-100 text-amber-700 border-amber-200'
-                    }`}>
-                    {data.status === ARCPOutcomeStatus.Confirmed ? 'Confirmed' : 'Pending'}
-                </div>
+                {data.status === ARCPOutcomeStatus.Pending && (
+                    <div className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border bg-amber-100 text-amber-700 border-amber-200">
+                        Pending
+                    </div>
+                )}
 
                 {/* Edit Actions */}
                 <div className="flex items-center gap-2 border-l border-slate-200 pl-4 ml-2">

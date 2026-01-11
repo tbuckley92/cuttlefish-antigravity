@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
     User, FileText, ClipboardCheck, Activity,
-    CheckCircle2, AlertCircle, ArrowLeft, Edit2, BarChart2, Clock, Save, Trash2, Download
+    CheckCircle2, AlertCircle, ArrowLeft, Edit2, BarChart2, Clock, Save, Trash2, Download,
+    CheckSquare, Square
 } from '../components/Icons';
 import { TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, UserProfile, EvidenceItem, TrainingGrade, ARCPPrepData, ARCPOutcomeData, ARCPOutcomeStatus } from '../types';
 import { ARCP_OUTCOMES, SPECIALTIES } from '../constants';
@@ -61,6 +62,8 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
     // Outcome filters and sort
     const [outcomeFilterTraineeId, setOutcomeFilterTraineeId] = useState<string>('all');
+    const [outcomeStatusFilter, setOutcomeStatusFilter] = useState<'PENDING' | 'CONFIRMED' | 'ALL'>('PENDING'); // Default to PENDING
+    const [selectedOutcomeIds, setSelectedOutcomeIds] = useState<Set<string>>(new Set());
     const [outcomeSort, setOutcomeSort] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'>('date-desc');
     const [outcomeDateRange, setOutcomeDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
@@ -79,6 +82,10 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
         if (outcomeFilterTraineeId !== 'all') {
             result = result.filter(o => o.traineeId === outcomeFilterTraineeId);
+        }
+
+        if (outcomeStatusFilter !== 'ALL') {
+            result = result.filter(o => o.status === outcomeStatusFilter);
         }
 
         if (outcomeDateRange.start) {
@@ -104,7 +111,163 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
         });
 
         return result;
-    }, [arcpOutcomes, outcomeFilterTraineeId, outcomeSort, outcomeDateRange]);
+    }, [arcpOutcomes, outcomeFilterTraineeId, outcomeStatusFilter, outcomeSort, outcomeDateRange]);
+
+    // Handle batch selection
+    const toggleOutcomeSelection = (outcomeId: string) => {
+        const newSelected = new Set(selectedOutcomeIds);
+        if (newSelected.has(outcomeId)) {
+            newSelected.delete(outcomeId);
+        } else {
+            newSelected.add(outcomeId);
+        }
+        setSelectedOutcomeIds(newSelected);
+    };
+
+    const toggleAllOutcomesSelection = () => {
+        if (selectedOutcomeIds.size === filteredAndSortedOutcomes.length) {
+            setSelectedOutcomeIds(new Set());
+        } else {
+            setSelectedOutcomeIds(new Set(filteredAndSortedOutcomes.map(o => o.id)));
+        }
+    };
+
+    // Handle batch confirmation
+    const handleBatchConfirmOutcomes = async () => {
+        if (selectedOutcomeIds.size === 0 || !supabase) return;
+
+        if (!confirm(`Are you sure you want to confirm ${selectedOutcomeIds.size} outcomes? This will lock them.`)) {
+            return;
+        }
+
+        try {
+            setLoadingOutcomes(true);
+            const outcomeIds = Array.from(selectedOutcomeIds);
+
+            // Update outcomes to CONFIRMED
+            const { error } = await supabase
+                .from('arcp_outcome')
+                .update({
+                    status: 'CONFIRMED',
+                    locked_at: new Date().toISOString()
+                })
+                .in('id', outcomeIds);
+
+            if (error) throw error;
+
+            // Also update associated evidence to COMPLETE
+            // First get the evidence IDs for these outcomes
+            const outcomesToUpdate = arcpOutcomes.filter(o => outcomeIds.includes(o.id));
+            const evidenceIds = outcomesToUpdate.map(o => o.evidenceId).filter(Boolean) as string[];
+
+            if (evidenceIds.length > 0) {
+                // Update top-level status
+                const { error: evidenceError } = await supabase
+                    .from('evidence')
+                    .update({ status: 'COMPLETE' })
+                    .in('id', evidenceIds);
+
+                if (evidenceError) {
+                    console.error('Error updating evidence status:', evidenceError);
+                    alert('Failed to update evidence status: ' + evidenceError.message);
+                } else {
+                    console.log('Successfully updated evidence status for ids:', evidenceIds);
+
+                    // Sync individual JSONB data status
+                    await Promise.all(outcomesToUpdate.map(async outcome => {
+                        if (!outcome.evidenceId) return;
+
+                        const updatedData = {
+                            id: outcome.evidenceId,
+                            outcome: outcome.outcome,
+                            gradeAssessed: outcome.gradeAssessed,
+                            nextTrainingGrade: outcome.nextTrainingGrade,
+                            chairId: outcome.chairId,
+                            chairName: outcome.chairName,
+                            panelComments: outcome.panelComments,
+                            lockDate: outcome.lockDate,
+                            currentArcpEpas: outcome.currentArcpEpas,
+                            status: 'CONFIRMED',
+                            panelReviewDate: outcome.panelReviewDate,
+                            reviewType: outcome.reviewType
+                        };
+
+                        await supabase
+                            .from('evidence')
+                            .update({ data: updatedData })
+                            .eq('id', outcome.evidenceId);
+                    }));
+                }
+            }
+
+            // Clear selection and refresh
+            setSelectedOutcomeIds(new Set());
+            await fetchArcpOutcomes();
+
+        } catch (err: any) {
+            console.error('Batch confirm error:', err);
+            alert('Failed to confirm outcomes: ' + err.message);
+        } finally {
+            setLoadingOutcomes(false);
+        }
+    };
+
+    // Individual confirm
+    const handleConfirmIndividualOutcome = async (outcomeId: string, evidenceId?: string) => {
+        if (!supabase) return;
+        if (!confirm('Confirm this outcome?')) return;
+
+        try {
+            setLoadingOutcomes(true);
+            await supabase
+                .from('arcp_outcome')
+                .update({
+                    status: 'CONFIRMED',
+                    locked_at: new Date().toISOString()
+                })
+                .eq('id', outcomeId);
+
+            if (evidenceId) {
+                // To keep data in sync, update the JSONB column's status too
+                const outcome = arcpOutcomes.find(o => o.id === outcomeId);
+                const updatedData = outcome ? {
+                    id: outcome.evidenceId,
+                    outcome: outcome.outcome,
+                    gradeAssessed: outcome.gradeAssessed,
+                    nextTrainingGrade: outcome.nextTrainingGrade,
+                    chairId: outcome.chairId,
+                    chairName: outcome.chairName,
+                    panelComments: outcome.panelComments,
+                    lockDate: outcome.lockDate,
+                    currentArcpEpas: outcome.currentArcpEpas,
+                    status: 'CONFIRMED',
+                    panelReviewDate: outcome.panelReviewDate,
+                    reviewType: outcome.reviewType
+                } : undefined;
+
+                const { error: evidenceError } = await supabase
+                    .from('evidence')
+                    .update({
+                        status: 'COMPLETE',
+                        ...(updatedData ? { data: updatedData } : {})
+                    })
+                    .eq('id', evidenceId);
+
+                if (evidenceError) {
+                    console.error('Error updating individual evidence status:', evidenceError);
+                    alert('Failed to update evidence status: ' + evidenceError.message);
+                }
+            }
+
+            await fetchArcpOutcomes();
+
+        } catch (err: any) {
+            console.error('Confirm error:', err);
+            alert('Failed to confirm outcome: ' + err.message);
+        } finally {
+            setLoadingOutcomes(false);
+        }
+    };
 
     // Persist selection
     useEffect(() => {
@@ -366,7 +529,8 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                 createdBy: o.created_by,
                 createdAt: o.created_at,
                 evidenceId: o.evidence_id,
-                traineeDeanery: o.trainee_deanery
+                traineeDeanery: o.trainee_deanery,
+                panelReviewDate: o.panel_review_date
             }));
 
             // Process on-demand lock transitions
@@ -380,9 +544,27 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
                     // Update evidence status
                     if (outcome.evidenceId) {
+                        const updatedData = {
+                            id: outcome.evidenceId,
+                            outcome: outcome.outcome,
+                            gradeAssessed: outcome.gradeAssessed,
+                            nextTrainingGrade: outcome.nextTrainingGrade,
+                            chairId: outcome.chairId,
+                            chairName: outcome.chairName,
+                            panelComments: outcome.panelComments,
+                            lockDate: outcome.lockDate,
+                            currentArcpEpas: outcome.currentArcpEpas,
+                            status: 'CONFIRMED',
+                            panelReviewDate: outcome.panelReviewDate,
+                            reviewType: outcome.reviewType
+                        };
+
                         await supabase
                             .from('evidence')
-                            .update({ status: 'COMPLETE' })
+                            .update({
+                                status: 'COMPLETE',
+                                data: updatedData
+                            })
                             .eq('id', outcome.evidenceId);
                     }
 
@@ -1417,10 +1599,37 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     <div className="flex flex-col gap-4 mb-6">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-slate-900">ARCP Outcomes</h2>
-                            <span className="text-sm text-slate-500">{filteredAndSortedOutcomes.length} outcome(s)</span>
+                            <div className="flex items-center gap-3">
+                                {outcomeStatusFilter === 'PENDING' && selectedOutcomeIds.size > 0 && (
+                                    <button
+                                        onClick={handleBatchConfirmOutcomes}
+                                        className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 animate-in fade-in"
+                                    >
+                                        <CheckCircle2 size={14} />
+                                        Confirm Selected ({selectedOutcomeIds.size})
+                                    </button>
+                                )}
+                                <span className="text-sm text-slate-500">{filteredAndSortedOutcomes.length} outcome(s)</span>
+                            </div>
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+                                <select
+                                    value={outcomeStatusFilter}
+                                    onChange={(e) => {
+                                        setOutcomeStatusFilter(e.target.value as any);
+                                        setSelectedOutcomeIds(new Set()); // Clear selection on filter change
+                                    }}
+                                    className="w-full px-2 py-1.5 bg-white rounded border border-slate-200 text-xs text-slate-700 outline-none focus:border-indigo-500 mb-2 md:mb-0"
+                                >
+                                    <option value="PENDING">Pending (Recommended)</option>
+                                    <option value="CONFIRMED">Confirmed</option>
+                                    <option value="ALL">All Outcomes</option>
+                                </select>
+                            </div>
+
                             {/* Trainee Filter */}
                             <div className="flex-1">
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Trainee</label>
@@ -1474,11 +1683,12 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                             </div>
 
                             {/* Clear Filters */}
-                            {(outcomeFilterTraineeId !== 'all' || outcomeDateRange.start || outcomeDateRange.end) && (
+                            {(outcomeFilterTraineeId !== 'all' || outcomeStatusFilter !== 'PENDING' || outcomeDateRange.start || outcomeDateRange.end) && (
                                 <div className="flex items-end">
                                     <button
                                         onClick={() => {
                                             setOutcomeFilterTraineeId('all');
+                                            setOutcomeStatusFilter('PENDING');
                                             setOutcomeDateRange({ start: '', end: '' });
                                         }}
                                         className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded transition-colors mb-[1px]"
@@ -1507,6 +1717,23 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
                     {!loadingOutcomes && filteredAndSortedOutcomes.length > 0 && (
                         <div className="space-y-2">
+                            {/* Header Row for Batch Select */}
+                            {outcomeStatusFilter === 'PENDING' && (
+                                <div className="flex items-center px-4 py-2 border-b border-slate-200 mb-2">
+                                    <button
+                                        onClick={toggleAllOutcomesSelection}
+                                        className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-indigo-600"
+                                    >
+                                        {selectedOutcomeIds.size > 0 && selectedOutcomeIds.size === filteredAndSortedOutcomes.length ? (
+                                            <CheckSquare size={16} className="text-indigo-600" />
+                                        ) : (
+                                            <Square size={16} className="text-slate-300" />
+                                        )}
+                                        Select All
+                                    </button>
+                                </div>
+                            )}
+
                             {filteredAndSortedOutcomes.map(outcome => (
                                 <div
                                     key={outcome.id}
@@ -1525,6 +1752,23 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                     }}
                                 >
                                     <div className="flex items-start justify-between gap-4">
+                                        {/* Checkbox for Batch Select (Only for Pending) */}
+                                        {outcomeStatusFilter === 'PENDING' && (
+                                            <div
+                                                className="pt-1"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleOutcomeSelection(outcome.id);
+                                                }}
+                                            >
+                                                {selectedOutcomeIds.has(outcome.id) ? (
+                                                    <CheckSquare size={20} className="text-indigo-600 hover:scale-110 transition-transform" />
+                                                ) : (
+                                                    <Square size={20} className="text-slate-300 hover:text-indigo-400 transition-colors" />
+                                                )}
+                                            </div>
+                                        )}
+
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <h4 className="font-semibold text-slate-900 truncate">{outcome.traineeName}</h4>
@@ -1576,6 +1820,21 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                             >
                                                 <Edit2 size={14} className="text-slate-500" />
                                             </button>
+
+                                            {/* Confirm Button */}
+                                            {outcomeStatusFilter === 'PENDING' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleConfirmIndividualOutcome(outcome.id, outcome.evidenceId);
+                                                    }}
+                                                    className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                                                    title="Confirm / Sign Off"
+                                                >
+                                                    <CheckCircle2 size={14} className="text-green-600" />
+                                                </button>
+                                            )}
+
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();

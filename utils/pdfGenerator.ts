@@ -497,6 +497,10 @@ export const generateEvidencePDF = (item: EvidenceItem, profile: UserProfile, al
     case EvidenceType.CRS:
       generateCRSPDF(doc, item, yPos, formColor);
       break;
+    case EvidenceType.ARCPFullReview:
+    case EvidenceType.ARCPInterimReview:
+      generateARCPPDF(doc, item, yPos, formColor);
+      break;
     default:
       if (item.notes) {
         yPos = addStyledSectionHeader(doc, 'Details', yPos, formColor);
@@ -1326,17 +1330,17 @@ const generateCRSPDF = (
       yPos = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    if (r.comments) {
+    if (r.sectionC) {
       yPos = addStyledSectionHeader(doc, 'Comments & Recommendations', yPos, formColor);
 
-      if (r.comments.especiallyGood) {
-        yPos = addStyledTextField(doc, 'Especially Good', r.comments.especiallyGood, yPos);
+      if (r.sectionC.especiallyGood) {
+        yPos = addStyledTextField(doc, 'Especially Good', r.sectionC.especiallyGood, yPos);
       }
-      if (r.comments.suggestionsForImprovement) {
-        yPos = addStyledTextField(doc, 'Suggestions for Improvement', r.comments.suggestionsForImprovement, yPos);
+      if (r.sectionC.suggestionsForImprovement) {
+        yPos = addStyledTextField(doc, 'Suggestions for Improvement', r.sectionC.suggestionsForImprovement, yPos);
       }
-      if (r.comments.agreedActionPlan) {
-        yPos = addStyledTextField(doc, 'Agreed Action Plan', r.comments.agreedActionPlan, yPos);
+      if (r.sectionC.agreedActionPlan) {
+        yPos = addStyledTextField(doc, 'Agreed Action Plan', r.sectionC.agreedActionPlan, yPos);
       }
     }
   }
@@ -1643,3 +1647,103 @@ export const generateComplicationLogPDF = (cases: ComplicationPDFData[], profile
 
   return doc.output('blob');
 };
+
+// ============================================================================
+// ARCP PDF GENERATOR
+// ============================================================================
+
+const generateARCPPDF = (
+  doc: jsPDF,
+  item: EvidenceItem,
+  startY: number,
+  formColor: { r: number; g: number; b: number }
+) => {
+  let yPos = startY;
+  const data = item.data;
+
+  if (!data) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
+    doc.text('No ARCP data available', 14, yPos);
+    return;
+  }
+
+  // Outcome Banner
+  const outcomeColor = data.outcome === 'Outcome 1' || data.outcome === 'Outcome 6'
+    ? COLORS.green
+    : COLORS.amber;
+
+  yPos = checkPageBreak(doc, yPos, 40);
+
+  // Outcome Box
+  doc.setFillColor(outcomeColor.r, outcomeColor.g, outcomeColor.b);
+  doc.roundedRect(14, yPos, doc.internal.pageSize.getWidth() - 28, 16, 2, 2, 'F');
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('ARCP OUTCOME', doc.internal.pageSize.getWidth() / 2, yPos + 6, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.text(data.outcome || 'Pending', doc.internal.pageSize.getWidth() / 2, yPos + 12, { align: 'center' });
+
+  yPos += 25;
+
+  // Panel Information
+  yPos = addStyledSectionHeader(doc, 'Panel Information', yPos, formColor);
+  yPos = addInfoRow(doc, 'Review Type', item.type === 'ARCP Full Review' ? 'Full ARCP' : 'Interim Review', yPos);
+  yPos = addInfoRow(doc, 'Panel Date', data.panelReviewDate || item.date, yPos);
+  if (data.chairName) yPos = addInfoRow(doc, 'Panel Chair', data.chairName, yPos);
+  yPos += 5;
+
+  // Assessment Details
+  yPos = addStyledSectionHeader(doc, 'Assessment Details', yPos, formColor);
+  if (data.gradeAssessed) yPos = addInfoRow(doc, 'Grade Assessed', data.gradeAssessed, yPos);
+  if (data.nextTrainingGrade) yPos = addInfoRow(doc, 'Next Training Grade', data.nextTrainingGrade, yPos);
+
+  // EPAs Reviewed
+  if (data.currentArcpEpas && data.currentArcpEpas.length > 0) {
+    yPos += 5;
+    yPos = checkPageBreak(doc, yPos, 20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
+    doc.text('EPAs Reviewed:', 14, yPos);
+    yPos += 6;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    const epaLines = doc.splitTextToSize(data.currentArcpEpas.join(', '), 170);
+    doc.text(epaLines, 14, yPos);
+    yPos += epaLines.length * 5 + 5;
+  }
+  yPos += 5;
+
+  // Panel Comments
+  if (data.panelComments) {
+    yPos = addStyledSectionHeader(doc, 'Panel Comments', yPos, formColor);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLORS.slate700.r, COLORS.slate700.g, COLORS.slate700.b);
+    const commentsLines = doc.splitTextToSize(data.panelComments, 180);
+    doc.text(commentsLines, 14, yPos);
+    yPos += commentsLines.length * 5 + 5;
+  }
+
+  // Signature / Verification
+  yPos += 10;
+  yPos = checkPageBreak(doc, yPos, 30);
+
+  doc.setDrawColor(COLORS.slate300.r, COLORS.slate300.g, COLORS.slate300.b);
+  doc.setLineWidth(0.5);
+  doc.line(14, yPos, doc.internal.pageSize.getWidth() - 14, yPos);
+  yPos += 10;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(COLORS.slate500.r, COLORS.slate500.g, COLORS.slate500.b);
+  doc.text('This document certifies the outcome of the Annual Review of Competence Progression (ARCP).', 14, yPos);
+  yPos += 5;
+  doc.text(`Locked Date: ${data.lockDate || 'N/A'}`, 14, yPos);
+};
+

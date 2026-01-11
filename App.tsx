@@ -269,86 +269,81 @@ const App: React.FC = () => {
   }, [profile]);
 
   // Load evidence from Supabase when session exists
-  useEffect(() => {
+  const fetchEvidence = React.useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !session?.user) return;
 
-    let isMounted = true;
+    setIsLoadingEvidence(true);
+    // Optimised Fetch:
+    // 1. Fetch ALL data for non-legacy items (they are small/modern)
+    const nonLegacyPromise = supabase
+      .from('evidence')
+      .select('*')
+      .eq('trainee_id', session.user.id)
+      .neq('type', 'Curriculum Catch Up')
+      .neq('type', 'FourteenFish')
+      .order('event_date', { ascending: false });
 
-    const fetchEvidence = async () => {
-      setIsLoadingEvidence(true);
-      // Optimised Fetch:
-      // 1. Fetch ALL data for non-legacy items (they are small/modern)
-      const nonLegacyPromise = supabase
-        .from('evidence')
-        .select('*')
-        .eq('trainee_id', session.user.id)
-        .neq('type', 'Curriculum Catch Up')
-        .neq('type', 'FourteenFish')
-        .order('event_date', { ascending: false });
+    // 2. Fetch LIGHTWEIGHT data for legacy items (exclude 'data' column which has base64)
+    const legacyPromise = supabase
+      .from('evidence')
+      .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
+      .eq('trainee_id', session.user.id)
+      .in('type', ['Curriculum Catch Up', 'FourteenFish'])
+      .order('event_date', { ascending: false });
 
-      // 2. Fetch LIGHTWEIGHT data for legacy items (exclude 'data' column which has base64)
-      const legacyPromise = supabase
-        .from('evidence')
-        .select('id, trainee_id, type, status, title, event_date, sia, level, notes, supervisor_name, supervisor_email, supervisor_gmc, created_at, updated_at')
-        .eq('trainee_id', session.user.id)
-        .in('type', ['Curriculum Catch Up', 'FourteenFish'])
-        .order('event_date', { ascending: false });
+    const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
 
-      const [nonLegacyResponse, legacyResponse] = await Promise.all([nonLegacyPromise, legacyPromise]);
+    if (nonLegacyResponse.error) console.error('Error fetching modern evidence:', nonLegacyResponse.error);
+    if (legacyResponse.error) console.error('Error fetching legacy evidence:', legacyResponse.error);
 
-      if (nonLegacyResponse.error) console.error('Error fetching modern evidence:', nonLegacyResponse.error);
-      if (legacyResponse.error) console.error('Error fetching legacy evidence:', legacyResponse.error);
+    const combinedData = [
+      ...(nonLegacyResponse.data || []),
+      ...(legacyResponse.data || [])
+    ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
-      const combinedData = [
-        ...(nonLegacyResponse.data || []),
-        ...(legacyResponse.data || [])
-      ].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+    // Process data
+    if (combinedData) {
+      const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+      // @ts-ignore
+      const mappedItems = combinedData.map(mapRowToEvidenceItem);
+      setAllEvidence(mappedItems);
+    }
 
-      // Process data
-      if (combinedData) {
-        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
-        // @ts-ignore
-        const mappedItems = combinedData.map(mapRowToEvidenceItem);
-        setAllEvidence(mappedItems);
-      }
+    setIsLoadingEvidence(false);
 
-      setIsLoadingEvidence(false);
+    // Fetch Portfolio Progress
+    const { data: progressData, error: progressError } = await supabase
+      .from('portfolio_progress')
+      .select('*')
+      .eq('trainee_id', session.user.id);
 
+    if (progressError) {
+      console.error('Error fetching portfolio progress:', progressError);
+    } else if (progressData) {
+      setPortfolioProgress(progressData);
+    }
 
+    // Fetch ARCP Prep Data
+    const { data: arcpData, error: arcpError } = await supabase
+      .from('arcp_prep')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
 
-      // Fetch Portfolio Progress
-      const { data: progressData, error: progressError } = await supabase
-        .from('portfolio_progress')
-        .select('*')
-        .eq('trainee_id', session.user.id);
-
-      if (progressError) {
-        console.error('Error fetching portfolio progress:', progressError);
-      } else if (progressData) {
-        setPortfolioProgress(progressData);
-      }
-
-      // Fetch ARCP Prep Data
-      const { data: arcpData, error: arcpError } = await supabase
-        .from('arcp_prep')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (arcpError) {
-        console.error('Error fetching ARCP prep data:', arcpError);
-      } else if (arcpData) {
-        setArcpPrepData(arcpData);
-      } else {
-        // No row yet, set undefined or create one lazily? Local state remains undefined, component will handle it or create on first save.
-        setArcpPrepData(undefined);
-      }
-    };
-
-    fetchEvidence();
-
-    return () => { isMounted = false; };
+    if (arcpError) {
+      console.error('Error fetching ARCP prep data:', arcpError);
+    } else if (arcpData) {
+      setArcpPrepData(arcpData);
+    } else {
+      setArcpPrepData(undefined);
+    }
   }, [session?.user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchEvidence();
+    return () => { isMounted = false; };
+  }, [fetchEvidence]);
 
 
   // Supabase session lifecycle
@@ -596,6 +591,7 @@ const App: React.FC = () => {
       const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
       // @ts-ignore
       const mappedItems = combinedData.map(mapRowToEvidenceItem);
+
       setViewingTraineeEvidence(mappedItems);
     }
   }, [viewingTraineeId]);
@@ -2889,7 +2885,10 @@ const App: React.FC = () => {
               }
               handleEditEvidence(item);
             }}
-            onRefreshEvidence={fetchTraineeEvidence}
+            onRefreshEvidence={async () => {
+              await fetchEvidence();
+              await fetchTraineeEvidence();
+            }}
           />
         );
       // Ticket System Views

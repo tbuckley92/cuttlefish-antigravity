@@ -60,6 +60,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   excludeType,
   epaLinkingMode = false
 }) => {
+
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
   const [filterYear, setFilterYear] = useState<string>('All');
@@ -86,6 +87,12 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       // Exclude ARCP Prep items from the main Evidence table
       if (item.type === EvidenceType.ARCPPrep) return false;
 
+      // Hide ARCP outcomes unless they are SignedOff (CONFIRMED)
+      if ((item.type === EvidenceType.ARCPFullReview || item.type === EvidenceType.ARCPInterimReview) &&
+        item.status !== EvidenceStatus.SignedOff) {
+        return false;
+      }
+
       // In selection mode, exclude same-type evidence (e.g., EPAs can't link to EPAs)
       if (selectionMode && excludeType && item.type === excludeType) return false;
 
@@ -100,6 +107,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         (filterStatus === 'Draft' && item.status === EvidenceStatus.Draft) ||
         (filterStatus === 'Submitted' && item.status === EvidenceStatus.Submitted) ||
         (filterStatus === 'Complete' && item.status === EvidenceStatus.SignedOff);
+
+
 
       return typeMatch && siaMatch && yearMatch && statusMatch;
     });
