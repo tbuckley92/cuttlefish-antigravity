@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Logo } from '../components/Logo';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
@@ -14,10 +14,7 @@ export const Auth: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  const redirectTo = useMemo(() => {
-    const override = import.meta.env.VITE_SUPABASE_REDIRECT_URL as string | undefined;
-    return override || window.location.origin;
-  }, []);
+
 
   const disabled = !email.trim() || !password || isBusy;
 
@@ -55,27 +52,7 @@ export const Auth: React.FC = () => {
     }
   };
 
-  const handleGoogle = async () => {
-    setError(null);
-    setInfo(null);
 
-    if (!isSupabaseConfigured || !supabase) {
-      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-      return;
-    }
-
-    setIsBusy(true);
-    try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo },
-      });
-      if (oauthError) throw oauthError;
-    } catch (err: any) {
-      setError(err?.message || 'Google sign-in failed.');
-      setIsBusy(false);
-    }
-  };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6 py-10">
@@ -97,18 +74,16 @@ export const Auth: React.FC = () => {
             <button
               type="button"
               onClick={() => setMode('sign-in')}
-              className={`py-2 rounded-xl text-[11px] font-black tracking-widest transition-all ${
-                mode === 'sign-in' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className={`py-2 rounded-xl text-[11px] font-black tracking-widest transition-all ${mode === 'sign-in' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
+                }`}
             >
               SIGN IN
             </button>
             <button
               type="button"
               onClick={() => setMode('sign-up')}
-              className={`py-2 rounded-xl text-[11px] font-black tracking-widest transition-all ${
-                mode === 'sign-up' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className={`py-2 rounded-xl text-[11px] font-black tracking-widest transition-all ${mode === 'sign-up' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
+                }`}
             >
               SIGN UP
             </button>
@@ -125,20 +100,7 @@ export const Auth: React.FC = () => {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={isBusy}
-            className="w-full py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all shadow-sm disabled:opacity-60"
-          >
-            Continue with Google
-          </button>
 
-          <div className="my-6 flex items-center gap-4">
-            <div className="h-px bg-slate-200 flex-1" />
-            <span className="text-[10px] uppercase tracking-widest font-black text-slate-400">or</span>
-            <div className="h-px bg-slate-200 flex-1" />
-          </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div className="relative">

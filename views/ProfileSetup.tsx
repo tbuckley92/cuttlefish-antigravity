@@ -123,6 +123,7 @@ export const ProfileSetup: React.FC<{
         cct_date: values.cct_date || null,
         arcp_month: values.arcp_month || null,
         fte: values.fte ?? 100,
+        roles: values.base_role === 'RESIDENT' ? ['Trainee'] : ['Supervisor'],
       };
 
       const { error: upsertError } = await supabase.from('user_profile').upsert(payload, {
@@ -295,8 +296,8 @@ const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean)
     type="button"
     onClick={() => onChange(!checked)}
     className={`p-4 rounded-2xl border text-left transition-all ${checked
-        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
-        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800'
+      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
       }`}
   >
     <div className="flex items-center justify-between">
