@@ -31,7 +31,7 @@ interface EPAFormProps {
   onLinkRequested: (reqIndex: number | string, sectionIndex: number, currentFormParams?: any) => void;
   onRemoveLink: (reqKey: string, evId: string) => void;
   onViewLinkedEvidence?: (evidenceId: string, section?: number) => void;
-  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string) => void;
+  onCompleteMandatoryForm?: (formType: 'CRS' | 'OSATs' | 'EPAOperatingList' | 'DOPs', defaultSubtype: string, reqKey: string, sectionIndex: number, criterionIndex: number, originLevel: number, originSia: string, supervisorName?: string, supervisorEmail?: string) => void;
   linkedEvidenceData: Record<string, string[]>;
   allEvidence?: EvidenceItem[];
   isSupervisor?: boolean;
@@ -657,7 +657,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   {/* Complete CRS/OSATS button for mandatory form criteria */}
                   {onCompleteMandatoryForm && req.startsWith('CRS ') && getCRSSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      onClick={() => onCompleteMandatoryForm('CRS', getCRSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia, supervisorName, supervisorEmail)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold uppercase text-indigo-600 hover:bg-indigo-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete CRS
@@ -665,7 +665,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && req.startsWith('OSATS ') && getOSATSSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      onClick={() => onCompleteMandatoryForm('OSATs', getOSATSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia, supervisorName, supervisorEmail)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[10px] font-bold uppercase text-orange-600 hover:bg-orange-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete OSATS
@@ -673,7 +673,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && req.startsWith('DOPS ') && getDOPSSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('DOPs', getDOPSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      onClick={() => onCompleteMandatoryForm('DOPs', getDOPSSubtypeFromCriterion(req)!, reqKey, activeSection, idx, selectedLevel, selectedSia, supervisorName, supervisorEmail)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-[10px] font-bold uppercase text-teal-600 hover:bg-teal-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete DOPS
@@ -681,7 +681,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && getCBDSubtypeFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('CbD', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      onClick={() => onCompleteMandatoryForm('CbD', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia, supervisorName, supervisorEmail)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-[10px] font-bold uppercase text-purple-600 hover:bg-purple-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete CbD
@@ -689,7 +689,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
                   )}
                   {onCompleteMandatoryForm && getOperatingListFromCriterion(req) && (
                     <button
-                      onClick={() => onCompleteMandatoryForm('EPAOperatingList', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia)}
+                      onClick={() => onCompleteMandatoryForm('EPAOperatingList', selectedSia || '', reqKey, activeSection, idx, selectedLevel, selectedSia, supervisorName, supervisorEmail)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-[10px] font-bold uppercase text-purple-600 hover:bg-purple-100 transition-all"
                     >
                       <ClipboardCheck size={14} /> Complete EPA

@@ -1614,14 +1614,16 @@ const App: React.FC = () => {
     sectionIndex: number,
     criterionIndex: number,
     originLevel?: number,
-    originSia?: string
+    originSia?: string,
+    supervisorName?: string,
+    supervisorEmail?: string
   ) => {
     // Store the current EPA form params so we can return
     const epaParams: FormParams = {
       sia: originSia ?? (selectedFormParams?.sia || ''),
       level: originLevel ?? (selectedFormParams?.level || 1),
-      supervisorName: selectedFormParams?.supervisorName,
-      supervisorEmail: selectedFormParams?.supervisorEmail,
+      supervisorName: supervisorName || selectedFormParams?.supervisorName,
+      supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
       id: selectedFormParams?.id,
       status: selectedFormParams?.status,
       initialSection: sectionIndex
@@ -1645,8 +1647,8 @@ const App: React.FC = () => {
       setSelectedFormParams({
         sia: originSia ?? (selectedFormParams?.sia || ''),
         level: originLevel ?? (selectedFormParams?.level || 1),
-        supervisorName: selectedFormParams?.supervisorName,
-        supervisorEmail: selectedFormParams?.supervisorEmail,
+        supervisorName: supervisorName || selectedFormParams?.supervisorName,
+        supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
         type: defaultSubtype, // This will be used for initialCrsType
         originView: View.EPAForm,
         originFormParams: epaParams
@@ -1656,8 +1658,8 @@ const App: React.FC = () => {
       setSelectedFormParams({
         sia: originSia ?? (selectedFormParams?.sia || ''),
         level: originLevel ?? (selectedFormParams?.level || 1),
-        supervisorName: selectedFormParams?.supervisorName,
-        supervisorEmail: selectedFormParams?.supervisorEmail,
+        supervisorName: supervisorName || selectedFormParams?.supervisorName,
+        supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
         type: defaultSubtype, // This will be used for initialOsatsType
         originView: View.EPAForm,
         originFormParams: epaParams
@@ -1667,8 +1669,8 @@ const App: React.FC = () => {
       setSelectedFormParams({
         sia: originSia ?? (selectedFormParams?.sia || ''),
         level: originLevel ?? (selectedFormParams?.level || 1),
-        supervisorName: selectedFormParams?.supervisorName,
-        supervisorEmail: selectedFormParams?.supervisorEmail,
+        supervisorName: supervisorName || selectedFormParams?.supervisorName,
+        supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
         type: defaultSubtype, // This will be used for initialDopsType
         originView: View.EPAForm,
         originFormParams: epaParams
@@ -1678,8 +1680,8 @@ const App: React.FC = () => {
       // Navigate to EPA Operating List Form
       setSelectedFormParams({
         sia: defaultSubtype, // Subspecialty for the operating list
-        supervisorName: selectedFormParams?.supervisorName,
-        supervisorEmail: selectedFormParams?.supervisorEmail,
+        supervisorName: supervisorName || selectedFormParams?.supervisorName,
+        supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
         originView: View.EPAForm,
         originFormParams: epaParams
       });
@@ -1688,8 +1690,8 @@ const App: React.FC = () => {
       setSelectedFormParams({
         sia: originSia ?? (selectedFormParams?.sia || ''),
         level: originLevel ?? (selectedFormParams?.level || 1),
-        supervisorName: selectedFormParams?.supervisorName,
-        supervisorEmail: selectedFormParams?.supervisorEmail,
+        supervisorName: supervisorName || selectedFormParams?.supervisorName,
+        supervisorEmail: supervisorEmail || selectedFormParams?.supervisorEmail,
         originView: View.EPAForm,
         originFormParams: epaParams
       });
@@ -1981,10 +1983,10 @@ const App: React.FC = () => {
       return;
     }
 
-    // Update linkedEvidence state for forms
+    // Update linkedEvidence state for forms - APPEND instead of overwrite
     setLinkedEvidence(prev => ({
       ...prev,
-      [linkingReqIdx]: selectedIds
+      [linkingReqIdx]: [...new Set([...(prev[linkingReqIdx] || []), ...selectedIds])]
     }));
 
     // Clear selection flags from evidence
@@ -1996,8 +1998,12 @@ const App: React.FC = () => {
     setIsSelectionMode(false);
     setLinkingReqIdx(null);
 
-    // If we're returning to a form, restore the form params and view
-    // (This logic already exists in the app flow)
+    // Navigate back to the originating form/view
+    if (returnTarget) {
+      setCurrentView(returnTarget.originView);
+    } else {
+      setCurrentView(View.Dashboard);
+    }
   };
 
 
