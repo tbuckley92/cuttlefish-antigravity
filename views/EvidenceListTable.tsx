@@ -3,6 +3,7 @@ import React from 'react';
 import {
     FileText, CheckCircle2, Clock, ShieldCheck, FileDown, Trash2
 } from '../components/Icons';
+import { StatusBadge } from '../components/StatusBadge';
 import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
 import { generateEvidencePDF } from '../utils/pdfGenerator';
 import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
@@ -196,13 +197,7 @@ export const EvidenceListTable: React.FC<EvidenceListTableProps> = ({
                                         {formatDate(item.date)}
                                     </td>
                                     <td className="px-2 py-3 text-center">
-                                        <span className={`
-                      inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium
-                      ${getStatusColors(item.status)}
-                    `}>
-                                            {getStatusIcon(item.status)}
-                                            {item.status}
-                                        </span>
+                                        <StatusBadge status={item.status} />
                                     </td>
                                     <td className="px-2 py-3 text-center">
                                         <div className="flex items-center justify-center gap-1">

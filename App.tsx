@@ -46,6 +46,7 @@ import { Auth } from './views/Auth';
 import { ProfileSetup } from './views/ProfileSetup';
 import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
 import { uuidv4 } from './utils/uuid';
+import { ThemeProvider, useTheme, THEME_OPTIONS } from './utils/ThemeContext';
 import { uploadEvidenceFile } from './utils/storageUtils';
 
 
@@ -3028,14 +3029,14 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-300 bg-[#f8fafc] text-slate-900">
+    <div className="min-h-screen transition-colors duration-300 bg-theme-surface-alt text-theme-text">
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-500/[0.03] blur-[120px] rounded-full"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-theme-primary/[0.03] blur-[120px] rounded-full"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-teal-500/[0.03] blur-[120px] rounded-full"></div>
       </div>
 
       {!isSelectionMode && !isViewingLinkedEvidence && (
-        <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 px-6">
+        <nav className="sticky top-0 z-40 backdrop-blur-xl border-b border-theme-border px-6">
           <div className="max-w-7xl mx-auto h-20 flex items-center justify-between">
             <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {
               if (currentRole === UserRole.Trainee) {
@@ -3045,13 +3046,13 @@ const App: React.FC = () => {
                 setCurrentView(View.SupervisorDashboard);
               }
             }}>
-              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform border border-slate-200">
-                <Logo size={24} className="text-indigo-600" />
+              <div className="w-9 h-9 rounded-theme-button bg-theme-surface flex items-center justify-center shadow-theme-card group-hover:scale-110 transition-transform border border-theme-border">
+                <Logo size={24} className="text-theme-primary" />
               </div>
-              <span className="font-bold text-lg tracking-tight text-slate-900">EyePortfolio</span>
+              <span className="font-bold text-lg tracking-tight text-theme-text">EyePortfolio</span>
             </div>
 
-            <div className="hidden md:flex items-center gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+            <div className="hidden md:flex items-center gap-1.5 bg-theme-border/50 p-1.5 rounded-theme-xl border border-theme-border shadow-inner">
               {currentRole === UserRole.Trainee ? (
                 <>
                   <NavTab
@@ -3261,6 +3262,12 @@ const App: React.FC = () => {
                     {/* Divider */}
                     <div className="border-t border-slate-200"></div>
 
+                    {/* Theme Section */}
+                    <ThemeToggleSection />
+
+                    {/* Divider */}
+                    <div className="border-t border-slate-200"></div>
+
                     {/* Support Section */}
                     <div className="p-2">
                       <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Support</p>
@@ -3412,10 +3419,10 @@ const NavTab: React.FC<{ active: boolean; label: string; icon: React.ReactNode; 
   <button
     onClick={onClick}
     className={`
-      flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[11px] font-black tracking-widest transition-all
+      flex items-center gap-2.5 px-5 py-2.5 rounded-theme-button text-[11px] font-black tracking-widest transition-all
       ${active
-        ? 'bg-slate-900 text-white shadow-md scale-[1.02]'
-        : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+        ? 'bg-theme-text text-theme-surface shadow-md scale-[1.02]'
+        : 'text-theme-text-muted hover:text-theme-text hover:bg-theme-surface/50'
       }
     `}
   >
@@ -3423,6 +3430,31 @@ const NavTab: React.FC<{ active: boolean; label: string; icon: React.ReactNode; 
     {label}
   </button>
 );
+
+// Theme toggle component for settings menu
+const ThemeToggleSection: React.FC = () => {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="p-2">
+      <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Theme</p>
+      <div className="px-3 flex gap-2">
+        {THEME_OPTIONS.map(option => (
+          <button
+            key={option.value}
+            onClick={() => setTheme(option.value)}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${theme === option.value
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const RoleMenuItem: React.FC<{
   label: string;
@@ -3457,4 +3489,11 @@ const RoleMenuItem: React.FC<{
   </button>
 );
 
-export default App;
+// Wrapper component to provide theme context
+const AppWithTheme: React.FC = () => (
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
+
+export default AppWithTheme;
