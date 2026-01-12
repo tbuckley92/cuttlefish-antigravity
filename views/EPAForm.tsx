@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User,
   Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2,
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
-  FileText, Mail, ShieldCheck, Save, X, Eye
+  FileText, Mail, ShieldCheck, Save, X, Eye, ChevronUp
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
@@ -274,12 +274,89 @@ const EPAForm: React.FC<EPAFormProps> = ({
   const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
   const [operatingListSubspecialty, setOperatingListSubspecialty] = useState("");
 
+  // Refs for smooth scroll navigation
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+
   const activeSectionsList = (() => {
     if (selectedLevel === 1) return LEVEL_1_SECTIONS;
     if (selectedLevel === 2) return LEVEL_2_SECTIONS;
     if (selectedLevel === 4 && selectedSia === "Operating List") return OPERATING_LIST_SECTIONS;
     return LEVEL_3_SECTIONS;
   })();
+
+  // Get visible sections (filter out empty ones for L3/L4)
+  const getVisibleSections = useCallback(() => {
+    if (selectedLevel === 3 || selectedLevel === 4) {
+      const specialtyData = EPA_SPECIALTY_DATA[selectedLevel]?.[selectedSia];
+      if (specialtyData && selectedSia !== "Operating List") {
+        return activeSectionsList.filter((_, idx) => {
+          if (idx === 0) return true; // Always show A
+          if (idx === 1) return specialtyData.criteria.sectionB?.length > 0;
+          if (idx === 2) return specialtyData.criteria.sectionC?.length > 0;
+          if (idx === 3) return specialtyData.criteria.sectionD?.length > 0;
+          if (idx === 4) return specialtyData.criteria.sectionE?.length > 0;
+          if (idx === 5) return specialtyData.criteria.sectionF?.length > 0;
+          return true;
+        });
+      }
+    }
+    return activeSectionsList;
+  }, [selectedLevel, selectedSia, activeSectionsList]);
+
+  // Scroll to a specific section
+  const scrollToSection = useCallback((sectionIndex: number) => {
+    const sectionElement = sectionRefs.current[sectionIndex];
+    if (sectionElement && scrollContainerRef.current) {
+      sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveSection(sectionIndex);
+    }
+  }, []);
+
+  // Navigate to previous section
+  const goToPreviousSection = useCallback(() => {
+    if (activeSection > 0) {
+      scrollToSection(activeSection - 1);
+    }
+  }, [activeSection, scrollToSection]);
+
+  // Navigate to next section
+  const goToNextSection = useCallback(() => {
+    const visibleSections = getVisibleSections();
+    if (activeSection < visibleSections.length - 1) {
+      scrollToSection(activeSection + 1);
+    }
+  }, [activeSection, getVisibleSections, scrollToSection]);
+
+  // IntersectionObserver to track which section is currently visible
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionIdx = sectionRefs.current.findIndex(ref => ref === entry.target);
+            if (sectionIdx !== -1 && sectionIdx !== activeSection) {
+              setActiveSection(sectionIdx);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -60% 0px',
+        threshold: 0
+      }
+    );
+
+    sectionRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => observer.disconnect();
+  }, [selectedLevel, selectedSia]);
 
   // Lock based on status only (Submitted or SignedOff/Complete) - UNLESS Supervisor
   const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
@@ -1109,7 +1186,7 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
       </div>
 
       {/* Left Column: Metadata (Desktop) */}
-      <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 overflow-y-auto pr-2">
+      <div className="hidden lg:flex lg:col-span-4 flex-col gap-2 overflow-y-auto pr-2">
         <button
           onClick={onBack}
           className={`flex items - center gap - 2 text - sm transition - colors ${originView ? 'font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300' : 'text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white/70'} `}
@@ -1117,14 +1194,14 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
           <ArrowLeft size={16} /> {backButtonText}
         </button>
 
-        <GlassCard className="p-6">
-          <div className="flex justify-between items-start mb-6">
+        <GlassCard className="p-4">
+          <div className="flex justify-between items-start mb-4">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white/90">EPA Final Record</h2>
             <span className={`px - 2 py - 1 rounded - full text - [10px] font - bold uppercase tracking - wider ${status === EvidenceStatus.SignedOff ? 'bg-green-100 text-green-700' : status === EvidenceStatus.Submitted ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'} `}>
               {status}
             </span>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-3">
             <MetadataField label="EPA Level">
               <select
                 disabled={isReadOnly}
@@ -1161,19 +1238,68 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
               </div>
             </MetadataField>
 
-            <div className="pt-6 border-t border-slate-100 dark:border-white/10">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-xs text-slate-400 uppercase font-semibold">Progress</span>
-                <span className="text-xs text-slate-600">
-                  {activeSectionsList.length > 0 ? `${activeSectionsList.length} Sections` : 'EPA Details'}
-                </span>
+            {/* Section Navigation Sidebar */}
+            <div className="pt-3 border-t border-slate-100 dark:border-white/10">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Sections</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={goToPreviousSection}
+                    disabled={activeSection === 0}
+                    className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Previous section"
+                  >
+                    <ChevronUp size={16} className="text-slate-500 dark:text-white/50" />
+                  </button>
+                  <button
+                    onClick={goToNextSection}
+                    disabled={activeSection >= getVisibleSections().length - 1}
+                    className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Next section"
+                  >
+                    <ChevronDown size={16} className="text-slate-500 dark:text-white/50" />
+                  </button>
+                </div>
               </div>
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${activeSectionsList.length || 1}, minmax(0, 1fr))` }}>
-                {activeSectionsList.length > 0 ? activeSectionsList.map((_, i) => (
-                  <div key={i} className={`h - 1 rounded - full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-white/10'} `}></div>
-                )) : (
-                  <div className="h-1 col-span-full rounded-full bg-indigo-500"></div>
-                )}
+
+              <div className="space-y-1">
+                {activeSectionsList.map((section, idx) => {
+                  // Hide empty sections for Level 3 and 4
+                  if (selectedLevel === 3 || selectedLevel === 4) {
+                    const specialtyData = getSpecialtyData();
+                    if (specialtyData && selectedSia !== "Operating List") {
+                      if (idx === 1 && (!specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0)) return null;
+                      if (idx === 2 && (!specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0)) return null;
+                      if (idx === 3 && (!specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0)) return null;
+                      if (idx === 4 && (!specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0)) return null;
+                      if (idx === 5 && (!specialtyData.criteria.sectionF || specialtyData.criteria.sectionF.length === 0)) return null;
+                    }
+                  }
+
+                  const isActive = activeSection === idx;
+                  const sectionLetter = section.split('.')[0]; // Gets "A", "B", etc.
+
+                  return (
+                    <button
+                      key={section}
+                      onClick={() => scrollToSection(idx)}
+                      className={`epa-section-nav-item w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left group ${isActive
+                        ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                        : 'text-slate-500 dark:text-white/40 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-700 dark:hover:text-white/60'
+                        }`}
+                    >
+                      <div className={`epa-section-dot w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isActive
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 group-hover:bg-slate-200 dark:group-hover:bg-white/10'
+                        }`}>
+                        {sectionLetter}
+                      </div>
+                      <span className="text-xs font-medium truncate">
+                        {section.split('. ')[1] || section}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1188,55 +1314,14 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
         </GlassCard>
       </div>
 
-      {/* Right Column: Section Content */}
-      <div className="lg:col-span-8 flex flex-col lg:overflow-hidden">
-        {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (
-          <div className="sticky top-0 lg:static z-20 bg-[#f8fafc]/80 dark:bg-[#0d1117]/80 backdrop-blur-lg lg:bg-transparent py-2 lg:py-0 border-b lg:border-none border-slate-200 dark:border-white/10 flex gap-1 mb-4 lg:mb-8 overflow-x-auto no-scrollbar">
-            {activeSectionsList.map((section, idx) => {
-              // Hide empty sections for Level 3 and 4
-              if (selectedLevel === 3 || selectedLevel === 4) {
-                const specialtyData = getSpecialtyData();
-                if (specialtyData) {
-                  // Skip hiding logic for Operating List (it has custom structure)
-                  if (selectedSia !== "Operating List") {
-                    // Section A (idx 0) checking
-                    if (idx === 0) {
-                      if ((!specialtyData.learningOutcomes || specialtyData.learningOutcomes.length === 0) && selectedLevel === 4) {
-                        // Keep A visible for now as it usually has content, or at least the Narrative field
-                      }
-                    }
-                    // Section B (idx 1)
-                    if (idx === 1 && (!specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0)) return null;
-                    // Section C (idx 2)
-                    if (idx === 2 && (!specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0)) return null;
-                    // Section D (idx 3)
-                    if (idx === 3 && (!specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0)) return null;
-                    // Section E (idx 4)
-                    if (idx === 4 && (!specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0)) return null;
-                    // Section F (idx 5)
-                    if (idx === 5 && (!specialtyData.criteria.sectionF || specialtyData.criteria.sectionF.length === 0)) return null;
-                  }
-                }
-              }
-
-              return (
-                <button
-                  key={section}
-                  onClick={() => setActiveSection(idx)}
-                  className={`px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}`}
-                >
-                  {section}
-                  {activeSection === idx && (
-                    <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-0">
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+      {/* Right Column: Section Content with Continuous Scroll */}
+      <div className="lg:col-span-8 flex flex-col lg:overflow-hidden relative">
+        {/* Content Scroll Container */}
+        <div
+          ref={scrollContainerRef}
+          className="epa-scroll-container flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-16 relative"
+        >
+          <div className="epa-section-content">
             {!isReadOnly && (selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (activeSection === 1 || activeSection === 2 || activeSection === 3 || activeSection === 4) && (
               <div className="flex justify-end mb-4">
                 <button
@@ -1248,97 +1333,121 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-8">
               {selectedLevel === 1 ? (
                 <>
-                  {activeSection === 0 && renderLearningOutcomes()}
-                  {activeSection === 1 && LEVEL_1_CRITERIA.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
-                  {activeSection === 2 && (
-                    <>
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                        </p>
-                      </div>
+                  {/* Section A: Learning Outcomes */}
+                  <div ref={el => sectionRefs.current[0] = el} className="scroll-mt-4">
+                    {renderLearningOutcomes()}
+                  </div>
+
+                  {/* Section B: Mandatory CRS Forms */}
+                  <div ref={el => sectionRefs.current[1] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">B. Mandatory CRS Forms</h3>
+                    <div className="space-y-4">
+                      {LEVEL_1_CRITERIA.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
+                    </div>
+                  </div>
+
+                  {/* Section C: Mandatory outpatient requirements */}
+                  <div ref={el => sectionRefs.current[2] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">C. Mandatory outpatient requirements</h3>
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                      <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                        The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       {LEVEL_1_CRITERIA.sectionC.map((req, idx) => renderCriterion(req, idx, 'C'))}
-                    </>
-                  )}
-                  {activeSection === 3 && LEVEL_1_CRITERIA.sectionD.map((req, idx) => renderCriterion(req, idx, 'D'))}
-                  {activeSection === 4 && (
-                    <>
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                        </p>
-                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section D: Mandatory OSATS */}
+                  <div ref={el => sectionRefs.current[3] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">D. Mandatory OSATS</h3>
+                    <div className="space-y-4">
+                      {LEVEL_1_CRITERIA.sectionD.map((req, idx) => renderCriterion(req, idx, 'D'))}
+                    </div>
+                  </div>
+
+                  {/* Section E: Mandatory requirements in Theatre */}
+                  <div ref={el => sectionRefs.current[4] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">E. Mandatory requirements in Theatre</h3>
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                      <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                        The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       {LEVEL_1_CRITERIA.sectionE.map((req, idx) => renderCriterion(req, idx, 'E'))}
-                    </>
-                  )}
-                  {activeSection === 5 && (
-                    <>
-                      <div className="space-y-4 mb-8">
-                        {LEVEL_1_CRITERIA.sectionF.map((req, idx) => renderCriterion(req, idx, 'F', true))}
+                    </div>
+                  </div>
+
+                  {/* Section F: Ancillary evidence & Entrustment */}
+                  <div ref={el => sectionRefs.current[5] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">F. Ancillary evidence & Entrustment</h3>
+                    <div className="space-y-4 mb-8">
+                      {LEVEL_1_CRITERIA.sectionF.map((req, idx) => renderCriterion(req, idx, 'F', true))}
+                    </div>
+
+                    <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
+                        Section F: Entrustment
+                      </h4>
+                      <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
+                      <div className="space-y-3 mb-6">
+                        {ENTRUSTMENT_LEVELS.map(lvl => (
+                          <label
+                            key={lvl}
+                            className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                          >
+                            <input
+                              type="radio"
+                              name="entrustment"
+                              className="hidden"
+                              disabled={isReadOnly}
+                              checked={entrustment === lvl}
+                              onChange={() => setEntrustment(lvl)}
+                            />
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                              {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
+                            </div>
+                            <span className="text-sm font-semibold">{lvl}</span>
+                          </label>
+                        ))}
                       </div>
 
-                      <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
-                          Section F: Entrustment
-                        </h4>
-                        <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
-                        <div className="space-y-3 mb-6">
-                          {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label
-                              key={lvl}
-                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
-                            >
-                              <input
-                                type="radio"
-                                name="entrustment"
-                                className="hidden"
-                                disabled={isReadOnly}
-                                checked={entrustment === lvl}
-                                onChange={() => setEntrustment(lvl)}
-                              />
-                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
-                                {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
-                              </div>
-                              <span className="text-sm font-semibold">{lvl}</span>
-                            </label>
-                          ))}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                            Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            disabled={isReadOnly}
+                            value={aspectsEspeciallyGood}
+                            onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                            className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                            placeholder="Enter aspects which were especially good..."
+                          />
                         </div>
 
-                        <div className="space-y-4">
+                        {entrustment !== "Competent to this level" && entrustment !== "" && (
                           <div>
                             <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                              Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                              Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
                             </label>
                             <textarea
                               disabled={isReadOnly}
-                              value={aspectsEspeciallyGood}
-                              onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                              value={additionalEvidenceNeeded}
+                              onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
                               className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                              placeholder="Enter aspects which were especially good..."
+                              placeholder="Enter additional evidence needed..."
                             />
                           </div>
-
-                          {entrustment !== "Competent to this level" && entrustment !== "" && (
-                            <div>
-                              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                                Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
-                              </label>
-                              <textarea
-                                disabled={isReadOnly}
-                                value={additionalEvidenceNeeded}
-                                onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
-                                className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                                placeholder="Enter additional evidence needed..."
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </GlassCard>
-                    </>
-                  )}
+                        )}
+                      </div>
+                    </GlassCard>
+                  </div>
                 </>
               ) : selectedLevel === 2 ? (
                 <>
@@ -1705,28 +1814,35 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
           </div>
         </div>
 
+        {/* Bottom Fade Overlay */}
+        <div className="epa-fade-overlay hidden lg:block"></div>
+
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
 
-          {/* Row 1: Navigation (Only for Level 1, 2, 3 and 4) */}
+          {/* Row 1: Navigation (Only for Level 1, 2, 3 and 4) - Now using smooth scroll */}
           {(selectedLevel === 1 || selectedLevel === 2 || selectedLevel === 3 || selectedLevel === 4) && (
             <div className="flex justify-between items-center w-full">
               <button
                 disabled={activeSection === 0}
-                onClick={() => setActiveSection(s => s - 1)}
-                className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+                onClick={goToPreviousSection}
+                className="epa-nav-chevron flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-30"
               >
                 <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
               </button>
               <div className="flex gap-1.5">
-                {activeSectionsList.map((_, i) => (
-                  <div key={i} className={`w - 1.5 h - 1.5 rounded - full ${activeSection === i ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/10'} `}></div>
+                {getVisibleSections().map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => scrollToSection(i)}
+                    className={`epa-section-dot w-2 h-2 rounded-full transition-all ${activeSection === i ? 'bg-indigo-500 scale-125' : 'bg-slate-300 dark:bg-white/10 hover:bg-slate-400 dark:hover:bg-white/20'}`}
+                  />
                 ))}
               </div>
               <button
-                disabled={activeSection === activeSectionsList.length - 1}
-                onClick={() => setActiveSection(s => s + 1)}
-                className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+                disabled={activeSection >= getVisibleSections().length - 1}
+                onClick={goToNextSection}
+                className="epa-nav-chevron flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-30"
               >
                 <span className="hidden lg:inline">Next</span> <ChevronRight size={18} />
               </button>

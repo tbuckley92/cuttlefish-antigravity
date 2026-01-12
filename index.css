@@ -139,3 +139,68 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(128, 128, 128, 0.2);
 }
+
+/* EPA Form Smooth Scroll Container */
+.epa-scroll-container {
+    scroll-behavior: smooth;
+}
+
+/* EPA Section Navigation */
+.epa-section-nav-item {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.epa-section-nav-item:hover {
+    transform: translateX(4px);
+}
+
+/* Bottom Fade Overlay */
+.epa-fade-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: linear-gradient(to bottom, transparent 0%, rgba(248, 250, 252, 0.95) 70%, rgb(248, 250, 252) 100%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.dark .epa-fade-overlay {
+    background: linear-gradient(to bottom, transparent 0%, rgba(13, 17, 23, 0.95) 70%, rgb(13, 17, 23) 100%);
+}
+
+/* Navigation Chevron Buttons */
+.epa-nav-chevron {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.epa-nav-chevron:hover {
+    transform: scale(1.1);
+}
+
+.epa-nav-chevron:active {
+    transform: scale(0.95);
+}
+
+/* Section Indicator Dot */
+.epa-section-dot {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth section slide-in animation */
+@keyframes epa-section-enter {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.epa-section-content {
+    animation: epa-section-enter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
