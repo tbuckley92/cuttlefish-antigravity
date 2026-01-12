@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar, User,
   Link as LinkIcon, Edit2, ClipboardCheck, CheckCircle2,
   Clock, AlertCircle, Trash2, Plus, ChevronRight as ChevronDown,
-  FileText, X, ShieldCheck, Mail, Save
+  FileText, X, ShieldCheck, Mail, Save, Eye
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
@@ -75,9 +75,9 @@ const GSATForm: React.FC<GSATFormProps> = ({
   const [status, setStatus] = useState<EvidenceStatus>(initialStatus);
   const [isSignOffOpen, setIsSignOffOpen] = useState(false);
 
-  // Supervisor info is auto-filled from profile as per PRD
-  const supervisorName = initialSupervisorName || INITIAL_PROFILE.supervisorName;
-  const supervisorEmail = initialSupervisorEmail || INITIAL_PROFILE.supervisorEmail;
+  // Supervisor info is auto-filled from profile
+  const supervisorName = initialSupervisorName || "";
+  const supervisorEmail = initialSupervisorEmail || "";
 
   const currentDomain = domains[activeSection];
   const domainRequirements = CURRICULUM_DATA.filter(r =>
@@ -259,8 +259,8 @@ const GSATForm: React.FC<GSATFormProps> = ({
               </MetadataField>
               <MetadataField label="Educational Supervisor">
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <p className="text-xs font-medium text-slate-900">{supervisorName}</p>
-                  <p className="text-[10px] text-slate-500">{supervisorEmail}</p>
+                  <p className="text-xs font-medium text-slate-900">{supervisorName || "Awaiting selection"}</p>
+                  {supervisorEmail && <p className="text-[10px] text-slate-500">{supervisorEmail}</p>}
                 </div>
               </MetadataField>
             </div>
@@ -308,11 +308,11 @@ const GSATForm: React.FC<GSATFormProps> = ({
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                 <div className="flex items-center gap-3 mb-1">
                   <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                    {supervisorName.split(' ').map(n => n[0]).join('')}
+                    {supervisorName ? supervisorName.split(' ').map(n => n[0]).join('') : <User size={14} />}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{supervisorName}</p>
-                    <p className="text-xs text-slate-500">{supervisorEmail}</p>
+                    <p className="text-sm font-semibold text-slate-900">{supervisorName || "Awaiting selection"}</p>
+                    {supervisorEmail && <p className="text-xs text-slate-500">{supervisorEmail}</p>}
                   </div>
                 </div>
               </div>
@@ -406,41 +406,112 @@ const GSATForm: React.FC<GSATFormProps> = ({
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Supporting Evidence</label>
-                        <div className="flex flex-wrap gap-2">
-                          {linkedIds.map(evId => {
-                            const ev = allEvidence.find(e => e.id === evId);
-                            return (
-                              <div
-                                key={evId}
-                                onClick={() => onViewLinkedEvidence?.(evId)}
-                                className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-medium text-indigo-600 cursor-pointer hover:bg-indigo-100/80 transition-colors"
-                              >
-                                <LinkIcon size={10} />
-                                <span className="max-w-[150px] truncate">{ev?.title || "Evidence Record"}</span>
-                                {!isLocked && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onRemoveLink(reqKey, evId);
-                                    }}
-                                    className="p-0.5 hover:bg-indigo-200 rounded-full transition-colors"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Supporting Evidence</label>
                           {!isLocked && (
                             <button
                               onClick={() => onLinkRequested(idx, currentDomain, activeSection)}
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase text-slate-500 hover:bg-slate-100 transition-all"
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase text-slate-500 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/10 transition-all font-sans"
                             >
                               <Plus size={14} /> Link Record
                             </button>
                           )}
                         </div>
+
+                        {linkedIds.length > 0 ? (
+                          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm font-sans">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Type</th>
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Title</th>
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">SIA</th>
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-20 text-center">Level</th>
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Date</th>
+                                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-24">Status</th>
+                                  {!isLocked && (
+                                    <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40 w-16 text-center">Actions</th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {linkedIds.map(evId => {
+                                  const ev = allEvidence.find(e => e.id === evId);
+                                  if (!ev) return null;
+
+                                  return (
+                                    <tr
+                                      key={evId}
+                                      className="group border-b border-slate-100 dark:border-white/5 last:border-0 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                                      onClick={() => onViewLinkedEvidence?.(evId)}
+                                    >
+                                      <td className="px-4 py-2">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight ${getLinkedEvidenceTypeColors(ev.type)}`}>
+                                          {ev.type}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-medium text-slate-900 dark:text-white/90 group-hover:text-indigo-600 dark:group-hover:text-white transition-colors">
+                                            {ev.title}
+                                          </span>
+                                          {ev.fileName && (
+                                            <div className="flex items-center justify-center w-4 h-4 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500" title={`Attached: ${ev.fileName}`}>
+                                              <FileText size={8} />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2 text-[10px] text-slate-500 dark:text-white/50">
+                                        {ev.sia || '–'}
+                                      </td>
+                                      <td className="px-4 py-2 text-[10px] text-slate-500 dark:text-white/50 text-center">
+                                        {ev.level || '–'}
+                                      </td>
+                                      <td className="px-4 py-2 text-[10px] text-slate-500 dark:text-white/50 font-mono">
+                                        {ev.date}
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${getLinkedEvidenceStatusColors(ev.status)}`}>
+                                          {getLinkedEvidenceStatusIcon(ev.status)}
+                                          {ev.status}
+                                        </span>
+                                      </td>
+                                      {!isLocked && (
+                                        <td className="px-4 py-2">
+                                          <div className="flex items-center justify-center gap-2">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onViewLinkedEvidence?.(evId);
+                                              }}
+                                              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+                                              title="View evidence"
+                                            >
+                                              <Eye size={14} />
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemoveLink(reqKey, evId);
+                                              }}
+                                              className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                                              title="Remove link"
+                                            >
+                                              <X size={14} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      )}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] italic text-slate-400 mt-2">No evidence linked yet.</p>
+                        )}
                       </div>
                     </div>
                   </GlassCard>
@@ -547,5 +618,36 @@ const MetadataField: React.FC<{ label: string; children: React.ReactNode }> = ({
     {children}
   </div>
 );
+
+// Helper functions for linked evidence table styling
+const getLinkedEvidenceTypeColors = (type: EvidenceType) => {
+  switch (type) {
+    case EvidenceType.CbD: return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 dark:border-blue-500/30';
+    case EvidenceType.DOPs: return 'bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/20 dark:border-purple-500/30';
+    case EvidenceType.OSATs: return 'bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-300 border border-orange-500/20 dark:border-orange-500/30';
+    case EvidenceType.CRS: return 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30';
+    case EvidenceType.EPA: return 'bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/20 dark:border-teal-500/30';
+    case EvidenceType.GSAT: return 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 dark:border-emerald-500/30';
+    default: return 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 border border-slate-200 dark:border-white/20';
+  }
+};
+
+const getLinkedEvidenceStatusColors = (status: EvidenceStatus) => {
+  switch (status) {
+    case EvidenceStatus.SignedOff: return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20';
+    case EvidenceStatus.Submitted: return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20';
+    case EvidenceStatus.Draft: return 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10';
+    default: return 'bg-white/5 text-white/40';
+  }
+};
+
+const getLinkedEvidenceStatusIcon = (status: EvidenceStatus) => {
+  switch (status) {
+    case EvidenceStatus.SignedOff: return <ShieldCheck size={10} />;
+    case EvidenceStatus.Submitted: return <Clock size={10} />;
+    case EvidenceStatus.Draft: return <FileText size={10} />;
+    default: return null;
+  }
+};
 
 export default GSATForm;

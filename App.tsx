@@ -1285,11 +1285,12 @@ const App: React.FC = () => {
     handleUpdateProfile({ ...profile, sias: updatedSias });
   };
 
-  const handleLinkRequested = (idx: string, originView?: View, domain?: string, section?: number, formParams?: FormParams) => {
+  const handleLinkRequested = (idx: any, originView?: View, domain?: string, section?: number, formParams?: FormParams) => {
+    const idxStr = String(idx);
     // Check for ARCP Prep link requests - format: ARCP_PREP_LAST_EPAS or ARCP_PREP_CURRENT_EPAS
-    if (idx.startsWith('ARCP_PREP_')) {
-      const parts = idx.replace('ARCP_PREP_', '').toLowerCase().split('_');
-      const section = parts[0]; // 'last' or 'current'
+    if (idxStr.startsWith('ARCP_PREP_')) {
+      const parts = idxStr.replace('ARCP_PREP_', '').toLowerCase().split('_');
+      const sectionName = parts[0]; // 'last' or 'current'
       const target = parts[1]; // 'epas', 'gsat', 'msf', 'esr'
 
       const lastFieldMap = {
@@ -1306,13 +1307,13 @@ const App: React.FC = () => {
         'esr': 'current_evidence_esr'
       } as const;
 
-      const fieldMap = section === 'last' ? lastFieldMap : currentFieldMap;
+      const fieldMap = sectionName === 'last' ? lastFieldMap : currentFieldMap;
 
       // Store current linked IDs from arcpPrepData
       // @ts-ignore
       const currentLinkedIds = arcpPrepData?.[fieldMap[target as keyof typeof fieldMap]] || [];
-      setLinkedEvidence({ [idx]: currentLinkedIds });
-      setLinkingReqIdx(idx);
+      setLinkedEvidence({ [idxStr]: currentLinkedIds });
+      setLinkingReqIdx(idxStr);
       setIsSelectionMode(true);
       setReturnTarget({ originView: View.ARCPPrep, section: 0 });
 
@@ -1338,12 +1339,13 @@ const App: React.FC = () => {
     let filterType: EvidenceType | undefined = undefined;
 
     // Build the reqKey dynamically if needed
-    let reqKey = idx;
+    let reqKey = String(idx);
     if (originView === View.GSATForm && domain && section !== undefined) {
-      reqKey = `GSAT - ${domain} - ${section} - ${idx}`;
+      // Use the same format as GSATForm: GSAT-${domain}-${idx}
+      reqKey = `GSAT-${domain}-${idx}`;
     } else if (originView === View.EPAForm) {
       // EPAForm passes reqKey like 'EPA - L1 -SIA -B -0 ' - use it directly if it starts with 'EPA - '
-      reqKey = idx;
+      reqKey = String(idx);
     } else {
       // Default for other forms
       reqKey = `EPA-${idx}`;
@@ -1354,7 +1356,8 @@ const App: React.FC = () => {
 
     // Store return target if provided
     if (section !== undefined) {
-      setReturnTarget({ originView: originView || View.RecordForm, section, index: parseInt(idx.split('-').pop() || '0') });
+      const idxStr = String(idx);
+      setReturnTarget({ originView: originView || View.RecordForm, section, index: parseInt(idxStr.split('-').pop() || '0') });
     }
 
     // Store form params if provided
@@ -2429,11 +2432,12 @@ const App: React.FC = () => {
             onLinkRequested={(idx, domain, section) => handleLinkRequested(idx, View.GSATForm, domain, section)}
             linkedEvidenceData={linkedEvidence}
             onRemoveLink={handleRemoveLinkedEvidence}
+            onViewLinkedEvidence={handleViewLinkedEvidence}
             initialSection={returnTarget?.section}
             autoScrollToIdx={returnTarget?.index}
             allEvidence={activeEvidenceList}
-            initialSupervisorName={profile.supervisorName}
-            initialSupervisorEmail={profile.supervisorEmail}
+            initialSupervisorName={selectedFormParams?.supervisorName || profile.supervisorName}
+            initialSupervisorEmail={selectedFormParams?.supervisorEmail || profile.supervisorEmail}
             isSupervisor={inboxRoleContext === 'supervisor' || ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole)}
           />
         );
