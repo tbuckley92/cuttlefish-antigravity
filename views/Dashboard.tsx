@@ -961,7 +961,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-4">
           {sias.map(sia => {
             // Calculate completion status for this SIA entry
             const matchingEpas = allEvidence.filter(e =>
@@ -976,11 +976,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             else if (matchingEpas.some(e => e.status === EvidenceStatus.Draft)) currentStatus = EvidenceStatus.Draft;
 
             return (
-              <GlassCard key={sia.id} className="p-6 flex flex-col group relative overflow-hidden">
+              <GlassCard key={sia.id} className={`group relative overflow-hidden transition-all duration-300 ${editingSiaId === sia.id
+                ? 'p-6 flex flex-col'
+                : 'p-5 flex flex-col gap-5 min-h-[160px]'
+                }`}>
                 {editingSiaId !== sia.id && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button onClick={() => startEditingSIA(sia)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all" title="Edit SIA"><Edit2 size={14} /></button>
-                    <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/10 text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all" title="Remove SIA"><Trash2 size={14} /></button>
+                  <div className="absolute top-2.5 right-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={() => startEditingSIA(sia)} className="p-1.5 rounded-full bg-white/40 backdrop-blur-sm text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-all border border-slate-200/50 shadow-sm" title="Edit SIA"><Edit2 size={14} /></button>
+                    <button onClick={() => onRemoveSIA(sia.id)} className="p-1.5 rounded-full bg-white/40 backdrop-blur-sm text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 transition-all border border-slate-200/50 shadow-sm" title="Remove SIA"><Trash2 size={14} /></button>
                   </div>
                 )}
 
@@ -1028,37 +1031,48 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div className="mb-4 pr-10">
-                      <h3 className="text-lg font-medium text-slate-900 leading-tight">{sia.specialty}</h3>
-                      <div className="mt-2 flex flex-col gap-1.5">
-                        <div className="flex items-center"><span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 text-[10px] font-bold border border-indigo-500/20 uppercase tracking-wider">Level {sia.level}</span></div>
-                        <p className="text-xs text-slate-500">Assigned to: {sia.supervisorName || sia.supervisorInitials || '–'}</p>
+                    {/* Top Row: Info and Chips */}
+                    <div className="flex flex-col lg:flex-row gap-6 pr-14 relative">
+                      {/* Section: Info */}
+                      <div className="w-full lg:w-[35%] flex flex-col justify-center gap-1.5">
+                        <div className="flex items-start gap-2.5">
+                          <span className={`mt-0.5 px-2 py-0.5 rounded text-[10px] font-black tracking-tighter border flex-shrink-0 ${sia.level >= 3 ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>L{sia.level}</span>
+                          <h3 className="text-base font-bold text-slate-900 leading-[1.2] whitespace-normal">{sia.specialty}</h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pl-1">
+                          <User size={12} className="opacity-40" />
+                          <span className="truncate">Assigned to: {sia.supervisorName || 'Unassigned'}</span>
+                        </div>
+                      </div>
+
+                      {/* Section: Evidence Chips */}
+                      <div className="flex-1 w-full grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        <EvidenceChip compact type={EvidenceType.CbD} icon={<Clipboard size={14} className="opacity-50" />} onClick={() => onNavigateToCBD(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                        <EvidenceChip compact type={EvidenceType.DOPs} icon={<ClipboardCheck size={14} className="opacity-50" />} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                        <EvidenceChip compact type={EvidenceType.OSATs} icon={<ClipboardCheck size={14} className="opacity-50" />} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                        <EvidenceChip compact type={EvidenceType.Reflection} icon={<Edit2 size={14} className="opacity-50" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level, 'Reflection')} />
+                        <EvidenceChip compact type={EvidenceType.CRS} icon={<BookOpen size={14} className="opacity-50" />} onClick={() => onNavigateToCRS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
+                        <EvidenceChip compact type={EvidenceType.Other} icon={<FileText size={14} className="opacity-50" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 mb-6">
-                      <EvidenceChip type={EvidenceType.CbD} icon={<Clipboard size={14} className="opacity-40" />} onClick={() => onNavigateToCBD(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                      <EvidenceChip type={EvidenceType.DOPs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToDOPs(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                      <EvidenceChip type={EvidenceType.OSATs} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToOSATS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                      <EvidenceChip type={EvidenceType.Reflection} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level, 'Reflection')} />
-                      <EvidenceChip type={EvidenceType.CRS} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToCRS(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} />
-                      <EvidenceChip type={EvidenceType.Other} icon={<ClipboardCheck size={14} className="opacity-40" />} onClick={() => onNavigateToAddEvidence(sia.specialty, sia.level)} />
-                    </div>
-                    <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col gap-4">
-                      <div className="flex flex-col gap-1">
+
+                    {/* Footer Row: Status & Actions */}
+                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-3">
+                      <div className="flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
-                          <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
+                          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Current Status</span>
+                          <span className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.15em] ${currentStatus === EvidenceStatus.SignedOff ? 'text-green-600' :
                             currentStatus === EvidenceStatus.Submitted ? 'text-blue-600' :
                               currentStatus === EvidenceStatus.Draft ? 'text-amber-600' :
                                 'text-slate-300'
                             }`}>
-                            {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={10} /> :
-                              currentStatus === EvidenceStatus.Submitted ? <Activity size={10} /> :
-                                currentStatus === EvidenceStatus.Draft ? <Clock size={10} /> : null}
+                            {currentStatus === EvidenceStatus.SignedOff ? <ShieldCheck size={12} /> :
+                              currentStatus === EvidenceStatus.Submitted ? <Activity size={12} /> :
+                                currentStatus === EvidenceStatus.Draft ? <Clock size={12} /> : null}
                             {currentStatus}
                           </span>
                         </div>
-                        <div className="h-1 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                           <div className={`h-full transition-all duration-700 ${currentStatus === EvidenceStatus.SignedOff ? 'bg-green-500 w-full' :
                             currentStatus === EvidenceStatus.Submitted ? 'bg-blue-500 w-2/3' :
                               currentStatus === EvidenceStatus.Draft ? 'bg-amber-400 w-1/3' :
@@ -1066,7 +1080,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                             }`}></div>
                         </div>
                       </div>
-                      <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full mt-1 py-3 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-semibold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">Complete EPA <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" /></button>
+                      <button onClick={() => onNavigateToEPA(sia.specialty, sia.level, sia.supervisorName, sia.supervisorEmail)} className="w-full py-3.5 rounded-xl bg-teal-600/10 border border-teal-500/20 text-teal-700 text-sm font-bold hover:bg-teal-600/20 transition-all flex items-center justify-center gap-2 group">
+                        Complete EPA <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      </button>
                     </div>
                   </>
                 )}
@@ -1089,12 +1105,13 @@ const ProfileItem: React.FC<{ icon: React.ReactNode; label: string; value: React
   </div>
 );
 
-const EvidenceChip: React.FC<{ type: string, icon: React.ReactNode, onClick?: () => void }> = ({ type, icon, onClick }) => (
+const EvidenceChip: React.FC<{ type: string, icon: React.ReactNode, onClick?: () => void, compact?: boolean }> = ({ type, icon, onClick, compact }) => (
   <button
     onClick={onClick}
-    className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:border-slate-200 transition-all flex flex-col items-center gap-1">
+    className={`rounded-lg bg-slate-50 border border-slate-100 font-medium text-slate-500 hover:bg-slate-100 hover:border-slate-200 transition-all flex flex-col items-center justify-center gap-1 ${compact ? 'p-1.5 h-full min-h-[50px]' : 'px-3 py-2'
+      }`}>
     {icon}
-    {type}
+    <span className={compact ? 'text-[9px] leading-none text-center' : 'text-[11px]'}>{type}</span>
   </button>
 );
 
