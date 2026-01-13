@@ -1,5 +1,6 @@
+```
 import React, { useState, useEffect } from 'react';
-import { Search, User, Mail, ShieldCheck } from './Icons';
+import { Search, User, Mail, ShieldCheck, Edit2 } from './Icons';
 import { supabase } from '../utils/supabaseClient';
 
 interface SupervisorSearchProps {
@@ -19,9 +20,10 @@ interface SearchResult {
 }
 
 /**
- * Reusable supervisor search component with autocomplete
+ * Reusable supervisor search component with autocomplete and manual entry
  * Searches user_profile for users with Supervisor/EducationalSupervisor roles
  * Filters by same deanery for data privacy
+ * Allows manual entry for supervisors not in the database
  */
 export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
     onSelect,
@@ -35,8 +37,11 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [selectedName, setSelectedName] = useState(initialName);
-    const [selectedEmail, setSelectedEmail] = useState(initialEmail);
+    
+    // Manual entry fields
+    const [manualName, setManualName] = useState(initialName);
+    const [manualEmail, setManualEmail] = useState(initialEmail);
+    const [isManualEntry, setIsManualEntry] = useState(!!initialName || !!initialEmail);
 
     // Debounced search
     useEffect(() => {
@@ -53,7 +58,7 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
                 let query = supabase
                     .from('user_profile')
                     .select('name, email, gmc_number, deanery, roles')
-                    .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+                    .or(`name.ilike.% ${ searchQuery }%, email.ilike.% ${ searchQuery }% `)
                     .limit(5);
 
                 // Filter by deanery if provided
@@ -85,11 +90,23 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
         return () => clearTimeout(timer);
     }, [searchQuery, currentDeanery]);
 
+    // Notify parent when manual fields change
+    useEffect(() => {
+        if (isManualEntry && (manualName || manualEmail)) {
+            onSelect({
+                name: manualName,
+                email: manualEmail,
+                gmcNumber: ''
+            });
+        }
+    }, [manualName, manualEmail, isManualEntry, onSelect]);
+
     const handleSelectSupervisor = (user: SearchResult) => {
-        setSelectedName(user.name);
-        setSelectedEmail(user.email);
+        setManualName(user.name);
+        setManualEmail(user.email);
         setSearchQuery('');
         setShowDropdown(false);
+        setIsManualEntry(true);
         onSelect({
             name: user.name,
             email: user.email,
@@ -97,24 +114,42 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
         });
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(e.target.value);
-        // Clear selection if user starts typing again
-        if (selectedName) {
-            setSelectedName('');
-            setSelectedEmail('');
+        setShowDropdown(true);
+        // If user starts typing in search, assume they are looking for a new supervisor
+        // and clear manual entry if it was previously set by a selection.
+        // If they were manually typing, this will just overwrite the search query.
+        if (isManualEntry) {
+            setIsManualEntry(false);
+            setManualName('');
+            setManualEmail('');
         }
     };
 
+    const handleManualNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setManualName(e.target.value);
+        setIsManualEntry(true);
+        setSearchQuery(''); // Clear search query if manually entering
+        setShowDropdown(false);
+    };
+
+    const handleManualEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setManualEmail(e.target.value);
+        setIsManualEntry(true);
+        setSearchQuery(''); // Clear search query if manually entering
+        setShowDropdown(false);
+    };
+
     return (
-        <div className="relative">
+        <div className="space-y-3">
             {/* Search Input */}
             <div className="relative">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 pointer-events-none" />
                 <input
                     type="text"
-                    value={searchQuery || selectedName}
-                    onChange={handleInputChange}
+                    value={searchQuery}
+                    onChange={handleSearchInputChange}
                     onFocus={() => {
                         if (searchResults.length > 0) setShowDropdown(true);
                     }}
@@ -131,7 +166,7 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
 
             {/* Search Results Dropdown */}
             {showDropdown && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute z-50 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden">
                     {searchResults.map((user, idx) => (
                         <button
                             key={idx}
@@ -167,31 +202,43 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
                 </div>
             )}
 
-            {/* Selected Supervisor Display (below search) */}
-            {selectedName && selectedEmail && !searchQuery && (
-                <div className="mt-3 p-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-xl">
-                    <div className="flex items-start gap-2">
-                        <User size={14} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-green-900 dark:text-green-100">
-                                {selectedName}
-                            </p>
-                            <p className="text-xs text-green-700 dark:text-green-300 truncate">
-                                {selectedEmail}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* No results message */}
             {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
-                <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-xl p-4">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
                     <p className="text-xs text-slate-500 dark:text-white/60 text-center">
-                        No supervisors found in your deanery matching "{searchQuery}"
+                        No supervisors found. Use manual entry below.
                     </p>
                 </div>
             )}
+
+            {/* Manual Entry Section */}
+            <div>
+                <div className="flex items-center gap-2 mb-2">
+                    <Edit2 size={14} className="text-slate-400" />
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/40 font-bold">
+                        Or enter manually
+                    </label>
+                </div>
+                <div className="space-y-2">
+                    <input
+                        type="text"
+                        value={manualName}
+                        onChange={handleManualNameChange}
+                        placeholder="Supervisor Name"
+                        disabled={disabled}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <input
+                        type="email"
+                        value={manualEmail}
+                        onChange={handleManualEmailChange}
+                        placeholder="Supervisor Email"
+                        disabled={disabled}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                </div>
+            </div>
         </div>
     );
 };
+```
