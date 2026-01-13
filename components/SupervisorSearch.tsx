@@ -1,4 +1,3 @@
-```
 import React, { useState, useEffect } from 'react';
 import { Search, User, Mail, ShieldCheck, Edit2 } from './Icons';
 import { supabase } from '../utils/supabaseClient';
@@ -37,7 +36,7 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    
+
     // Manual entry fields
     const [manualName, setManualName] = useState(initialName);
     const [manualEmail, setManualEmail] = useState(initialEmail);
@@ -58,7 +57,7 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
                 let query = supabase
                     .from('user_profile')
                     .select('name, email, gmc_number, deanery, roles')
-                    .or(`name.ilike.% ${ searchQuery }%, email.ilike.% ${ searchQuery }% `)
+                    .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
                     .limit(5);
 
                 // Filter by deanery if provided
@@ -241,4 +240,3 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
         </div>
     );
 };
-```
