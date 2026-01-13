@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
@@ -620,6 +621,64 @@ const CRSForm: React.FC<CRSFormProps> = ({
     agreedActionPlan: ""
   });
   const [consultationSkillsSpecialty, setConsultationSkillsSpecialty] = useState("No specialty SIA");
+
+  // Refs for smooth scroll navigation
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Smooth scroll to section
+  const scrollToSection = useCallback((sectionIndex: number) => {
+    const sectionElement = sectionRefs.current[sectionIndex];
+    if (sectionElement && scrollContainerRef.current) {
+      sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveSection(sectionIndex);
+    }
+  }, []);
+
+  // Navigate to previous section
+  const goToPreviousSection = useCallback(() => {
+    if (activeSection > 0) {
+      scrollToSection(activeSection - 1);
+    }
+  }, [activeSection, scrollToSection]);
+
+  // Navigate to next section
+  const goToNextSection = useCallback(() => {
+    const sections = getCurrentSections();
+    if (activeSection < sections.length - 1) {
+      scrollToSection(activeSection + 1);
+    }
+  }, [activeSection, scrollToSection]);
+
+  // IntersectionObserver to track which section is currently visible
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionIdx = sectionRefs.current.findIndex(ref => ref === entry.target);
+            if (sectionIdx !== -1 && sectionIdx !== activeSection) {
+              setActiveSection(sectionIdx);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -60% 0px',
+        threshold: 0
+      }
+    );
+
+    sectionRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => observer.disconnect();
+  }, [selectedCrsType]);
 
   const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
   const isVisionForm = selectedCrsType === "Vision";
@@ -4118,27 +4177,57 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </div>
             </MetadataField>
 
-            {/* Progress Bar - Show for structured forms */}
+            {/* Section Navigation Sidebar - Show for structured forms */}
             {isStructuredForm && (
-              <div className="pt-6 border-t border-slate-100 dark:border-white/10">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Progress</span>
-                  <span className="text-xs text-slate-600 dark:text-white/60">
-                    {getCurrentSections().length} Sections
-                  </span>
+              <div className="pt-3 border-t border-slate-100 dark:border-white/10">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Sections</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={goToPreviousSection}
+                      disabled={activeSection === 0}
+                      className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      title="Previous section"
+                    >
+                      <ChevronLeft size={16} className="text-slate-500 dark:text-white/50 rotate-90" />
+                    </button>
+                    <button
+                      onClick={goToNextSection}
+                      disabled={activeSection >= getCurrentSections().length - 1}
+                      className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      title="Next section"
+                    >
+                      <ChevronRight size={16} className="text-slate-500 dark:text-white/50 rotate-90" />
+                    </button>
+                  </div>
                 </div>
-                <div className={`grid gap-2 ${isRetinoscopyForm || isIndirectOphthalmoscopyForm || isPupilForm || isContactLensesForm || isLens78D90DForm || isGonioscopyForm || isDirectOphthalmoscopyForm || isSlitLampForm || isIOPForm || isOcularMotilityForm || isExternalEyeForm || isConsultationSkillsForm ? (isSlitLampForm || isIOPForm || isOcularMotilityForm || isExternalEyeForm || isConsultationSkillsForm ? 'grid-cols-5' : 'grid-cols-3') : 'grid-cols-4'}`}>
-                  {getCurrentSections().map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
-                        ? 'bg-green-500'
-                        : activeSection === i
-                          ? 'bg-indigo-500'
-                          : 'bg-slate-200 dark:bg-white/10'
-                        }`}
-                    ></div>
-                  ))}
+
+                <div className="space-y-1">
+                  {getCurrentSections().map((section, idx) => {
+                    const isActive = activeSection === idx;
+                    const sectionLetter = section.split('.')[0];
+
+                    return (
+                      <button
+                        key={section}
+                        onClick={() => scrollToSection(idx)}
+                        className={`epa-section-nav-item w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left group ${isActive
+                          ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                          : 'text-slate-500 dark:text-white/40 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-700 dark:hover:text-white/60'
+                          }`}
+                      >
+                        <div className={`epa-section-dot w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                          : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 group-hover:bg-slate-200 dark:group-hover:bg-white/10'
+                          }`}>
+                          {sectionLetter}
+                        </div>
+                        <span className="text-xs font-medium truncate">
+                          {section.split('. ')[1] || section}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

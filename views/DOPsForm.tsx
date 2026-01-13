@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
@@ -235,6 +235,63 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
   const [aspectsEspeciallyGood, setAspectsEspeciallyGood] = useState("");
   const [suggestionsForImprovement, setSuggestionsForImprovement] = useState("");
   const [agreedActionPlan, setAgreedActionPlan] = useState("");
+
+  // Refs for smooth scroll navigation
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Smooth scroll to section
+  const scrollToSection = useCallback((sectionIndex: number) => {
+    const sectionElement = sectionRefs.current[sectionIndex];
+    if (sectionElement && scrollContainerRef.current) {
+      sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveSection(sectionIndex);
+    }
+  }, []);
+
+  // Navigate to previous section
+  const goToPreviousSection = useCallback(() => {
+    if (activeSection > 0) {
+      scrollToSection(activeSection - 1);
+    }
+  }, [activeSection, scrollToSection]);
+
+  // Navigate to next section
+  const goToNextSection = useCallback(() => {
+    if (activeSection < DOPS_SECTIONS.length - 1) {
+      scrollToSection(activeSection + 1);
+    }
+  }, [activeSection, scrollToSection]);
+
+  // IntersectionObserver to track which section is currently visible
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionIdx = sectionRefs.current.findIndex(ref => ref === entry.target);
+            if (sectionIdx !== -1 && sectionIdx !== activeSection) {
+              setActiveSection(sectionIdx);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -60% 0px',
+        threshold: 0
+      }
+    );
+
+    sectionRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => observer.disconnect();
+  }, [selectedDopsType]);
 
   const isLocked = status === EvidenceStatus.SignedOff || (status === EvidenceStatus.Submitted && !isSupervisor);
 
@@ -791,26 +848,56 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
               />
             </MetadataField>
 
-            {/* Progress Bar */}
-            <div className="pt-6 border-t border-slate-200 dark:border-white/10">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-xs text-slate-400 dark:text-white/40 uppercase tracking-wider font-semibold">Progress</span>
-                <span className="text-xs text-slate-600 dark:text-white/60">
-                  {DOPS_SECTIONS.length} Sections
-                </span>
+            {/* Section Navigation Sidebar */}
+            <div className="pt-3 border-t border-slate-100 dark:border-white/10">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Sections</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={goToPreviousSection}
+                    disabled={activeSection === 0}
+                    className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Previous section"
+                  >
+                    <ChevronLeft size={16} className="text-slate-500 dark:text-white/50 rotate-90" />
+                  </button>
+                  <button
+                    onClick={goToNextSection}
+                    disabled={activeSection >= DOPS_SECTIONS.length - 1}
+                    className="epa-nav-chevron p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Next section"
+                  >
+                    <ChevronRight size={16} className="text-slate-500 dark:text-white/50 rotate-90" />
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {DOPS_SECTIONS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1 rounded-full transition-colors ${isSectionComplete(i)
-                      ? 'bg-green-500'
-                      : activeSection === i
-                        ? 'bg-indigo-500'
-                        : 'bg-slate-200 dark:bg-white/10'
-                      }`}
-                  ></div>
-                ))}
+
+              <div className="space-y-1">
+                {DOPS_SECTIONS.map((section, idx) => {
+                  const isActive = activeSection === idx;
+                  const sectionLetter = section.split('.')[0]; // Gets "A", "B", etc.
+
+                  return (
+                    <button
+                      key={section}
+                      onClick={() => scrollToSection(idx)}
+                      className={`epa-section-nav-item w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left group ${isActive
+                        ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                        : 'text-slate-500 dark:text-white/40 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-700 dark:hover:text-white/60'
+                        }`}
+                    >
+                      <div className={`epa section-dot w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${isActive
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 group-hover:bg-slate-200 dark:group-hover:bg-white/10'
+                        }`}>
+                        {sectionLetter}
+                      </div>
+                      <span className="text-xs font-medium truncate">
+                        {section.split('. ')[1] || section}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -906,48 +993,64 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
         )}
       </div>
 
-      {/* Right Column: Section Content */}
-      <div className="lg:col-span-8 flex flex-col lg:overflow-hidden">
-        {/* Section Titles at Top */}
-        <div className="sticky top-0 lg:static z-20 bg-[#f8fafc]/80 dark:bg-[#0d1117]/80 backdrop-blur-lg lg:bg-transparent py-2 lg:py-0 border-b lg:border-none border-slate-200 dark:border-white/10 flex gap-1 mb-4 lg:mb-8 overflow-x-auto no-scrollbar">
-          {DOPS_SECTIONS.map((section, idx) => (
-            <button
-              key={section}
-              onClick={() => setActiveSection(idx)}
-              className={`
-                px-4 py-2 text-[10px] lg:text-xs font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap
-                ${activeSection === idx ? 'text-indigo-600 dark:text-white' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50'}
-              `}
-            >
-              {section}
-              {activeSection === idx && (
-                <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full"></div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-0">
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            {!isLocked && (activeSection === 1 || activeSection === 2) && (
-              <div className="flex justify-end mb-4">
-                <button
-                  onClick={() => handleMarkAllMeets(activeSection === 1 ? 'B' : 'C')}
-                  className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
-                >
-                  MARK ALL AS MEETS EXPECTATIONS
-                </button>
+      {/* Right Column: Section Content with Continuous Scroll */}
+      <div className="lg:col-span-8 flex flex-col lg:overflow-hidden relative">
+        {/* Content Scroll Container */}
+        <div
+          ref={scrollContainerRef}
+          className="epa-scroll-container flex-1 lg:overflow-y-auto pr-2 space-y-6 pb-24 lg:pb-16 relative"
+        >
+          <div className="epa-section-content">
+            <div className="space-y-8">
+              {/* Section A: Procedure Description */}
+              <div ref={el => sectionRefs.current[0] = el} className="scroll-mt-24">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">A. {DOPS_SECTIONS[0].split('. ')[1]}</h3>
+                {renderSectionA()}
               </div>
-            )}
 
-            <div className="space-y-4">
-              {activeSection === 0 && renderSectionA()}
-              {activeSection === 1 && renderSectionB()}
-              {activeSection === 2 && renderSectionC()}
-              {activeSection === 3 && renderSectionD()}
+              {/* Section B: Procedure Competencies */}
+              <div ref={el => sectionRefs.current[1] = el} className="scroll-mt-24">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white/90">B. {DOPS_SECTIONS[1].split('. ')[1]}</h3>
+                  {!isLocked && (
+                    <button
+                      onClick={() => handleMarkAllMeets('B')}
+                      className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
+                    >
+                      MARK ALL AS MEETS EXPECTATIONS
+                    </button>
+                  )}
+                </div>
+                {renderSectionB()}
+              </div>
+
+              {/* Section C: Communication */}
+              <div ref={el => sectionRefs.current[2] = el} className="scroll-mt-24">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white/90">C. {DOPS_SECTIONS[2].split('. ')[1]}</h3>
+                  {!isLocked && (
+                    <button
+                      onClick={() => handleMarkAllMeets('C')}
+                      className="px-4 py-2 rounded-xl border border-indigo-500/30 text-[9px] lg:text-[10px] font-black uppercase tracking-[0.1em] text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all bg-indigo-500/5 shadow-sm whitespace-nowrap"
+                    >
+                      MARK ALL AS MEETS EXPECTATIONS
+                    </button>
+                  )}
+                </div>
+                {renderSectionC()}
+              </div>
+
+              {/* Section D: Supervisor Comments */}
+              <div ref={el => sectionRefs.current[3] = el} className="scroll-mt-24">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">D. {DOPS_SECTIONS[3].split('. ')[1]}</h3>
+                {renderSectionD()}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Bottom Fade Overlay */}
+        <div className="epa-fade-overlay hidden lg:block"></div>
 
         {/* Action Bar */}
         <div className="fixed bottom-0 left-0 right-0 lg:static z-30 bg-white/90 dark:bg-[#0d1117]/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none p-4 lg:p-0 border-t lg:border-t-0 border-slate-200 dark:border-white/10 mt-0 lg:mt-6 flex flex-col gap-4 shadow-2xl lg:shadow-none">
@@ -956,30 +1059,25 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
           <div className="flex justify-between items-center w-full">
             <button
               disabled={activeSection === 0}
-              onClick={() => setActiveSection(s => s - 1)}
-              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+              onClick={goToPreviousSection}
+              className="epa-nav-chevron flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-30"
             >
               <ChevronLeft size={18} /> <span className="hidden lg:inline">Previous</span>
             </button>
 
-            <div className="flex gap-1">
-              {DOPS_SECTIONS.map((_, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setActiveSection(idx)}
-                  className={`w-2 h-2 rounded-full cursor-pointer transition-all ${activeSection === idx
-                    ? 'bg-indigo-600 w-6'
-                    : isSectionComplete(idx)
-                      ? 'bg-indigo-300 dark:bg-indigo-600'
-                      : 'bg-slate-300 dark:bg-white/10'
-                    }`}
-                ></div>
+            <div className="flex gap-1.5">
+              {DOPS_SECTIONS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToSection(i)}
+                  className={`epa-section-dot w-2 h-2 rounded-full transition-all ${activeSection === i ? 'bg-indigo-500 scale-125' : 'bg-slate-300 dark:bg-white/10 hover:bg-slate-400 dark:hover:bg-white/20'}`}
+                />
               ))}
             </div>
             <button
-              disabled={activeSection === DOPS_SECTIONS.length - 1}
-              onClick={() => setActiveSection(s => s + 1)}
-              className="flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-0"
+              disabled={activeSection >= DOPS_SECTIONS.length - 1}
+              onClick={goToNextSection}
+              className="epa-nav-chevron flex items-center gap-1 lg:gap-2 px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-30"
             >
               <span className="hidden lg:inline">Next</span> <ChevronRight size={18} />
             </button>
