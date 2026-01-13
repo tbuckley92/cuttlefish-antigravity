@@ -2407,6 +2407,7 @@ const App: React.FC = () => {
             originView={selectedFormParams?.originView}
             originFormParams={selectedFormParams?.originFormParams}
             traineeName={profile.name}
+            userDeanery={profile.deanery || profile.location}
             onBack={handleNavigateBack}
             onSubmitted={mandatoryContext?.expectedType === 'EPA' ? handleEPAFromEPASubmitted : handleFormSubmitted}
             onSave={handleUpsertEvidence}

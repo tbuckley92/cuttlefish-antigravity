@@ -9,6 +9,7 @@ import {
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { SupervisorSearch } from '../components/SupervisorSearch';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
 import { EPA_SPECIALTY_DATA } from '../constants/epaSpecialtyData';
 import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
@@ -25,6 +26,7 @@ interface EPAFormProps {
   originView?: any; // View enum type
   originFormParams?: any; // FormParams type
   traineeName?: string; // Add trainee name from profile
+  userDeanery?: string; // Add user deanery for supervisor search
   onBack: () => void;
   onSubmitted?: () => void;
   onSave: (evidence: Partial<EvidenceItem>) => Promise<void> | void;
@@ -240,6 +242,7 @@ const EPAForm: React.FC<EPAFormProps> = ({
   originView,
   originFormParams,
   traineeName,
+  userDeanery,
   onBack,
   onSubmitted,
   onSave,
@@ -1175,10 +1178,24 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                 <input disabled={isReadOnly} type="date" className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
               </MetadataField>
               <MetadataField label="Supervisor">
-                <div className="space-y-2">
-                  <input disabled={isReadOnly} type="text" placeholder="Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
-                  <input disabled={isReadOnly} type="email" placeholder="Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
-                </div>
+                {!isReadOnly ? (
+                  <SupervisorSearch
+                    onSelect={(supervisor) => {
+                      setSupervisorName(supervisor.name);
+                      setSupervisorEmail(supervisor.email);
+                    }}
+                    currentDeanery={userDeanery}
+                    initialName={supervisorName}
+                    initialEmail={supervisorEmail}
+                    placeholder="Search supervisor..."
+                    disabled={isReadOnly}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <input disabled type="text" placeholder="Name" value={supervisorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                    <input disabled type="email" placeholder="Email" value={supervisorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  </div>
+                )}
               </MetadataField>
             </div>
           )}
@@ -1232,10 +1249,24 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
             </MetadataField>
 
             <MetadataField label="Supervisor">
-              <div className="space-y-2">
-                <input disabled={isReadOnly} type="text" placeholder="Supervisor Name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
-                <input disabled={isReadOnly} type="email" placeholder="Supervisor Email" value={supervisorEmail} onChange={(e) => setSupervisorEmail(e.target.value)} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
-              </div>
+              {!isReadOnly ? (
+                <SupervisorSearch
+                  onSelect={(supervisor) => {
+                    setSupervisorName(supervisor.name);
+                    setSupervisorEmail(supervisor.email);
+                  }}
+                  currentDeanery={userDeanery}
+                  initialName={supervisorName}
+                  initialEmail={supervisorEmail}
+                  placeholder="Search supervisor by name or email..."
+                  disabled={isReadOnly}
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input disabled type="text" placeholder="Supervisor Name" value={supervisorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                  <input disabled type="email" placeholder="Supervisor Email" value={supervisorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                </div>
+              )}
             </MetadataField>
 
             {/* Section Navigation Sidebar */}
