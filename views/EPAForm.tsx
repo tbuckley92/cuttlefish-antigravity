@@ -1482,146 +1482,170 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                 </>
               ) : selectedLevel === 2 ? (
                 <>
-                  {activeSection === 0 && renderLearningOutcomes()}
-                  {activeSection === 1 && LEVEL_2_CRITERIA.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
-                  {activeSection === 2 && (
-                    <>
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                        </p>
-                      </div>
+                  {/* Section A: Learning Outcomes */}
+                  <div ref={el => sectionRefs.current[0] = el} className="scroll-mt-4">
+                    {renderLearningOutcomes()}
+                  </div>
+
+                  {/* Section B: Mandatory CRS Forms */}
+                  <div ref={el => sectionRefs.current[1] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">B. Mandatory CRS Forms</h3>
+                    <div className="space-y-4">
+                      {LEVEL_2_CRITERIA.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
+                    </div>
+                  </div>
+
+                  {/* Section C: Mandatory outpatient requirements */}
+                  <div ref={el => sectionRefs.current[2] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">C. Mandatory outpatient requirements</h3>
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                      <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                        The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       {LEVEL_2_CRITERIA.sectionC.map((req, idx) => renderCriterion(req, idx, 'C'))}
-                    </>
-                  )}
-                  {activeSection === 3 && LEVEL_2_CRITERIA.sectionD.map((req, idx) => renderCriterion(req, idx, 'D'))}
-                  {activeSection === 4 && (
-                    <>
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                        <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                          The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                        </p>
-                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section D: Mandatory OSATS */}
+                  <div ref={el => sectionRefs.current[3] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">D. Mandatory OSATS</h3>
+                    <div className="space-y-4">
+                      {LEVEL_2_CRITERIA.sectionD.map((req, idx) => renderCriterion(req, idx, 'D'))}
+                    </div>
+                  </div>
+
+                  {/* Section E: Mandatory requirements in Theatre */}
+                  <div ref={el => sectionRefs.current[4] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">E. Mandatory requirements in Theatre</h3>
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                      <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                        The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                      </p>
+                    </div>
+                    <div className="space-y-4">
                       {LEVEL_2_CRITERIA.sectionE.map((req, idx) => renderCriterion(req, idx, 'E'))}
-                    </>
-                  )}
-                  {activeSection === 5 && (
-                    <>
-                      <div className="space-y-4 mb-8">
-                        {LEVEL_2_CRITERIA.sectionF.map((req, idx) => renderCriterion(req, idx, 'F', true))}
+                    </div>
+                  </div>
+
+                  {/* Section F: Ancillary evidence & Entrustment */}
+                  <div ref={el => sectionRefs.current[5] = el} className="scroll-mt-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">F. Ancillary evidence & Entrustment</h3>
+                    <div className="space-y-4 mb-8">
+                      {LEVEL_2_CRITERIA.sectionF.map((req, idx) => renderCriterion(req, idx, 'F', true))}
+                    </div>
+
+                    <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
+                        Section F: Entrustment
+                      </h4>
+                      <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
+                      <div className="space-y-3 mb-6">
+                        {ENTRUSTMENT_LEVELS.map(lvl => (
+                          <label
+                            key={lvl}
+                            className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                          >
+                            <input
+                              type="radio"
+                              name="entrustment"
+                              className="hidden"
+                              disabled={isReadOnly}
+                              checked={entrustment === lvl}
+                              onChange={() => setEntrustment(lvl)}
+                            />
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                              {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
+                            </div>
+                            <span className="text-sm font-semibold">{lvl}</span>
+                          </label>
+                        ))}
                       </div>
 
-                      <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
-                          Section F: Entrustment
-                        </h4>
-                        <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
-                        <div className="space-y-3 mb-6">
-                          {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label
-                              key={lvl}
-                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
-                            >
-                              <input
-                                type="radio"
-                                name="entrustment"
-                                className="hidden"
-                                disabled={isReadOnly}
-                                checked={entrustment === lvl}
-                                onChange={() => setEntrustment(lvl)}
-                              />
-                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
-                                {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
-                              </div>
-                              <span className="text-sm font-semibold">{lvl}</span>
-                            </label>
-                          ))}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                            Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            disabled={isReadOnly}
+                            value={aspectsEspeciallyGood}
+                            onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                            className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                            placeholder="Enter aspects which were especially good..."
+                          />
                         </div>
 
-                        <div className="space-y-4">
+                        {entrustment !== "Competent to this level" && entrustment !== "" && (
                           <div>
                             <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                              Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                              Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
                             </label>
                             <textarea
                               disabled={isReadOnly}
-                              value={aspectsEspeciallyGood}
-                              onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                              value={additionalEvidenceNeeded}
+                              onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
                               className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                              placeholder="Enter aspects which were especially good..."
+                              placeholder="Enter additional evidence needed..."
                             />
                           </div>
-
-                          {entrustment !== "Competent to this level" && entrustment !== "" && (
-                            <div>
-                              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                                Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
-                              </label>
-                              <textarea
-                                disabled={isReadOnly}
-                                value={additionalEvidenceNeeded}
-                                onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
-                                className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                                placeholder="Enter additional evidence needed..."
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </GlassCard>
-                    </>
-                  )}
+                        )}
+                      </div>
+                    </GlassCard>
+                  </div>
                 </>
               ) : selectedLevel === 3 || selectedLevel === 4 ? (
                 <>
-                  {activeSection === 0 && (() => {
-                    // Operating List has special Section A: Operating List Management (uses sectionB criteria)
-                    if (selectedSia === "Operating List") {
-                      const specialtyData = getSpecialtyData();
-                      if (!specialtyData) return null;
-                      const criteria = specialtyData.criteria.sectionB;
-                      if (criteria.length === 0) {
-                        return (
-                          <GlassCard className="p-6">
-                            <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                          </GlassCard>
-                        );
-                      }
-                      return (
-                        <>
-                          <GlassCard className="p-5 lg:p-6 mb-4">
-                            <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-3 block">
-                              Specialty <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              disabled={isReadOnly}
-                              value={operatingListSubspecialty}
-                              onChange={(e) => setOperatingListSubspecialty(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <option value="">Select a subspecialty...</option>
-                              <option value="Cataract Surgery">Cataract Surgery</option>
-                              <option value="Cornea & Ocular Surface Disease">Cornea & Ocular Surface Disease</option>
-                              <option value="Glaucoma">Glaucoma</option>
-                              <option value="Medical Retina">Medical Retina</option>
-                              <option value="Neuro-ophthalmology">Neuro-ophthalmology</option>
-                              <option value="Ocular Motility">Ocular Motility</option>
-                              <option value="Oculoplastics">Oculoplastics</option>
-                              <option value="Paediatric Ophthalmology">Paediatric Ophthalmology</option>
-                              <option value="Uveitis">Uveitis</option>
-                              <option value="Vitreoretinal Surgery">Vitreoretinal Surgery</option>
-                            </select>
-                          </GlassCard>
-                          {criteria.map((req, idx) => renderCriterion(req, idx, 'B', specialtyData.showCommentsAlways.sectionB))}
-                        </>
-                      );
-                    }
-                    // Standard Section A: Learning Outcomes
-                    return renderLearningOutcomes();
-                  })()}
-                  {activeSection === 1 && (() => {
-                    // Operating List has special Section B: Entrustment only (no ancillary evidence)
-                    if (selectedSia === "Operating List") {
-                      return (
+                  {selectedSia === "Operating List" ? (
+                    <>
+                      {/* Operating List Section A: Operating List Management */}
+                      <div ref={el => sectionRefs.current[0] = el} className="scroll-mt-4">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">A. Operating List Management</h3>
+                        {(() => {
+                          const specialtyData = getSpecialtyData();
+                          if (!specialtyData) return null;
+                          const criteria = specialtyData.criteria.sectionB;
+                          if (criteria.length === 0) {
+                            return (
+                              <GlassCard className="p-6">
+                                <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
+                              </GlassCard>
+                            );
+                          }
+                          return (
+                            <>
+                              <GlassCard className="p-5 lg:p-6 mb-4">
+                                <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-3 block">
+                                  Specialty <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                  disabled={isReadOnly}
+                                  value={operatingListSubspecialty}
+                                  onChange={(e) => setOperatingListSubspecialty(e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <option value="">Select a subspecialty...</option>
+                                  <option value="Cataract Surgery">Cataract Surgery</option>
+                                  <option value="Cornea & Ocular Surface Disease">Cornea & Ocular Surface Disease</option>
+                                  <option value="Glaucoma">Glaucoma</option>
+                                  <option value="Medical Retina">Medical Retina</option>
+                                  <option value="Neuro-ophthalmology">Neuro-ophthalmology</option>
+                                  <option value="Ocular Motility">Ocular Motility</option>
+                                  <option value="Oculoplastics">Oculoplastics</option>
+                                  <option value="Paediatric Ophthalmology">Paediatric Ophthalmology</option>
+                                  <option value="Uveitis">Uveitis</option>
+                                  <option value="Vitreoretinal Surgery">Vitreoretinal Surgery</option>
+                                </select>
+                              </GlassCard>
+                              {criteria.map((req, idx) => renderCriterion(req, idx, 'B', specialtyData.showCommentsAlways.sectionB))}
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Operating List Section B: Entrustment */}
+                      <div ref={el => sectionRefs.current[1] = el} className="scroll-mt-4">
                         <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
                           <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
                             Section B: Entrustment
@@ -1631,7 +1655,7 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                             {ENTRUSTMENT_LEVELS.map(lvl => (
                               <label
                                 key={lvl}
-                                className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
+                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
                               >
                                 <input
                                   type="radio"
@@ -1641,7 +1665,7 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                                   checked={entrustment === lvl}
                                   onChange={() => setEntrustment(lvl)}
                                 />
-                                <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
                                   {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
                                 </div>
                                 <span className="text-sm font-semibold">{lvl}</span>
@@ -1679,160 +1703,166 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
                             )}
                           </div>
                         </GlassCard>
-                      );
-                    }
-
-                    // Standard Section B
-                    const specialtyData = getSpecialtyData();
-                    if (!specialtyData) return null;
-                    const criteria = specialtyData.criteria.sectionB;
-                    if (criteria.length === 0) {
-                      return (
-                        <GlassCard className="p-6">
-                          <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                        </GlassCard>
-                      );
-                    }
-                    return criteria.map((req, idx) => renderCriterion(req, idx, 'B'));
-                  })()}
-                  {activeSection === 2 && (() => {
-                    const specialtyData = getSpecialtyData();
-                    if (!specialtyData) return null;
-                    const criteria = specialtyData.criteria.sectionC;
-                    const hasBlurb = specialtyData.sectionBlurbs.sectionC;
-                    if (criteria.length === 0) {
-                      return (
-                        <GlassCard className="p-6">
-                          <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                        </GlassCard>
-                      );
-                    }
-                    return (
-                      <>
-                        {hasBlurb && (
-                          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                            <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                              The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                            </p>
-                          </div>
-                        )}
-                        {criteria.map((req, idx) => renderCriterion(req, idx, 'C', specialtyData.showCommentsAlways.sectionC))}
-                      </>
-                    );
-                  })()}
-                  {activeSection === 3 && (() => {
-                    const specialtyData = getSpecialtyData();
-                    if (!specialtyData) return null;
-                    const criteria = specialtyData.criteria.sectionD;
-                    if (criteria.length === 0) {
-                      return (
-                        <GlassCard className="p-6">
-                          <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                        </GlassCard>
-                      );
-                    }
-                    return criteria.map((req, idx) => renderCriterion(req, idx, 'D', specialtyData.showCommentsAlways.sectionD));
-                  })()}
-                  {activeSection === 4 && (() => {
-                    const specialtyData = getSpecialtyData();
-                    if (!specialtyData) return null;
-                    const criteria = specialtyData.criteria.sectionE;
-                    const hasBlurb = specialtyData.sectionBlurbs.sectionE;
-                    if (criteria.length === 0) {
-                      return (
-                        <GlassCard className="p-6">
-                          <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                        </GlassCard>
-                      );
-                    }
-                    return (
-                      <>
-                        {hasBlurb && (
-                          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
-                            <p className="text-xs text-slate-600 dark:text-white/70 italic">
-                              The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
-                            </p>
-                          </div>
-                        )}
-                        {criteria.map((req, idx) => renderCriterion(req, idx, 'E', specialtyData.showCommentsAlways.sectionE))}
-                      </>
-                    );
-                  })()}
-                  {activeSection === 5 && (
+                      </div>
+                    </>
+                  ) : (
                     <>
-                      <div className="space-y-4 mb-8">
-                        {(() => {
-                          const specialtyData = getSpecialtyData();
-                          if (!specialtyData) return null;
-                          const criteria = specialtyData.criteria.sectionF;
-                          if (criteria.length === 0) {
-                            return (
-                              <GlassCard className="p-6">
-                                <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
-                              </GlassCard>
-                            );
-                          }
-                          return criteria.map((req, idx) => renderCriterion(req, idx, 'F', specialtyData.showCommentsAlways.sectionF));
-                        })()}
+                      {/* Standard EPA L3/L4 Sections */}
+                      {/* Section A: Learning Outcomes */}
+                      <div ref={el => sectionRefs.current[0] = el} className="scroll-mt-4">
+                        {renderLearningOutcomes()}
                       </div>
 
-                      <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
-                          Section F: Entrustment
-                        </h4>
-                        <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
-                        <div className="space-y-3 mb-6">
-                          {ENTRUSTMENT_LEVELS.map(lvl => (
-                            <label
-                              key={lvl}
-                              className={`flex items - center gap - 3 p - 4 rounded - xl border transition - all cursor - pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'} `}
-                            >
-                              <input
-                                type="radio"
-                                name="entrustment"
-                                className="hidden"
-                                disabled={isReadOnly}
-                                checked={entrustment === lvl}
-                                onChange={() => setEntrustment(lvl)}
-                              />
-                              <div className={`w - 5 h - 5 rounded - full border - 2 flex items - center justify - center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'} `}>
-                                {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
-                              </div>
-                              <span className="text-sm font-semibold">{lvl}</span>
-                            </label>
-                          ))}
-                        </div>
-
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                              Please note any aspects which were especially good: <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                              disabled={isReadOnly}
-                              value={aspectsEspeciallyGood}
-                              onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
-                              className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                              placeholder="Enter aspects which were especially good..."
-                            />
-                          </div>
-
-                          {entrustment !== "Competent to this level" && entrustment !== "" && (
-                            <div>
-                              <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
-                                Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
-                              </label>
-                              <textarea
-                                disabled={isReadOnly}
-                                value={additionalEvidenceNeeded}
-                                onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
-                                className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-                                placeholder="Enter additional evidence needed..."
-                              />
+                      {/* Section B: Mandatory CRS Forms */}
+                      {(() => {
+                        const specialtyData = getSpecialtyData();
+                        if (!specialtyData || !specialtyData.criteria.sectionB || specialtyData.criteria.sectionB.length === 0) return null;
+                        return (
+                          <div ref={el => sectionRefs.current[1] = el} className="scroll-mt-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">B. Mandatory CRS Forms</h3>
+                            <div className="space-y-4">
+                              {specialtyData.criteria.sectionB.map((req, idx) => renderCriterion(req, idx, 'B'))}
                             </div>
-                          )}
-                        </div>
-                      </GlassCard>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section C: Mandatory outpatient requirements */}
+                      {(() => {
+                        const specialtyData = getSpecialtyData();
+                        if (!specialtyData || !specialtyData.criteria.sectionC || specialtyData.criteria.sectionC.length === 0) return null;
+                        const hasBlurb = specialtyData.sectionBlurbs.sectionC;
+                        return (
+                          <div ref={el => sectionRefs.current[2] = el} className="scroll-mt-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">C. Mandatory outpatient requirements</h3>
+                            {hasBlurb && (
+                              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                                <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                                  The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                                </p>
+                              </div>
+                            )}
+                            <div className="space-y-4">
+                              {specialtyData.criteria.sectionC.map((req, idx) => renderCriterion(req, idx, 'C', specialtyData.showCommentsAlways.sectionC))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section D: Mandatory OSATS */}
+                      {(() => {
+                        const specialtyData = getSpecialtyData();
+                        if (!specialtyData || !specialtyData.criteria.sectionD || specialtyData.criteria.sectionD.length === 0) return null;
+                        return (
+                          <div ref={el => sectionRefs.current[3] = el} className="scroll-mt-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">D. Mandatory OSATS</h3>
+                            <div className="space-y-4">
+                              {specialtyData.criteria.sectionD.map((req, idx) => renderCriterion(req, idx, 'D', specialtyData.showCommentsAlways.sectionD))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section E: Mandatory requirements in Theatre */}
+                      {(() => {
+                        const specialtyData = getSpecialtyData();
+                        if (!specialtyData || !specialtyData.criteria.sectionE || specialtyData.criteria.sectionE.length === 0) return null;
+                        const hasBlurb = specialtyData.sectionBlurbs.sectionE;
+                        return (
+                          <div ref={el => sectionRefs.current[4] = el} className="scroll-mt-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">E. Mandatory requirements in Theatre</h3>
+                            {hasBlurb && (
+                              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/10 rounded-xl">
+                                <p className="text-xs text-slate-600 dark:text-white/70 italic">
+                                  The following may be evidenced via longitudinal observation of the supervisor and / or the trainee can supplement this with use of a formal evidence tool such as DOPS, CBD or a Reflection.
+                                </p>
+                              </div>
+                            )}
+                            <div className="space-y-4">
+                              {specialtyData.criteria.sectionE.map((req, idx) => renderCriterion(req, idx, 'E', specialtyData.showCommentsAlways.sectionE))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Section F: Ancillary evidence & Entrustment */}
+                      {(() => {
+                        const specialtyData = getSpecialtyData();
+                        if (!specialtyData) return null;
+                        const criteria = specialtyData.criteria.sectionF || [];
+                        return (
+                          <div ref={el => sectionRefs.current[5] = el} className="scroll-mt-4">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white/90 mb-4">F. Ancillary evidence & Entrustment</h3>
+                            <div className="space-y-4 mb-8">
+                              {criteria.length > 0 ? (
+                                criteria.map((req, idx) => renderCriterion(req, idx, 'F', specialtyData.showCommentsAlways.sectionF))
+                              ) : (
+                                <GlassCard className="p-6">
+                                  <p className="text-sm text-slate-500 italic">No requirements for this section.</p>
+                                </GlassCard>
+                              )}
+                            </div>
+
+                            <GlassCard className="p-6 border-indigo-500/20 bg-indigo-500/[0.02]">
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white/90 mb-4 uppercase tracking-widest">
+                                Section F: Entrustment
+                              </h4>
+                              <p className="text-xs text-slate-500 mb-6">Based on my observations and the evidence indicated I consider that the overall level of entrustment for this trainee is</p>
+                              <div className="space-y-3 mb-6">
+                                {ENTRUSTMENT_LEVELS.map(lvl => (
+                                  <label
+                                    key={lvl}
+                                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${entrustment === lvl ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/10' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-50'}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="entrustment"
+                                      className="hidden"
+                                      disabled={isReadOnly}
+                                      checked={entrustment === lvl}
+                                      onChange={() => setEntrustment(lvl)}
+                                    />
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${entrustment === lvl ? 'border-white' : 'border-slate-300 dark:border-white/20'}`}>
+                                      {entrustment === lvl && <div className="w-2.5 h-2.5 rounded-full bg-white animate-in zoom-in-50"></div>}
+                                    </div>
+                                    <span className="text-sm font-semibold">{lvl}</span>
+                                  </label>
+                                ))}
+                              </div>
+
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                    Please note any aspects which were especially good: <span className="text-red-500">*</span>
+                                  </label>
+                                  <textarea
+                                    disabled={isReadOnly}
+                                    value={aspectsEspeciallyGood}
+                                    onChange={(e) => setAspectsEspeciallyGood(e.target.value)}
+                                    className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                    placeholder="Enter aspects which were especially good..."
+                                  />
+                                </div>
+
+                                {entrustment !== "Competent to this level" && entrustment !== "" && (
+                                  <div>
+                                    <label className="text-sm font-semibold text-slate-900 dark:text-white/90 mb-2 block">
+                                      Please indicate what additional evidence is needed to reach that level of entrustment if you are unable to recommend the appropriate level of entrustment due to limited evidence:
+                                    </label>
+                                    <textarea
+                                      disabled={isReadOnly}
+                                      value={additionalEvidenceNeeded}
+                                      onChange={(e) => setAdditionalEvidenceNeeded(e.target.value)}
+                                      className="w-full min-h-[100px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm text-slate-900 dark:text-white/90 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+                                      placeholder="Enter additional evidence needed..."
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </GlassCard>
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </>
