@@ -66,6 +66,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   epaLinkingMode = false
 }) => {
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('All');
   const [filterSIA, setFilterSIA] = useState<string>('All');
   const [filterYear, setFilterYear] = useState<string>('All');
@@ -115,10 +116,15 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         (filterStatus === 'Complete' && item.status === EvidenceStatus.SignedOff);
 
 
+      // Search match
+      const searchMatch = !searchQuery ||
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.type.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return typeMatch && siaMatch && yearMatch && statusMatch;
+      return typeMatch && siaMatch && yearMatch && statusMatch && searchMatch;
     });
-  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType]);
+  }, [allEvidence, filterType, filterSIA, filterYear, filterStatus, selectionMode, excludeType, searchQuery]);
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -496,6 +502,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           <input
             type="text"
             placeholder="Search evidence..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent border-none outline-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/20 w-full"
           />
         </div>
@@ -506,7 +514,10 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-600 dark:text-white/60 outline-none hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             <option value="All">All Types</option>
-            {Object.values(EvidenceType).filter(t => t !== EvidenceType.ARCPPrep).map(t => <option key={t} value={t}>{t}</option>)}
+            {Object.values(EvidenceType)
+              .filter(t => t !== EvidenceType.ARCPPrep)
+              .sort((a, b) => a.localeCompare(b))
+              .map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select
             value={filterSIA}
@@ -766,6 +777,20 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
             {/* Filter Options */}
             <div className="flex-1 p-4 space-y-4 overflow-y-auto">
               <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Search</label>
+                <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
+                  <Search size={16} className="text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search keywords..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-transparent border-none outline-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 w-full"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">Type</label>
                 <select
                   value={filterType}
@@ -773,7 +798,10 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-slate-600 dark:text-white/60 outline-none"
                 >
                   <option value="All">All Types</option>
-                  {Object.values(EvidenceType).filter(t => t !== EvidenceType.ARCPPrep).map(t => <option key={t} value={t}>{t}</option>)}
+                  {Object.values(EvidenceType)
+                    .filter(t => t !== EvidenceType.ARCPPrep)
+                    .sort((a, b) => a.localeCompare(b))
+                    .map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
 
@@ -828,6 +856,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           </div>
         </div>
       )}
+
       {/* Exporting Overlay */}
       {isExporting && exportProgress > 0 && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -848,16 +877,16 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   );
 };
 
-const formatDate = (dateString: string): string => {
+function formatDate(dateString: string): string {
   if (!dateString) return '–';
   const date = new Date(dateString);
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
-};
+}
 
-const getTypeColors = (type: EvidenceType) => {
+function getTypeColors(type: EvidenceType) {
   switch (type) {
     case EvidenceType.CbD: return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 dark:border-blue-500/30';
     case EvidenceType.DOPs: return 'bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/20 dark:border-purple-500/30';
@@ -873,24 +902,24 @@ const getTypeColors = (type: EvidenceType) => {
     case EvidenceType.ARCPInterimReview: return 'bg-fuchsia-500/10 dark:bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-300 border border-fuchsia-500/20 dark:border-fuchsia-500/30';
     default: return 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 border border-slate-200 dark:border-white/20';
   }
-};
+}
 
-const getStatusColors = (status: EvidenceStatus) => {
+function getStatusColors(status: EvidenceStatus) {
   switch (status) {
     case EvidenceStatus.SignedOff: return 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20';
     case EvidenceStatus.Submitted: return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20';
     case EvidenceStatus.Draft: return 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10';
     default: return 'bg-white/5 text-white/40';
   }
-};
+}
 
-const getStatusIcon = (status: EvidenceStatus) => {
+function getStatusIcon(status: EvidenceStatus) {
   switch (status) {
     case EvidenceStatus.SignedOff: return <ShieldCheck size={12} />;
     case EvidenceStatus.Submitted: return <Clock size={12} />;
     case EvidenceStatus.Draft: return <FileText size={12} />;
     default: return null;
   }
-};
+}
 
 export default MyEvidence;

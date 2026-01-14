@@ -49,3 +49,28 @@ export const getEvidenceFileUrl = async (path: string): Promise<string> => {
 
     return data.signedUrl;
 };
+
+/**
+ * Lists all files in the current user's evidence folder.
+ * For debugging purposes.
+ */
+export const listUserEvidenceFiles = async (userId: string): Promise<string[]> => {
+    if (!supabase) throw new Error("Supabase is not configured");
+
+    const { data, error } = await supabase.storage
+        .from('evidence-files')
+        .list(userId, {
+            limit: 100,
+            offset: 0
+        });
+
+    if (error) {
+        console.error('Error listing files:', error);
+        return [];
+    }
+
+    console.log('📂 Files in storage for user:', userId);
+    console.log(data.map(f => `  - ${f.name} (${(f.metadata?.size || 0) / 1024} KB)`).join('\n'));
+
+    return data.map(f => `${userId}/${f.name}`);
+};

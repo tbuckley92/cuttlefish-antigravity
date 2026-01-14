@@ -1,9 +1,8 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { generateLogbookHTML } from './htmlGenerator';
-import { EvidenceItem, UserProfile, SIA, PortfolioProgressItem, EyeLogbookEntry, EyeLogbookComplication } from '../types';
-import { getEvidenceFileUrl } from './storageUtils';
-import { isSupabaseConfigured } from './supabaseClient';
+import { generateEvidencePDF } from './pdfGenerator';
+import { EvidenceItem, EvidenceType, EvidenceStatus, UserProfile, SIA, PortfolioProgressItem, EyeLogbookEntry, EyeLogbookComplication } from '../types';
 
 interface ZipExportOptions {
     profile: UserProfile;
@@ -25,110 +24,69 @@ export const exportPortfolioAsZip = async (options: ZipExportOptions) => {
     const evidenceFolder = zip.folder("evidence");
 
     const localPathMap = new Map<string, string>();
-    const filesToDownload = evidence.filter(item => item.fileUrl);
-    const totalFiles = filesToDownload.length;
 
-    console.log('📁 Items with fileUrl:', totalFiles);
+    // Filter to COMPLETE evidence items only (these are the ones with PDFs)
+    const completedEvidence = evidence.filter(item =>
+        item.status === EvidenceStatus.SignedOff
+    );
 
-    let downloadedCount = 0;
+    // Exclude certain types that don't have PDF exports
+    const excludedTypes = [
+        EvidenceType.ARCPPrep,
+        EvidenceType.Logbook // Eye Logbook PDFs are handled separately
+    ];
+
+    const pdfableEvidence = completedEvidence.filter(item =>
+        !excludedTypes.includes(item.type)
+    );
+
+    const totalItems = pdfableEvidence.length;
+    console.log('📄 Completed evidence items to export as PDF:', totalItems);
+
+    let processedCount = 0;
     let successCount = 0;
     let errorCount = 0;
-    let skippedBlobCount = 0;
 
-    // Download Evidence Files
-    for (const item of filesToDownload) {
-        if (!item.fileUrl || !item.id) {
-            console.warn('⚠️ Skipping item without fileUrl or id:', item.title);
-            continue;
-        }
-
+    // Generate PDFs for each evidence item
+    for (const item of pdfableEvidence) {
         try {
-            const url = item.fileUrl;
-            let blob: Blob;
+            console.log(`📄 Generating PDF [${processedCount + 1}/${totalItems}]:`, item.title);
 
-            console.log(`📥 Downloading [${downloadedCount + 1}/${totalFiles}]:`, item.title);
-            console.log('   URL:', url.substring(0, 60) + (url.length > 60 ? '...' : ''));
+            // Generate the PDF using the existing generator
+            const pdfBlob = generateEvidencePDF(item, profile, evidence);
 
-            // Blob URLs are temporary browser references - skip them
-            if (url.startsWith('blob:')) {
-                console.log('   ⚠️ Blob URL detected - file was never uploaded to cloud storage');
-                skippedBlobCount++;
-                throw new Error('Temporary blob URL (re-upload file to include in export)');
-            }
-
-            // Handle Supabase storage paths (format: userId/filename.ext)
-            if (isSupabaseConfigured && !url.startsWith('http') && !url.startsWith('data:')) {
-                console.log('   🔄 Downloading from Supabase Storage...');
-
-                const { supabase } = await import('./supabaseClient');
-
-                const { data: fileData, error: downloadError } = await supabase
-                    .storage
-                    .from('evidence-files')
-                    .download(url);
-
-                if (downloadError || !fileData) {
-                    throw new Error(`Storage download failed: ${downloadError?.message}`);
-                }
-
-                blob = fileData;
-                console.log('   ✅ Downloaded. Size:', (blob.size / 1024).toFixed(2), 'KB');
-
-            } else if (url.startsWith('http')) {
-                // Regular HTTP/HTTPS URLs
-                console.log('   🌐 Fetching from URL...');
-                const response = await fetch(url);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                blob = await response.blob();
-                console.log('   ✅ Downloaded. Size:', (blob.size / 1024).toFixed(2), 'KB');
-
-            } else if (url.startsWith('data:')) {
-                // Base64 data URLs
-                console.log('   📎 Processing embedded data URL...');
-                const response = await fetch(url);
-                blob = await response.blob();
-                console.log('   ✅ Extracted. Size:', (blob.size / 1024).toFixed(2), 'KB');
-
-            } else {
-                throw new Error('Unknown URL format');
-            }
-
-            // Generate a safe local filename
-            const extension = item.fileName?.split('.').pop() || 'file';
-            const safeTitle = item.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 30);
-            const fileName = `${item.id.substring(0, 8)}_${safeTitle}.${extension}`;
+            // Create a safe filename
+            const safeTitle = item.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 40) || 'evidence';
+            const safeType = item.type?.replace(/[^a-z0-9]/gi, '_') || 'form';
+            const fileName = `${safeType}_${safeTitle}_${item.date || 'undated'}.pdf`;
 
             if (evidenceFolder) {
-                evidenceFolder.file(fileName, blob);
+                evidenceFolder.file(fileName, pdfBlob);
                 localPathMap.set(item.id, `./evidence/${fileName}`);
                 successCount++;
-                console.log('   ✅ Added to ZIP:', fileName);
+                console.log('   ✅ Added:', fileName);
             }
         } catch (error) {
             errorCount++;
-            console.error(`   ❌ Error:`, error);
+            console.error(`   ❌ Error generating PDF for ${item.title}:`, error);
         }
 
-        downloadedCount++;
-        if (onProgress && totalFiles > 0) {
-            const progress = Math.round((downloadedCount / totalFiles) * 90);
+        processedCount++;
+        if (onProgress && totalItems > 0) {
+            const progress = Math.round((processedCount / totalItems) * 85);
             onProgress(progress);
         }
     }
 
-    console.log(`\n📊 Download Summary:
-  - Total: ${totalFiles}
+    console.log(`\n📊 PDF Generation Summary:
+  - Total COMPLETE items: ${completedEvidence.length}
+  - Items with PDFs: ${totalItems}
   - Success: ${successCount}
-  - Skipped (blob URLs): ${skippedBlobCount}
-  - Other Errors: ${errorCount - skippedBlobCount}
+  - Errors: ${errorCount}
   - LocalPathMap size: ${localPathMap.size}`);
 
-    // Generate HTML with local paths
-    console.log('\n📄 Generating HTML with', localPathMap.size, 'local file links...');
+    // Generate HTML with local PDF links
+    console.log('\n📄 Generating HTML with', localPathMap.size, 'local PDF links...');
 
     const htmlContent = generateLogbookHTML(
         profile,
@@ -158,11 +116,9 @@ export const exportPortfolioAsZip = async (options: ZipExportOptions) => {
     saveAs(content, fileName);
     console.log('✅ ZIP export complete!');
 
-    // Return summary for UI
     return {
-        total: totalFiles,
+        total: totalItems,
         success: successCount,
-        skippedBlob: skippedBlobCount,
-        errors: errorCount - skippedBlobCount
+        errors: errorCount
     };
 };
