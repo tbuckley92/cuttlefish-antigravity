@@ -12,6 +12,8 @@ import { createEvidenceZip } from '../utils/zipGenerator';
 import { isSupabaseConfigured, supabase } from '../utils/supabaseClient';
 import { getEvidenceFileUrl } from '../utils/storageUtils';
 import { generateLogbookHTML } from '../utils/htmlGenerator';
+import { exportPortfolioAsZip } from '../utils/zipExporter';
+import { SIA } from '../types';
 
 
 interface MyEvidenceProps {
@@ -72,6 +74,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const [selectedForExport, setSelectedForExport] = useState<string[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
 
   const availableYears = useMemo(() => {
@@ -344,6 +347,45 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
       setIsExporting(false);
     }
   };
+  const handleExportZip = async () => {
+    setIsExporting(true);
+    setExportProgress(0);
+    try {
+      let logbookEntries: any[] = [];
+      let complicationCases: any[] = [];
+      let progressItems: any[] = [];
+
+      if (isSupabaseConfigured && supabase && profile.id) {
+        // Fetch all necessary data
+        const [logsRes, compsRes, progRes] = await Promise.all([
+          supabase.from('eyelogbook').select('*').eq('trainee_id', profile.id).limit(10000),
+          supabase.from('eyelogbook_complication').select('*').eq('trainee_id', profile.id).limit(10000),
+          supabase.from('portfolio_progress').select('*').eq('trainee_id', profile.id)
+        ]);
+
+        logbookEntries = logsRes.data || [];
+        complicationCases = compsRes.data || [];
+        progressItems = progRes.data || [];
+      }
+
+      await exportPortfolioAsZip({
+        profile,
+        evidence: allEvidence,
+        sias,
+        portfolioProgress: progressItems,
+        logbookEntries,
+        complicationCases,
+        onProgress: (p) => setExportProgress(p)
+      });
+
+    } catch (error) {
+      console.error('ZIP Export Error:', error);
+      alert('Failed to generate ZIP export.');
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  };
 
   return (
     <div className={`max-w-7xl mx-auto p-6 flex flex-col gap-6 animate-in fade-in duration-300 ${selectionMode ? 'mt-12' : ''}`}>
@@ -400,16 +442,28 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           </button>
         </div>
         <div className="hidden md:flex items-center gap-4">
-          {/* HTML Export Button */}
+          {/* Export Buttons */}
           {!selectionMode && !isSupervisorView && (
-            <button
-              onClick={handleExportHTML}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
-              title="Download offline-viewable HTML archive"
-            >
-              <FileDown size={16} />
-              EXPORT PORTFOLIO
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportHTML}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                title="Download offline-viewable HTML summary"
+              >
+                <FileDown size={14} />
+                Summary (HTML)
+              </button>
+              <button
+                onClick={handleExportZip}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-teal-500 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-50"
+                title="Download full portfolio archive with local files"
+              >
+                <FileDown size={14} />
+                Full Archive (ZIP)
+              </button>
+            </div>
           )}
 
           {completeCount > 0 && (
@@ -772,6 +826,22 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Exporting Overlay */}
+      {isExporting && exportProgress > 0 && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <GlassCard className="p-8 max-w-sm w-full text-center space-y-4">
+            <h3 className="text-lg font-bold text-white">Preparing Archive</h3>
+            <p className="text-sm text-white/60">Downloading evidence files and bundling portfolio...</p>
+            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full transition-all duration-300"
+                style={{ width: `${exportProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs font-mono text-emerald-400">{exportProgress}%</p>
+          </GlassCard>
         </div>
       )}
     </div>

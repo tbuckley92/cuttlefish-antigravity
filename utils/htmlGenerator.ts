@@ -24,7 +24,8 @@ export const generateLogbookHTML = (
     sias: SIA[],
     portfolioProgress: PortfolioProgressItem[],
     logbookEntries: EyeLogbookEntry[],
-    complicationCases: EyeLogbookComplication[]
+    complicationCases: EyeLogbookComplication[],
+    localPathMap?: Map<string, string>
 ): string => {
     const generatedDate = new Date().toLocaleDateString('en-GB', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -397,16 +398,19 @@ export const generateLogbookHTML = (
                         <th onclick="sortTable('evidenceTable', 3)">SIA / Level</th>
                         <th onclick="sortTable('evidenceTable', 4)">Status</th>
                         <th onclick="sortTable('evidenceTable', 5)">Signed Off By</th>
+                        ${localPathMap ? '<th class="no-print">File</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
-                    ${displayEvidence.map(item => `
+                    ${displayEvidence.map(item => {
+        const localPath = localPathMap?.get(item.id);
+        return `
                         <tr>
                             <td style="white-space:nowrap;">${item.date || '-'}</td>
                             <td><span class="badge badge-gray">${item.type}</span></td>
                             <td>
                                 <strong>${escapeHtml(item.title)}</strong>
-                                ${item.description ? `<br><small style="color:var(--text-light)">${escapeHtml(item.description.substring(0, 100))}${item.description.length > 100 ? '...' : ''}</small>` : ''}
+                                ${item.notes ? `<br><small style="color:var(--text-light)">${escapeHtml(item.notes.substring(0, 100))}${item.notes.length > 100 ? '...' : ''}</small>` : ''}
                             </td>
                             <td>
                                 ${item.sia ? `${item.sia}` : '-'} 
@@ -421,9 +425,19 @@ export const generateLogbookHTML = (
                                 ${item.supervisorName || '-'}
                                 ${item.supervisorGmc ? `<br><small style="color:#999">GMC: ${item.supervisorGmc}</small>` : ''}
                             </td>
+                            ${localPathMap ? `
+                                <td class="no-print">
+                                    ${localPath
+                    ? `<a href="${localPath}" target="_blank" class="badge badge-blue" style="text-decoration:none;">View</a>`
+                    : item.fileUrl
+                        ? `<a href="${item.fileUrl}" target="_blank" class="badge badge-gray" style="text-decoration:none;">Online</a>`
+                        : '-'
+                }
+                                </td>
+                            ` : ''}
                         </tr>
-                    `).join('')}
-                    ${displayEvidence.length === 0 ? '<tr><td colspan="6" style="text-align:center; padding: 30px; color:#999;">No evidence found in portfolio.</td></tr>' : ''}
+                    `}).join('')}
+                    ${displayEvidence.length === 0 ? '<tr><td colspan="${localPathMap ? 7 : 6}" style="text-align:center; padding: 30px; color:#999;">No evidence found in portfolio.</td></tr>' : ''}
                 </tbody>
             </table>
         </div>
@@ -470,23 +484,23 @@ export const generateLogbookHTML = (
                 </thead>
                 <tbody>
                     ${logbookEntries.map(entry => {
-        // Check for attached complication
-        const entryId = (entry as any).id;
-        const hasComp = complicationCases.some(c => c.eyelogbook_entry_id === entryId);
+                    // Check for attached complication
+                    const entryId = (entry as any).id;
+                    const hasComp = complicationCases.some(c => c.eyelogbook_entry_id === entryId);
 
-        return `
+                    return `
                         <tr>
                             <td style="white-space:nowrap;">${entry.procedure_date || '-'}</td>
                             <td>${escapeHtml(entry.procedure)}</td>
                             <td>${entry.role || '-'}</td>
-                            <td>${entry.grade || '-'}</td>
+                            <td>${entry.trainee_grade || '-'}</td>
                             <td>${entry.side || '-'}</td>
                             <td>${escapeHtml(entry.hospital)}</td>
                             <td>${entry.patient_id || '-'}</td>
                             <td>
                                 ${hasComp
-                ? `<span style="color:#ef4444; font-weight:bold;">Yes</span>`
-                : `<span style="color:#ccc; font-size:0.8rem;">None</span>`}
+                            ? `<span style="color:#ef4444; font-weight:bold;">Yes</span>`
+                            : `<span style="color:#ccc; font-size:0.8rem;">None</span>`}
                             </td>
                         </tr>
                     `}).join('')}
