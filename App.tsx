@@ -27,6 +27,7 @@ import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm
 import { EPALegacyForm, EPALegacyData } from './views/EPALegacyForm';
 import ARCPForm from './views/ARCPForm';
 import ESRForm from './views/ESRForm';
+import MagicLinkForm from './views/MagicLinkForm';
 import ARCPSuperuserDashboard from './views/ARCPSuperuserDashboard';
 // Ticket System Views
 import AdminDashboard from './views/Admin/AdminDashboard';
@@ -83,7 +84,9 @@ enum View {
   MyTickets = 'my-tickets',
   TicketDetail = 'ticket-detail',
   // ARCP Superuser Message Centre
-  ARCPSuperuserDashboard = 'arcp-superuser-dashboard'
+  ARCPSuperuserDashboard = 'arcp-superuser-dashboard',
+  // Magic Link Forms
+  MagicLinkForm = 'magic-link-form'
 }
 
 interface FormParams {
@@ -212,10 +215,25 @@ const App: React.FC = () => {
   const [sias, setSias] = useState<SIA[]>(() => (isSupabaseConfigured ? [] : INITIAL_SIAS));
   const [supervisorActiveTab, setSupervisorActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard');
 
+  // Magic link token state (for unauthenticated form access)
+  const [magicLinkToken, setMagicLinkToken] = useState<string | null>(null);
+
   // Reset inboxRoleContext when session changes (e.g. logout/login)
   useEffect(() => {
     setInboxRoleContext('trainee');
   }, [session?.user?.id]);
+
+  // Check for magic link token in URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('magic_token');
+    if (token) {
+      setMagicLinkToken(token);
+      setCurrentView(View.MagicLinkForm);
+      // Clean the URL without reloading the page
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   // Change default to empty array; we will load from DB if configured, or local storage if not
   const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>(() => {
@@ -2978,6 +2996,19 @@ const App: React.FC = () => {
             currentUserName={profile.name}
             currentUserDeanery={profile.deanery || 'Thames Valley Deanery'}
             onBack={() => setCurrentView(View.Dashboard)}
+          />
+        );
+      // Magic Link Form (unauthenticated access)
+      case View.MagicLinkForm:
+        if (!magicLinkToken) return null;
+        return (
+          <MagicLinkForm
+            token={magicLinkToken}
+            onComplete={() => {
+              setMagicLinkToken(null);
+              setCurrentView(View.Dashboard);
+              window.location.href = '/';
+            }}
           />
         );
       default:
