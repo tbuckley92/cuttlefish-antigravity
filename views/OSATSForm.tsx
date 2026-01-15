@@ -7,6 +7,7 @@ import {
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { SupervisorSearch } from '../components/SupervisorSearch';
 import { INITIAL_PROFILE } from '../constants';
@@ -428,10 +429,20 @@ const OSATSForm: React.FC<OSATSFormProps> = ({
       alert("Please provide supervisor name and email.");
       return;
     }
-    setStatus(EvidenceStatus.Submitted);
-    await saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to supervisor");
-    if (onSubmitted) onSubmitted();
+    await saveToParent(status);
+    const result = await sendMagicLinkEmail({
+      evidenceId: formId,
+      recipientEmail: supervisorEmail,
+      formType: 'OSATS'
+    });
+    if (result.success) {
+      setStatus(EvidenceStatus.Submitted);
+      await saveToParent(EvidenceStatus.Submitted);
+      alert(`Magic link sent to ${supervisorEmail}. They can complete the form without logging in.`);
+      if (onSubmitted) onSubmitted();
+    } else {
+      alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
   };
 
   const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {

@@ -7,6 +7,7 @@ import { UserProfile, EvidenceItem, EvidenceType, EvidenceStatus, PDPGoal, Train
 import { SPECIALTIES } from '../constants';
 import MyEvidence from './MyEvidence';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 
 interface ESRFormProps {
     profile: UserProfile;
@@ -177,6 +178,46 @@ const ESRForm: React.FC<ESRFormProps> = ({
             }
             await handleSave(EvidenceStatus.SignedOff);
             // handleSave calls onBack()
+        }
+    };
+
+    const handleEmailForm = async () => {
+        // First save as draft to ensure we have an ID
+        const formData = {
+            pdpGoals,
+            linkedEvidence: linkedEvidenceIds,
+            traineeComments: comments.trainee,
+            educationalSupervisorComments: comments.supervisor,
+            arcpReviewType
+        };
+
+        const evidenceItem: Partial<EvidenceItem> = {
+            id: initialData?.id,
+            type: EvidenceType.ESR,
+            title: `Educational Supervisor Report - ${new Date().toLocaleString('default', { month: 'short', year: 'numeric' })}`,
+            date: new Date().toISOString().split('T')[0],
+            status: EvidenceStatus.Draft,
+            esrFormData: formData,
+            level: 0,
+            sia: '',
+            supervisorName: supervisorName || profile.supervisorName,
+            supervisorEmail: supervisorEmail || profile.supervisorEmail,
+            data: formData
+        };
+
+        await onSave(evidenceItem);
+
+        const result = await sendMagicLinkEmail({
+            evidenceId: initialData?.id || '',
+            recipientEmail: supervisorEmail || profile.supervisorEmail || '',
+            formType: 'ESR'
+        });
+
+        if (result.success) {
+            await handleSave(EvidenceStatus.Submitted);
+            alert(`Magic link sent to ${supervisorEmail || profile.supervisorEmail}. They can complete the form without logging in.`);
+        } else {
+            alert(`Failed to send email: ${result.error || 'Unknown error'}`);
         }
     };
 
@@ -608,7 +649,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                         <Save size={14} /> Save Draft
                                     </button>
                                     <button
-                                        onClick={() => handleSave(EvidenceStatus.Submitted)}
+                                        onClick={handleEmailForm}
                                         className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase"
                                     >
                                         <MessageSquare size={14} /> Email Form

@@ -7,6 +7,7 @@ import {
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { SupervisorSearch } from '../components/SupervisorSearch';
 import { INITIAL_PROFILE } from '../constants';
@@ -323,10 +324,20 @@ const MARForm: React.FC<MARFormProps> = ({
       alert("Please provide assessor name and email.");
       return;
     }
-    setStatus(EvidenceStatus.Submitted);
-    await saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to assessor");
-    if (onSubmitted) onSubmitted();
+    await saveToParent(status);
+    const result = await sendMagicLinkEmail({
+      evidenceId: formId,
+      recipientEmail: assessorEmail,
+      formType: 'MAR'
+    });
+    if (result.success) {
+      setStatus(EvidenceStatus.Submitted);
+      await saveToParent(EvidenceStatus.Submitted);
+      alert(`Magic link sent to ${assessorEmail}. They can complete the form without logging in.`);
+      if (onSubmitted) onSubmitted();
+    } else {
+      alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
   };
 
   const handleSupervisorSignOff = async () => {

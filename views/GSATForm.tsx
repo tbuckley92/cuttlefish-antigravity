@@ -8,6 +8,7 @@ import {
   FileText, X, ShieldCheck, Mail, Save, Eye
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { SupervisorSearch } from '../components/SupervisorSearch';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, INITIAL_PROFILE } from '../constants';
@@ -151,10 +152,23 @@ const GSATForm: React.FC<GSATFormProps> = ({
   };
 
   const handleEmailForm = async () => {
-    setStatus(EvidenceStatus.Submitted);
-    await saveToParent(EvidenceStatus.Submitted);
-    alert(`GSAT Form emailed to ${supervisorName}`);
-    if (onSubmitted) onSubmitted();
+    // Save form first to ensure we have an ID
+    await saveToParent(status);
+
+    const result = await sendMagicLinkEmail({
+      evidenceId: formId,
+      recipientEmail: supervisorEmail,
+      formType: 'GSAT'
+    });
+
+    if (result.success) {
+      setStatus(EvidenceStatus.Submitted);
+      await saveToParent(EvidenceStatus.Submitted);
+      alert(`Magic link sent to ${supervisorEmail}. They can complete the form without logging in.`);
+      if (onSubmitted) onSubmitted();
+    } else {
+      alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
   };
 
   const handleSupervisorSignOff = async () => {

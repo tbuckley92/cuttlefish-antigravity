@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Trash2, AlertCircle, Save, CheckCircle2, ChevronDown, ChevronUp, Plus, X, ChevronLeft, Mail, ShieldCheck } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
 import { SPECIALTIES } from '../constants';
@@ -151,10 +152,21 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
             return;
         }
 
-        setStatus(EvidenceStatus.Submitted);
-        await saveToParent(EvidenceStatus.Submitted);
-        alert("Form emailed to supervisor");
-        onSubmitted();
+        await saveToParent(status);
+        const result = await sendMagicLinkEmail({
+            evidenceId: id || uuidv4(),
+            recipientEmail: supervisorEmail,
+            formType: 'EPAOperatingList'
+        });
+
+        if (result.success) {
+            setStatus(EvidenceStatus.Submitted);
+            await saveToParent(EvidenceStatus.Submitted);
+            alert(`Magic link sent to ${supervisorEmail}. They can complete the form without logging in.`);
+            onSubmitted();
+        } else {
+            alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+        }
     };
 
     const handleSupervisorSignOff = async () => {

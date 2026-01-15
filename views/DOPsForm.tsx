@@ -10,6 +10,7 @@ import { SignOffDialog } from '../components/SignOffDialog';
 import { SupervisorSearch } from '../components/SupervisorSearch';
 import { INITIAL_PROFILE } from '../constants';
 import { uuidv4 } from '../utils/uuid';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
 interface DOPsFormProps {
@@ -418,10 +419,20 @@ const DOPsForm: React.FC<DOPsFormProps> = ({
       alert("Please provide supervisor name and email.");
       return;
     }
-    setStatus(EvidenceStatus.Submitted);
-    await saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to supervisor");
-    if (onSubmitted) onSubmitted();
+    await saveToParent(status);
+    const result = await sendMagicLinkEmail({
+      evidenceId: formId,
+      recipientEmail: supervisorEmail,
+      formType: 'DOPS'
+    });
+    if (result.success) {
+      setStatus(EvidenceStatus.Submitted);
+      await saveToParent(EvidenceStatus.Submitted);
+      alert(`Magic link sent to ${supervisorEmail}. They can complete the form without logging in.`);
+      if (onSubmitted) onSubmitted();
+    } else {
+      alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
   };
 
   const handleSignOffConfirm = async (gmc: string, name: string, email: string) => {

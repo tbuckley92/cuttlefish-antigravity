@@ -12,6 +12,7 @@ import { SignOffDialog } from '../components/SignOffDialog';
 import { SupervisorSearch } from '../components/SupervisorSearch';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, SPECIALTIES, INITIAL_PROFILE } from '../constants';
 import { EPA_SPECIALTY_DATA } from '../constants/epaSpecialtyData';
+import { sendMagicLinkEmail } from '../utils/emailUtils';
 import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
 interface EPAFormProps {
@@ -575,10 +576,24 @@ const EPAForm: React.FC<EPAFormProps> = ({
       alert("Please provide supervisor name and email.");
       return;
     }
-    setStatus(EvidenceStatus.Submitted);
-    await saveToParent(EvidenceStatus.Submitted);
-    alert("Form emailed to supervisor");
-    onSubmitted?.();
+
+    // Save form first to ensure we have an ID
+    await saveToParent(status);
+
+    const result = await sendMagicLinkEmail({
+      evidenceId: formId,
+      recipientEmail: supervisorEmail,
+      formType: 'EPA'
+    });
+
+    if (result.success) {
+      setStatus(EvidenceStatus.Submitted);
+      await saveToParent(EvidenceStatus.Submitted);
+      alert(`Magic link sent to ${supervisorEmail}. They can complete the form without logging in.`);
+      onSubmitted?.();
+    } else {
+      alert(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
   };
 
   const handleSupervisorSignOff = async () => {
