@@ -10,6 +10,7 @@ import {
 import { SupervisorProfile, TraineeSummary, UserRole, EvidenceType, EvidenceStatus, ARCPOutcome, ARCPReviewType, EvidenceItem, UserProfile } from '../types';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { getAllTraineeSummaries } from '../mockData'; // Fallback
+import { EditRequestDialog } from '../components/EditRequestDialog';
 
 interface SupervisorDashboardProps {
   supervisor: SupervisorProfile;
@@ -48,6 +49,14 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
     rcophthNumber: supervisor.rcophthNumber || ''
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Edit Request Dialog State
+  const [editRequestDialog, setEditRequestDialog] = useState<{
+    request: any;
+    evidence: EvidenceItem | null;
+    traineeName: string;
+  } | null>(null);
+  const [allEvidence, setAllEvidence] = useState<EvidenceItem[]>([]);
 
   // Initialize form when supervisor changes
   useEffect(() => {
@@ -90,6 +99,98 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       alert('Failed to save profile changes');
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // Handle Edit Request Approval
+  const handleApproveEditRequest = async () => {
+    if (!editRequestDialog || !supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { request, evidence } = editRequestDialog;
+
+      // 1. Update edit_requests table to 'approved'
+      const { error: updateError } = await supabase
+        .from('edit_requests')
+        .update({
+          status: 'approved',
+          resolved_at: new Date().toISOString(),
+          resolved_by: supervisor.id
+        })
+        .eq('id', request.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Update evidence status back to Draft
+      if (evidence) {
+        const { error: evidenceError } = await supabase
+          .from('evidence')
+          .update({ status: EvidenceStatus.Draft })
+          .eq('id', evidence.id);
+
+        if (evidenceError) throw evidenceError;
+      }
+
+      // 3. Send notification to trainee
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: request.trainee_id,
+          role_context: 'trainee',
+          type: 'edit_request_approved',
+          title: 'Edit Request Approved',
+          body: `Your edit request for "${evidence?.title}" has been approved. The form is now unlocked.`,
+          reference_id: evidence?.id,
+          reference_type: 'evidence',
+          is_read: false
+        });
+
+      alert('Edit request approved successfully!');
+      setEditRequestDialog(null);
+    } catch (error) {
+      console.error('Error approving edit request:', error);
+      alert('Failed to approve edit request');
+    }
+  };
+
+  // Handle Edit Request Denial
+  const handleDenyEditRequest = async () => {
+    if (!editRequestDialog || !supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { request, evidence } = editRequestDialog;
+
+      // 1. Update edit_requests table to 'denied'
+      const { error: updateError } = await supabase
+        .from('edit_requests')
+        .update({
+          status: 'denied',
+          resolved_at: new Date().toISOString(),
+          resolved_by: supervisor.id
+        })
+        .eq('id', request.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Send notification to trainee
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: request.trainee_id,
+          role_context: 'trainee',
+          type: 'edit_request_denied',
+          title: 'Edit Request Denied',
+          body: `Your edit request for "${evidence?.title}" has been denied. The form remains locked.`,
+          reference_id: evidence?.id,
+          reference_type: 'evidence',
+          is_read: false
+        });
+
+      alert('Edit request denied');
+      setEditRequestDialog(null);
+    } catch (error) {
+      console.error('Error denying edit request:', error);
+      alert('Failed to deny edit request');
     }
   };
 
@@ -271,7 +372,52 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 
 
               <div className="flex-1 min-h-[200px] max-h-[400px] overflow-y-auto">
-                <NotificationList supervisor={supervisor} onAction={onViewInbox} />
+                <NotificationList
+                  supervisor={supervisor}
+                  onAction={onViewInbox}
+                  onShowEditRequest={async (notification) => {
+                    // Fetch the edit request and evidence
+                    if (!supabase || !isSupabaseConfigured) return;
+
+                    try {
+                      // Get edit request
+                      const { data: requestData } = await supabase
+                        .from('edit_requests')
+                        .select('*')
+                        .eq('id', notification.reference_id)
+                        .single();
+
+                      if (!requestData) {
+                        alert('Edit request not found');
+                        return;
+                      }
+
+                      // Get evidence
+                      const { data: evidenceData } = await supabase
+                        .from('evidence')
+                        .select('*')
+                        .eq('id', requestData.evidence_id)
+                        .single();
+
+                      // Get trainee name
+                      const { data: traineeData } = await supabase
+                        .from('user_profile')
+                        .select('name')
+                        .eq('user_id', requestData.trainee_id)
+                        .single();
+
+                      setEditRequestDialog({
+                        request: requestData,
+                        evidence: evidenceData as EvidenceItem,
+                        traineeName: traineeData?.name || 'Trainee'
+                      });
+                    } catch (error) {
+                      console.error('Error loading edit request:', error);
+                      alert('Failed to load edit request');
+                    }
+                  }}
+                  onViewEvidence={onViewEvidenceItem}
+                />
               </div>
 
               <div className="p-3 border-t border-slate-100 bg-slate-50/30">
@@ -421,6 +567,18 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
           </div>
         )
       }
+
+      {/* Edit Request Dialog */}
+      {editRequestDialog && (
+        <EditRequestDialog
+          request={editRequestDialog.request}
+          evidence={editRequestDialog.evidence!}
+          traineeName={editRequestDialog.traineeName}
+          onApprove={handleApproveEditRequest}
+          onDeny={handleDenyEditRequest}
+          onClose={() => setEditRequestDialog(null)}
+        />
+      )}
     </>);
 };
 
@@ -430,7 +588,9 @@ export default SupervisorDashboard;
 const NotificationList: React.FC<{
   supervisor: SupervisorProfile;
   onAction?: () => void;
-}> = ({ supervisor, onAction }) => {
+  onShowEditRequest?: (notification: any) => void;
+  onViewEvidence?: (item: EvidenceItem) => void;
+}> = ({ supervisor, onAction, onShowEditRequest, onViewEvidence }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -462,19 +622,44 @@ const NotificationList: React.FC<{
     // Subscribe to realtime changes would be ideal here if enabled
   }, [supervisor.id]);
 
-  const handleNotificationClick = async (notificationId: string) => {
+  const handleNotificationClick = async (notification: any) => {
     // Mark as read
     if (isSupabaseConfigured && supabase) {
       await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', notificationId);
+        .eq('id', notification.id);
 
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
     }
 
-    // Trigger parent action (View Inbox)
-    if (onAction) onAction();
+    // Route based on notification type
+    if (notification.type === 'edit_request') {
+      // Show edit request dialog
+      if (onShowEditRequest) {
+        onShowEditRequest(notification);
+      }
+    } else if (notification.reference_type === 'evidence' && notification.reference_id) {
+      // Navigate to evidence form
+      if (onViewEvidence && isSupabaseConfigured && supabase) {
+        try {
+          const { data: evidenceData } = await supabase
+            .from('evidence')
+            .select('*')
+            .eq('id', notification.reference_id)
+            .single();
+
+          if (evidenceData && onViewEvidence) {
+            onViewEvidence(evidenceData as EvidenceItem);
+          }
+        } catch (error) {
+          console.error('Error loading evidence:', error);
+        }
+      }
+    } else {
+      // Default: trigger parent action (View Inbox)
+      if (onAction) onAction();
+    }
   };
 
   if (isLoading) {
@@ -495,7 +680,7 @@ const NotificationList: React.FC<{
       {notifications.map(n => (
         <div
           key={n.id}
-          onClick={() => handleNotificationClick(n.id)}
+          onClick={() => handleNotificationClick(n)}
           className={`relative p-3 rounded-lg cursor-pointer transition-all border-l-4 group
             ${!n.is_read
               ? 'bg-blue-50/40 border-blue-500' // Unread: Blue tint + Blue border
