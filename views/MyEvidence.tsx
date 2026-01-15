@@ -278,8 +278,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         }
       }
 
-      // Create edit request
-      const { error } = await supabase
+      // Create edit request and capture the ID
+      const { data: newRequest, error } = await supabase
         .from('edit_requests')
         .insert({
           evidence_id: requestEditItem.id,
@@ -287,12 +287,15 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           supervisor_id: supervisorId,
           reason: requestEditReason.trim(),
           status: 'pending'
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      // Send notification to supervisor
+      // Send notification to supervisor with edit_request ID
       console.log('Sending notification to supervisor:', supervisorId);
+      console.log('Edit request ID:', newRequest?.id);
       const { error: notificationError } = await supabase
         .from('notifications')
         .insert({
@@ -301,8 +304,8 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           type: 'edit_request',
           title: `Edit Request: ${requestEditItem.title}`,
           body: `${profile.name} has requested to edit their ${requestEditItem.type}: "${requestEditItem.title}"\n\nReason: ${requestEditReason.trim()}`,
-          reference_id: requestEditItem.id,
-          reference_type: 'evidence',
+          reference_id: newRequest.id,
+          reference_type: 'edit_request',
           is_read: false
         });
 

@@ -9,11 +9,13 @@ import { SPECIALTIES } from '../constants';
 interface SignOffsPanelProps {
     supervisor: SupervisorProfile;
     onViewEvidence: (evidence: EvidenceItem) => void;
+    onShowEditRequest?: (requestId: string) => void;
 }
 
-export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onViewEvidence }) => {
+export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onViewEvidence, onShowEditRequest }) => {
     const [submittedEvidence, setSubmittedEvidence] = useState<EvidenceItem[]>([]);
     const [signedOffEvidence, setSignedOffEvidence] = useState<EvidenceItem[]>([]);
+    const [editRequests, setEditRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     // Filters for Signed Off Table
@@ -70,6 +72,25 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
                     setSignedOffEvidence(items.filter(i =>
                         i.status === EvidenceStatus.SignedOff || (i.status as string) === 'SignedOff'
                     ));
+                }
+
+                // Also fetch pending edit requests
+                const { data: editRequestsData, error: editRequestsError } = await supabase
+                    .from('edit_requests')
+                    .select(`
+                        *,
+                        evidence:evidence_id(*),
+                        trainee:trainee_id(name)
+                    `)
+                    .eq('supervisor_id', supervisorId)
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+
+                if (editRequestsError) {
+                    console.error('Error fetching edit requests:', editRequestsError);
+                } else {
+                    console.log(`Fetched ${editRequestsData?.length || 0} pending edit requests`);
+                    setEditRequests(editRequestsData || []);
                 }
             } catch (err) {
                 console.error("Error fetching supervisor evidence:", err);
@@ -131,29 +152,89 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
                         <h2 className="text-xl font-bold text-slate-800">Awaiting Your Sign Off</h2>
                         <p className="text-sm text-slate-500">Evidence submitters are waiting for your review.</p>
                     </div>
-                    {submittedEvidence.length > 0 && (
+                    {(submittedEvidence.length > 0 || editRequests.length > 0) && (
                         <span className="ml-auto px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200">
-                            {submittedEvidence.length} pending
+                            {submittedEvidence.length + editRequests.length} pending
                         </span>
                     )}
                 </div>
 
                 {isLoading ? (
                     <div className="py-12 text-center text-slate-400">Loading pending items...</div>
-                ) : submittedEvidence.length > 0 ? (
-                    <EvidenceListTable
-                        evidence={submittedEvidence}
-                        profile={{} as UserProfile} // Dummy profile, not needed for display
-                        isSupervisorView={true}
-                        onViewItem={onViewEvidence}
-                    />
                 ) : (
-                    <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-center flex flex-col items-center justify-center">
-                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mb-2">
-                            <CheckCircle2 size={24} />
-                        </div>
-                        <p className="text-slate-500 font-medium">You're all caught up!</p>
-                        <p className="text-xs text-slate-400">No evidence items currently pending your sign off.</p>
+                    <div className="space-y-4">
+                        {/* Edit Requests */}
+                        {editRequests.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                    <AlertCircle size={16} className="text-orange-500" />
+                                    Edit Requests
+                                </h3>
+                                <div className="space-y-2">
+                                    {editRequests.map(request => (
+                                        <GlassCard
+                                            key={request.id}
+                                            className="p-4 cursor-pointer hover:border-orange-300 transition-all"
+                                            onClick={() => {
+                                                // Call the callback to show edit request dialog
+                                                if (onShowEditRequest) {
+                                                    onShowEditRequest(request.id);
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200">
+                                                            EDIT REQUEST
+                                                        </span>
+                                                        <span className="text-sm font-bold text-slate-900">
+                                                            {request.evidence?.title || 'Unknown Evidence'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-600 mb-2">
+                                                        <span className="font-medium">{request.trainee?.name || 'Trainee'}</span> requested to edit this {request.evidence?.type}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 italic">"{request.reason}"</p>
+                                                </div>
+                                                <div className="text-xs text-slate-400">
+                                                    {new Date(request.created_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        </GlassCard>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Submitted Evidence */}
+                        {submittedEvidence.length > 0 && (
+                            <div>
+                                {editRequests.length > 0 && (
+                                    <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <ClipboardCheck size={16} className="text-blue-500" />
+                                        New Submissions
+                                    </h3>
+                                )}
+                                <EvidenceListTable
+                                    evidence={submittedEvidence}
+                                    profile={{} as UserProfile}
+                                    isSupervisorView={true}
+                                    onViewItem={onViewEvidence}
+                                />
+                            </div>
+                        )}
+
+                        {/* Empty State */}
+                        {submittedEvidence.length === 0 && editRequests.length === 0 && (
+                            <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-center flex flex-col items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 mb-2">
+                                    <CheckCircle2 size={24} />
+                                </div>
+                                <p className="text-slate-500 font-medium">You're all caught up!</p>
+                                <p className="text-xs text-slate-400">No evidence items or edit requests currently pending.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </section>

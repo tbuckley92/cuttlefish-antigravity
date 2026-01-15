@@ -481,6 +481,44 @@ const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
                     onViewTraineeEvidence(e.traineeId);
                   }
                 }}
+                onShowEditRequest={async (requestId) => {
+                  // Fetch edit request, evidence, and trainee data
+                  if (!supabase || !isSupabaseConfigured) return;
+
+                  try {
+                    const { data: requestData } = await supabase
+                      .from('edit_requests')
+                      .select('*')
+                      .eq('id', requestId)
+                      .single();
+
+                    if (!requestData) {
+                      alert('Edit request not found');
+                      return;
+                    }
+
+                    const { data: evidenceData } = await supabase
+                      .from('evidence')
+                      .select('*')
+                      .eq('id', requestData.evidence_id)
+                      .single();
+
+                    const { data: traineeData } = await supabase
+                      .from('user_profile')
+                      .select('name')
+                      .eq('user_id', requestData.trainee_id)
+                      .single();
+
+                    setEditRequestDialog({
+                      request: requestData,
+                      evidence: evidenceData as EvidenceItem,
+                      traineeName: traineeData?.name || 'Trainee'
+                    });
+                  } catch (error) {
+                    console.error('Error loading edit request:', error);
+                    alert('Failed to load edit request');
+                  }
+                }}
               />
             )}
 
