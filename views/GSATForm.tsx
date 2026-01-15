@@ -9,6 +9,7 @@ import {
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { SupervisorSearch } from '../components/SupervisorSearch';
 import { CURRICULUM_DATA, INITIAL_EVIDENCE, INITIAL_PROFILE } from '../constants';
 import { CurriculumRequirement, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 

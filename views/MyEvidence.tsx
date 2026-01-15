@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   Filter, Search, FileText, CheckCircle2, Clock,
-  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X, Unlock, Ban
+  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X, Unlock, Ban, HelpCircle
 } from '../components/Icons';
 import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
@@ -135,6 +135,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Request to Edit state
   const [requestEditItem, setRequestEditItem] = useState<EvidenceItem | null>(null);
@@ -463,76 +464,6 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
     ).length;
   }, [filteredEvidence, selectedForExport]);
 
-  /* HTML Export Handler with Data Fetching */
-  const handleExportHTML = async () => {
-    setIsExporting(true); // Re-use exporting state to show loading UI
-    try {
-      let logbookEntries: any[] = [];
-      let complicationCases: any[] = [];
-
-      if (isSupabaseConfigured && supabase && profile.id) { // Use profile.id (which should be userId)
-        // 1. Fetch Logbook Entries
-        const { data: logs, error: logError } = await supabase
-          .from('eyelogbook')
-          .select('*')
-          .eq('trainee_id', profile.id)
-          .order('procedure_date', { ascending: false })
-          .limit(10000);
-
-        if (logError) console.error('Error fetching logs for export:', logError);
-        else logbookEntries = logs || [];
-
-        // 2. Fetch Complications
-        const { data: comps, error: compError } = await supabase
-          .from('eyelogbook_complication')
-          .select('*')
-          .eq('trainee_id', profile.id)
-          .order('procedure_date', { ascending: false })
-          .limit(10000);
-
-        if (compError) console.error('Error fetching complications for export:', compError);
-        else complicationCases = comps || [];
-      }
-
-      // 3. Fetch Portfolio Progress (if not passed as prop, which it currently isn't in MyEvidence)
-      // We need to fetch this to render the matrix accurately
-      let progressItems: any[] = [];
-      if (isSupabaseConfigured && supabase && profile.id) {
-        const { data: prog, error: progError } = await supabase
-          .from('portfolio_progress')
-          .select('*')
-          .eq('trainee_id', profile.id);
-        if (progError) console.error('Error fetching progress for export', progError);
-        else progressItems = prog || [];
-      }
-
-
-      const htmlContent = generateLogbookHTML(
-        profile,
-        allEvidence,
-        sias,
-        progressItems, // Pass fetched progress
-        logbookEntries,
-        complicationCases
-      );
-
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      link.download = `Portfolio_Archive_${profile.name.replace(/\s+/g, '_')}_${dateStr}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('HTML Export Error:', error);
-      alert('Failed to generate HTML export.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
   const handleExportZip = async () => {
     setIsExporting(true);
     setExportProgress(0);
@@ -600,6 +531,71 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
         </div>
       )}
 
+      {/* Informational Blurb and Legend */}
+      {!selectionMode && !isSupervisorView && showHelp && (
+        <GlassCard className="p-4 bg-indigo-50/30 dark:bg-indigo-500/5 border-indigo-500/10 animate-in slide-in-from-top-2 duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white/90">Workplace-Based Assessments</h4>
+                  <p className="text-xs text-slate-500 dark:text-white/40 leading-relaxed mt-1">
+                    Forms (such as EPA, CBD, DOPS) require a Supervisor sign off. Forms in <span className="font-semibold text-slate-700 dark:text-slate-300">DRAFT</span> or <span className="font-semibold text-slate-700 dark:text-slate-300">SUBMITTED</span> status can be deleted without any permissions. Forms that have been signed off as <span className="font-semibold text-green-600 dark:text-green-400">COMPLETE</span> can be edited if the Supervisor approves <span className="font-semibold text-amber-500">REQUEST TO EDIT</span>.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white/90">Reflections & Other Evidence</h4>
+                  <p className="text-xs text-slate-500 dark:text-white/40 leading-relaxed mt-1">
+                    Other evidence, such as Reflections, do not require Supervisor sign off. They can be <span className="font-semibold text-rose-500">DELETED</span> without any other permissions. If they are <span className="font-semibold text-slate-700 dark:text-slate-300">LINKED EVIDENCE</span> (e.g. to an EPA), they cannot be deleted.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 p-2 rounded-lg bg-teal-500/10 text-teal-500">
+                  <FileDown size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white/90">Downloads & Archive</h4>
+                  <p className="text-xs text-slate-500 dark:text-white/40 leading-relaxed mt-1">
+                    All evidence can be downloaded as individual PDFs. A <span className="font-semibold text-teal-600 dark:text-teal-400">FULL ARCHIVE</span> of your data can be downloaded at any time, which will output all evidence in COMPLETE status, your ARCP Outcomes, your EyeLogbook and Complication Log.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 pt-2 border-t border-slate-200 dark:border-white/10 mt-2">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  <ShieldCheck size={12} className="text-green-500" /> Complete
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  <Clock size={12} className="text-blue-500" /> Submitted
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  <FileText size={12} className="text-slate-400" /> Draft
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  <Unlock size={12} className="text-amber-500" /> Request Edit
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                  <div className="relative">
+                    <Trash2 size={12} className="text-slate-300" />
+                    < Ban size={16} className="absolute -top-0.5 -left-1 text-rose-500" />
+                  </div> Linked
+                </div>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4 flex-1">
           {isSupervisorView && onBack && (
@@ -619,6 +615,18 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               {isSupervisorView ? 'Viewing trainee evidence portfolio' : 'Overview of all your workplace-based assessments and reflections'}
             </p>
           </div>
+          {!selectionMode && !isSupervisorView && (
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${showHelp
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:bg-slate-50 dark:hover:bg-white/10'
+                }`}
+            >
+              <HelpCircle size={14} />
+              {showHelp ? 'HIDE HELP' : 'HELP'}
+            </button>
+          )}
           {/* Mobile filter button */}
           <button
             onClick={() => setFilterOpen(true)}
@@ -631,15 +639,6 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
           {/* Export Buttons */}
           {!selectionMode && !isSupervisorView && (
             <div className="flex gap-2">
-              <button
-                onClick={handleExportHTML}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-                title="Download offline-viewable HTML summary"
-              >
-                <FileDown size={14} />
-                Summary (HTML)
-              </button>
               <button
                 onClick={handleExportZip}
                 disabled={isExporting}

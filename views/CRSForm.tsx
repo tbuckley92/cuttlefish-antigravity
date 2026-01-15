@@ -7,6 +7,7 @@ import {
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { SupervisorSearch } from '../components/SupervisorSearch';
 import { uuidv4 } from '../utils/uuid';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 import {
@@ -515,26 +516,25 @@ const CRSForm: React.FC<CRSFormProps> = ({
               </MetadataField>
             )}
 
-            <MetadataField label="Assessor Name">
-              <input
-                disabled={isLocked}
-                type="text"
-                value={assessorName}
-                onChange={(e) => setAssessorName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter assessor name"
-              />
-            </MetadataField>
-
-            <MetadataField label="Assessor Email">
-              <input
-                disabled={isLocked}
-                type="email"
-                value={assessorEmail}
-                onChange={(e) => setAssessorEmail(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter assessor email"
-              />
+            <MetadataField label="Assessor">
+              {!isLocked ? (
+                <SupervisorSearch
+                  onSelect={(supervisor) => {
+                    setAssessorName(supervisor.name);
+                    setAssessorEmail(supervisor.email);
+                  }}
+                  currentDeanery="London"
+                  initialName={assessorName}
+                  initialEmail={assessorEmail}
+                  placeholder="Search assessor by name or email..."
+                  disabled={isLocked}
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input disabled type="text" placeholder="Assessor Name" value={assessorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 outline-none" />
+                  <input disabled type="email" placeholder="Assessor Email" value={assessorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 outline-none" />
+                </div>
+              )}
             </MetadataField>
 
             {/* Section Navigation Sidebar */}

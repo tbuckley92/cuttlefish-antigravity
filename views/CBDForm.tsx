@@ -7,6 +7,7 @@ import {
   FileText, Mail, ShieldCheck, Save, Clipboard
 } from '../components/Icons';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { SupervisorSearch } from '../components/SupervisorSearch';
 import { INITIAL_PROFILE } from '../constants';
 
 import { uuidv4 } from '../utils/uuid';
@@ -583,26 +584,25 @@ const CBDForm: React.FC<CBDFormProps> = ({
               </select>
             </MetadataField>
 
-            <MetadataField label="Supervisor Name">
-              <input
-                disabled={isLocked}
-                type="text"
-                value={supervisorName}
-                onChange={(e) => setSupervisorName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter supervisor name"
-              />
-            </MetadataField>
-
-            <MetadataField label="Supervisor Email">
-              <input
-                disabled={isLocked}
-                type="email"
-                value={supervisorEmail}
-                onChange={(e) => setSupervisorEmail(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter supervisor email"
-              />
+            <MetadataField label="Supervisor">
+              {!isLocked ? (
+                <SupervisorSearch
+                  onSelect={(supervisor) => {
+                    setSupervisorName(supervisor.name);
+                    setSupervisorEmail(supervisor.email);
+                  }}
+                  currentDeanery={INITIAL_PROFILE.deanery}
+                  initialName={supervisorName}
+                  initialEmail={supervisorEmail}
+                  placeholder="Search supervisor by name or email..."
+                  disabled={isLocked}
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input disabled type="text" placeholder="Supervisor Name" value={supervisorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 outline-none" />
+                  <input disabled type="email" placeholder="Supervisor Email" value={supervisorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white/90 outline-none" />
+                </div>
+              )}
             </MetadataField>
 
 
@@ -713,26 +713,25 @@ const CBDForm: React.FC<CBDFormProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Name</label>
-              <input
-                disabled={isLocked}
-                type="text"
-                value={supervisorName}
-                onChange={(e) => setSupervisorName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
-                placeholder="Enter supervisor name"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor Email</label>
-              <input
-                disabled={isLocked}
-                type="email"
-                value={supervisorEmail}
-                onChange={(e) => setSupervisorEmail(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm"
-                placeholder="Enter supervisor email"
-              />
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2 block">Supervisor</label>
+              {!isLocked ? (
+                <SupervisorSearch
+                  onSelect={(supervisor) => {
+                    setSupervisorName(supervisor.name);
+                    setSupervisorEmail(supervisor.email);
+                  }}
+                  currentDeanery={INITIAL_PROFILE.deanery}
+                  initialName={supervisorName}
+                  initialEmail={supervisorEmail}
+                  placeholder="Search supervisor..."
+                  disabled={isLocked}
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input disabled type="text" placeholder="Name" value={supervisorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm" />
+                  <input disabled type="email" placeholder="Email" value={supervisorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm" />
+                </div>
+              )}
             </div>
           </div>
         )}

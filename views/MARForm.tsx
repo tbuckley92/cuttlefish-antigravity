@@ -8,6 +8,7 @@ import {
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
+import { SupervisorSearch } from '../components/SupervisorSearch';
 import { INITIAL_PROFILE } from '../constants';
 import { EvidenceStatus, EvidenceItem, EvidenceType } from '../types';
 
@@ -715,24 +716,24 @@ const MARForm: React.FC<MARFormProps> = ({
             </MetadataField>
 
             <MetadataField label="Assessor">
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={assessorName}
-                  onChange={(e) => setAssessorName(e.target.value)}
+              {!isLocked ? (
+                <SupervisorSearch
+                  onSelect={(supervisor) => {
+                    setAssessorName(supervisor.name);
+                    setAssessorEmail(supervisor.email);
+                  }}
+                  currentDeanery={INITIAL_PROFILE.deanery}
+                  initialName={assessorName}
+                  initialEmail={assessorEmail}
+                  placeholder="Search assessor..."
                   disabled={isLocked}
-                  placeholder="Assessor Name"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
                 />
-                <input
-                  type="email"
-                  value={assessorEmail}
-                  onChange={(e) => setAssessorEmail(e.target.value)}
-                  disabled={isLocked}
-                  placeholder="Assessor Email"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
-                />
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <input disabled type="text" placeholder=" Name" value={assessorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                  <input disabled type="email" placeholder="Email" value={assessorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none" />
+                </div>
+              )}
             </MetadataField>
 
             {/* Progress Bar */}
@@ -816,24 +817,24 @@ const MARForm: React.FC<MARFormProps> = ({
                 </select>
               </MetadataField>
               <MetadataField label="Assessor">
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={assessorName}
-                    onChange={(e) => setAssessorName(e.target.value)}
+                {!isLocked ? (
+                  <SupervisorSearch
+                    onSelect={(supervisor) => {
+                      setAssessorName(supervisor.name);
+                      setAssessorEmail(supervisor.email);
+                    }}
+                    currentDeanery={INITIAL_PROFILE.deanery}
+                    initialName={assessorName}
+                    initialEmail={assessorEmail}
+                    placeholder="Search assessor..."
                     disabled={isLocked}
-                    placeholder="Assessor Name"
-                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
                   />
-                  <input
-                    type="email"
-                    value={assessorEmail}
-                    onChange={(e) => setAssessorEmail(e.target.value)}
-                    disabled={isLocked}
-                    placeholder="Assessor Email"
-                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none"
-                  />
-                </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input disabled type="text" placeholder="Name" value={assessorName} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                    <input disabled type="email" placeholder="Email" value={assessorEmail} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white outline-none" />
+                  </div>
+                )}
               </MetadataField>
             </div>
           )}

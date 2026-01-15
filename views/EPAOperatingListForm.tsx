@@ -5,6 +5,8 @@ import { uuidv4 } from '../utils/uuid';
 import { SignOffDialog } from '../components/SignOffDialog';
 import { EvidenceType, EvidenceStatus, EvidenceItem } from '../types';
 import { SPECIALTIES } from '../constants';
+import { SupervisorSearch } from '../components/SupervisorSearch';
+import { INITIAL_PROFILE } from '../constants';
 
 interface EPAOperatingListFormProps {
     id?: string;
@@ -301,30 +303,26 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                             {/* Supervisor */}
                             <div className="mb-4">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-white/30 mb-2">
-                                    Supervisor Name *
+                                    Supervisor *
                                 </label>
-                                <input
-                                    type="text"
-                                    value={supervisorName}
-                                    onChange={(e) => setSupervisorName(e.target.value)}
-                                    disabled={isReadOnly}
-                                    placeholder="Enter supervisor name"
-                                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm text-slate-900 dark:text-white disabled:opacity-50"
-                                />
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-white/30 mb-2">
-                                    Supervisor Email *
-                                </label>
-                                <input
-                                    type="email"
-                                    value={supervisorEmail}
-                                    onChange={(e) => setSupervisorEmail(e.target.value)}
-                                    disabled={isReadOnly}
-                                    placeholder="supervisor@hospital.nhs.uk"
-                                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm text-slate-900 dark:text-white disabled:opacity-50"
-                                />
+                                {!isReadOnly ? (
+                                    <SupervisorSearch
+                                        onSelect={(supervisor) => {
+                                            setSupervisorName(supervisor.name);
+                                            setSupervisorEmail(supervisor.email);
+                                        }}
+                                        currentDeanery={INITIAL_PROFILE.deanery}
+                                        initialName={supervisorName}
+                                        initialEmail={supervisorEmail}
+                                        placeholder="Search supervisor..."
+                                        disabled={isReadOnly}
+                                    />
+                                ) : (
+                                    <div className="space-y-2">
+                                        <input disabled type="text" placeholder="Name" value={supervisorName} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm text-slate-900 dark:text-white" />
+                                        <input disabled type="email" placeholder="Email" value={supervisorEmail} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-sm text-slate-900 dark:text-white" />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Date */}
