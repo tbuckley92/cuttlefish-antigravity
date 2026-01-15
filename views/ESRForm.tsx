@@ -617,7 +617,7 @@ const ESRForm: React.FC<ESRFormProps> = ({
                                         onClick={() => setIsSignOffOpen(true)}
                                         className="w-full py-2.5 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2 text-xs uppercase shadow-lg shadow-emerald-600/20"
                                     >
-                                        <ShieldCheck size={14} /> IN PERSON SIGN OFF
+                                        <ShieldCheck size={14} /> SIGN OFF NOW
                                     </button>
                                 </>
                             )}

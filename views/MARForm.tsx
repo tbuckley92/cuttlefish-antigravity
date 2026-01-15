@@ -942,7 +942,7 @@ const MARForm: React.FC<MARFormProps> = ({
                   onClick={() => setIsSignOffOpen(true)}
                   className="h-10 px-4 rounded-xl bg-green-600 text-white text-[10px] lg:text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
-                  <ShieldCheck size={16} /> <span>IN PERSON SIGN OFF</span>
+                  <ShieldCheck size={16} /> <span>SIGN OFF NOW</span>
                 </button>
               </>
             )}

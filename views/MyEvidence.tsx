@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
   Filter, Search, FileText, CheckCircle2, Clock,
-  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X
+  ArrowLeft, AlertCircle, ShieldCheck, ExternalLink, Trash2, FileDown, Download, X, Unlock, Ban
 } from '../components/Icons';
 import { SPECIALTIES } from '../constants';
 import { EvidenceType, EvidenceStatus, EvidenceItem, UserProfile } from '../types';
@@ -33,7 +33,9 @@ interface MyEvidenceProps {
   epaLinkingMode?: boolean; // When true, only show EPA Operating List items
 }
 
-const DELETABLE_COMPLETE_TYPES = [
+// Evidence types that do NOT require supervisor sign-off (can be self-signed)
+// These can be deleted even when COMPLETE
+const SELF_SIGNED_TYPES = [
   EvidenceType.CurriculumCatchUp,
   EvidenceType.FourteenFish,
   EvidenceType.Reflection,
@@ -46,8 +48,64 @@ const DELETABLE_COMPLETE_TYPES = [
   EvidenceType.Logbook,
   EvidenceType.Additional,
   EvidenceType.Compliment,
-  EvidenceType.Other
+  EvidenceType.Other,
+  EvidenceType.FormR
 ];
+
+// ARCP outcomes - cannot be deleted or edited at all
+const ARCP_OUTCOME_TYPES = [
+  EvidenceType.ARCPFullReview,
+  EvidenceType.ARCPInterimReview
+];
+
+// Evidence types that REQUIRE supervisor sign-off
+// When COMPLETE, these cannot be deleted (must Request to Edit)
+const SUPERVISOR_SIGNED_TYPES = [
+  EvidenceType.CbD,
+  EvidenceType.DOPs,
+  EvidenceType.OSATs,
+  EvidenceType.CRS,
+  EvidenceType.EPA,
+  EvidenceType.EPAOperatingList,
+  EvidenceType.GSAT,
+  EvidenceType.MSF,
+  EvidenceType.ESR,
+  EvidenceType.MAR
+];
+
+// Helper function to check if an evidence item is linked to any form
+// Returns the title of the form that references it, or null if not linked
+const getLinkedFormReference = (evidenceId: string, allEvidence: EvidenceItem[]): string | null => {
+  for (const item of allEvidence) {
+    // Check EPA forms
+    if (item.epaFormData?.linkedEvidence) {
+      for (const ids of Object.values(item.epaFormData.linkedEvidence)) {
+        if (ids.includes(evidenceId)) {
+          return item.title;
+        }
+      }
+    }
+    // Check GSAT forms
+    if (item.gsatFormData?.linkedEvidence) {
+      for (const ids of Object.values(item.gsatFormData.linkedEvidence)) {
+        if (ids.includes(evidenceId)) {
+          return item.title;
+        }
+      }
+    }
+    // Check ESR forms
+    if (item.esrFormData?.linkedEvidence) {
+      const esrLinks = item.esrFormData.linkedEvidence;
+      if (esrLinks.gsat?.includes(evidenceId) ||
+        esrLinks.epas?.includes(evidenceId) ||
+        esrLinks.msf?.includes(evidenceId) ||
+        esrLinks.lastEsr?.includes(evidenceId)) {
+        return item.title;
+      }
+    }
+  }
+  return null;
+};
 
 const MyEvidence: React.FC<MyEvidenceProps> = ({
   allEvidence,
@@ -77,6 +135,12 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Request to Edit state
+  const [requestEditItem, setRequestEditItem] = useState<EvidenceItem | null>(null);
+  const [requestEditReason, setRequestEditReason] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+
 
   const availableYears = useMemo(() => {
     const years = new Set<string>();
@@ -149,6 +213,119 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
   const handleDeleteCancel = () => {
     setDeleteConfirmId(null);
   };
+
+  // Request to Edit handlers
+  const handleRequestEditClick = (e: React.MouseEvent, item: EvidenceItem) => {
+    e.stopPropagation();
+    setRequestEditItem(item);
+    setRequestEditReason('');
+  };
+
+  const handleRequestEditCancel = () => {
+    setRequestEditItem(null);
+    setRequestEditReason('');
+  };
+
+  const handleRequestEditSubmit = async () => {
+    if (!requestEditItem || !requestEditReason.trim()) {
+      alert('Please provide a reason for your edit request.');
+      return;
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      alert('Database not configured.');
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    try {
+      // Try to get supervisor ID from the evidence item
+      let supervisorId = requestEditItem.signedOffBy;
+
+      // If signedOffBy is not set, try to find supervisor by email
+      if (!supervisorId && requestEditItem.supervisorEmail) {
+        const { data: supervisorData } = await supabase
+          .from('user_profile')
+          .select('user_id')
+          .eq('email', requestEditItem.supervisorEmail)
+          .single();
+
+        if (supervisorData) {
+          supervisorId = supervisorData.user_id;
+        }
+      }
+
+      // If still no supervisor, try from epaFormData
+      if (!supervisorId && requestEditItem.epaFormData?.supervisorEmail) {
+        const { data: supervisorData } = await supabase
+          .from('user_profile')
+          .select('user_id')
+          .eq('email', requestEditItem.epaFormData.supervisorEmail)
+          .single();
+
+        if (supervisorData) {
+          supervisorId = supervisorData.user_id;
+        }
+      }
+
+      if (!supervisorId) {
+        // Last resort: use the trainee's current supervisor
+        if (profile.supervisor_id) {
+          supervisorId = profile.supervisor_id;
+        } else {
+          alert('Could not determine supervisor for this form. Please contact your supervisor directly.');
+          return;
+        }
+      }
+
+      // Create edit request
+      const { error } = await supabase
+        .from('edit_requests')
+        .insert({
+          evidence_id: requestEditItem.id,
+          trainee_id: profile.id,
+          supervisor_id: supervisorId,
+          reason: requestEditReason.trim(),
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Send notification to supervisor
+      console.log('Sending notification to supervisor:', supervisorId);
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: supervisorId,
+          role_context: 'supervisor',
+          type: 'edit_request',
+          title: `Edit Request: ${requestEditItem.title}`,
+          body: `${profile.name} has requested to edit their ${requestEditItem.type}: "${requestEditItem.title}"\n\nReason: ${requestEditReason.trim()}`,
+          reference_id: requestEditItem.id,
+          reference_type: 'evidence',
+          is_read: false
+        });
+
+      if (notificationError) {
+        console.error('Error sending notification:', notificationError);
+        // Don't block the edit request if notification fails
+        alert('Edit request created, but notification may not have been sent. Please contact your supervisor directly.');
+      } else {
+        console.log('Notification sent successfully');
+      }
+
+      alert('Your edit request has been submitted. You will be notified when your supervisor responds.');
+      setRequestEditItem(null);
+      setRequestEditReason('');
+    } catch (error) {
+      console.error('Error submitting edit request:', error);
+      alert('Failed to submit edit request. Please try again.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
+
 
   const handlePDFClick = async (e: React.MouseEvent, item: EvidenceItem) => {
     e.stopPropagation();
@@ -471,30 +648,9 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
               </button>
             </div>
           )}
-
-          {completeCount > 0 && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedCompleteCount === completeCount && completeCount > 0}
-                onChange={handleSelectAllComplete}
-                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm text-slate-600 dark:text-white/60 font-medium">
-                Select All COMPLETE ({completeCount})
-              </span>
-            </label>
-          )}
-          <button
-            onClick={handleExportSelected}
-            disabled={selectedForExport.length === 0 || isExporting}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={16} />
-            {isExporting ? 'Exporting...' : `EXPORT FILES (${selectedForExport.length})`}
-          </button>
         </div>
       </div>
+
 
       <GlassCard className="hidden md:flex p-1 flex-col md:flex-row gap-2">
         <div className="flex-1 flex items-center gap-3 px-4 py-2">
@@ -635,6 +791,7 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                     </td>
                     <td className="px-2 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        {/* Download PDF for COMPLETE items */}
                         {item.status === EvidenceStatus.SignedOff && (
                           <button
                             onClick={(e) => handlePDFClick(e, item)}
@@ -644,8 +801,49 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                             <FileDown size={14} />
                           </button>
                         )}
-                        {(item.status === EvidenceStatus.Draft ||
-                          (item.status === EvidenceStatus.SignedOff && DELETABLE_COMPLETE_TYPES.includes(item.type))) && onDeleteEvidence && (
+
+                        {/* Request to Edit for supervisor-signed COMPLETE items */}
+                        {item.status === EvidenceStatus.SignedOff &&
+                          SUPERVISOR_SIGNED_TYPES.includes(item.type) &&
+                          !ARCP_OUTCOME_TYPES.includes(item.type) && (
+                            <button
+                              onClick={(e) => handleRequestEditClick(e, item)}
+                              className="p-1 rounded text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+                              title="Request to Edit"
+                            >
+                              <Unlock size={14} />
+                            </button>
+                          )}
+
+                        {/* Delete button logic:
+                            - Can delete DRAFT or SUBMITTED (any type except ARCP outcomes)
+                            - Can delete COMPLETE items that are self-signed
+                            - Cannot delete COMPLETE items that require supervisor sign-off
+                            - Cannot delete ARCP outcomes at all
+                            - Cannot delete items linked to other forms */}
+                        {(() => {
+                          const linkedTo = getLinkedFormReference(item.id, allEvidence);
+                          const canDelete = !ARCP_OUTCOME_TYPES.includes(item.type) &&
+                            onDeleteEvidence &&
+                            (item.status === EvidenceStatus.Draft ||
+                              item.status === EvidenceStatus.Submitted ||
+                              (item.status === EvidenceStatus.SignedOff && SELF_SIGNED_TYPES.includes(item.type)));
+
+                          if (!canDelete) return null;
+
+                          if (linkedTo) {
+                            return (
+                              <div
+                                className="relative p-1 cursor-not-allowed"
+                                title={`Linked to: ${linkedTo}`}
+                              >
+                                <Trash2 size={14} className="text-slate-300 dark:text-slate-600" />
+                                <Ban size={20} className="absolute top-0 left-0 text-rose-500" strokeWidth={2.5} />
+                              </div>
+                            );
+                          }
+
+                          return (
                             <button
                               onClick={(e) => handleDeleteClick(e, item.id)}
                               className="p-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
@@ -653,9 +851,12 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
                             >
                               <Trash2 size={14} />
                             </button>
-                          )}
+                          );
+                        })()}
+
                       </div>
                     </td>
+
                     <td className="px-2 py-3 text-center">
                       <div className="flex items-center justify-center">
                         {item.status === EvidenceStatus.SignedOff ? (
@@ -747,6 +948,69 @@ const MyEvidence: React.FC<MyEvidenceProps> = ({
 
               {/* Decorative background element */}
               <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-rose-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request to Edit Dialog */}
+      {requestEditItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md animate-in zoom-in-95 duration-300">
+            <div className="p-10 bg-white dark:bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-white/10 rounded-[2.5rem] relative overflow-hidden">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Request to Edit</h2>
+                  <p className="text-[10px] text-slate-400 dark:text-white/30 mt-1.5 uppercase tracking-[0.2em] font-black">Supervisor Approval Required</p>
+                </div>
+                <button
+                  onClick={handleRequestEditCancel}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-slate-400 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">{requestEditItem.type}: {requestEditItem.title}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-300/60 mt-1">Signed off on {requestEditItem.signedOffAt?.split('T')[0] || requestEditItem.date}</p>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-white/30 font-bold mb-2 block">
+                    Reason for Edit Request
+                  </label>
+                  <textarea
+                    value={requestEditReason}
+                    onChange={(e) => setRequestEditReason(e.target.value)}
+                    placeholder="Please explain why you need to edit this form..."
+                    rows={4}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <button
+                    onClick={handleRequestEditSubmit}
+                    disabled={isSubmittingRequest || !requestEditReason.trim()}
+                    className="w-full py-4 rounded-2xl bg-amber-500 text-white font-bold text-xs uppercase tracking-[0.2em] shadow-xl shadow-amber-500/30 hover:bg-amber-400 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Unlock size={18} />
+                    <span>{isSubmittingRequest ? 'Submitting...' : 'Submit Request'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleRequestEditCancel}
+                    className="w-full py-3 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all text-center"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              {/* Decorative background element */}
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
             </div>
           </div>
         </div>

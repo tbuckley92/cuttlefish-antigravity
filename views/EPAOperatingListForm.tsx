@@ -494,7 +494,7 @@ const EPAOperatingListForm: React.FC<EPAOperatingListFormProps> = ({
                                     onClick={handleSubmit} // Using handleSubmit which calls setIsSignOffOpen
                                     className="h-12 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2"
                                 >
-                                    <ShieldCheck size={18} /> <span>IN PERSON SIGN OFF</span>
+                                    <ShieldCheck size={18} /> <span>SIGN OFF NOW</span>
                                 </button>
                             </div>
                         )}

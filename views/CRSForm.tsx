@@ -690,7 +690,7 @@ const CRSForm: React.FC<CRSFormProps> = ({
                         onClick={() => setIsSignOffOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
                       >
-                        <ShieldCheck size={14} /> IN PERSON SIGN OFF
+                        <ShieldCheck size={14} /> SIGN OFF NOW
                       </button>
                     </>
                   )}
