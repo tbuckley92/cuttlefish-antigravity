@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { X, Check, Ban, Unlock } from './Icons';
 import { GlassCard } from './GlassCard';
 
-interface Edit RequestDialogProps {
+interface EditRequestDialogProps {
     request: {
         id: string;
         evidence_id: string;
