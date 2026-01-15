@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { Logo } from '../components/Logo';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
+import { sendNotificationEmail } from '../utils/emailUtils';
 import { Mail, Lock } from '../components/Icons';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -42,6 +43,13 @@ export const Auth: React.FC = () => {
           password,
         });
         if (signUpError) throw signUpError;
+
+        // Send welcome email (fire and forget - don't block on result)
+        sendNotificationEmail({
+          type: 'welcome',
+          recipientEmail: email.trim(),
+        }).catch(err => console.warn('Welcome email failed:', err));
+
         setInfo('Account created. If email confirmation is enabled, please confirm via email then sign in.');
         setMode('sign-in');
       }

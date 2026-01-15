@@ -49,6 +49,7 @@ import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
 import { uuidv4 } from './utils/uuid';
 import { ThemeProvider, useTheme, THEME_OPTIONS } from './utils/ThemeContext';
 import { uploadEvidenceFile } from './utils/storageUtils';
+import { sendNotificationEmail } from './utils/emailUtils';
 
 
 enum View {
@@ -807,6 +808,27 @@ const App: React.FC = () => {
 
             if (notifError) {
               console.error('Error creating sign-off notification:', notifError);
+            } else {
+              // Send email notification to trainee (fire and forget)
+              // Use userId approach which delegates secure email lookup to the Edge Function
+              supabase
+                .from('user_profile')
+                .select('name')
+                .eq('user_id', targetTraineeId)
+                .single()
+                .then(({ data: traineeProfile }) => {
+                  sendNotificationEmail({
+                    type: 'form_signed_off',
+                    userId: targetTraineeId,
+                    recipientName: traineeProfile?.name,
+                    data: {
+                      formType: optimisticItem.type,
+                      formTitle: optimisticItem.title,
+                      supervisorName: optimisticItem.supervisorName || 'your supervisor',
+                      evidenceId: optimisticItem.id
+                    }
+                  }).catch(err => console.warn('Sign-off email failed:', err));
+                });
             }
           }
         }

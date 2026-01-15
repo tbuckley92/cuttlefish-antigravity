@@ -10,6 +10,7 @@ import { ARCP_OUTCOMES, SPECIALTIES } from '../constants';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { generateEvidencePDF } from '../utils/pdfGenerator';
 import { uuidv4 } from '../utils/uuid';
+import { sendNotificationEmail } from '../utils/emailUtils';
 
 interface ARCPPanelDashboardProps {
     currentUser: UserProfile;
@@ -728,6 +729,17 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
             if (notifError) {
                 console.error('Error creating ARCP outcome notification:', notifError);
+            } else {
+                // Send email notification (fire and forget)
+                sendNotificationEmail({
+                    type: 'arcp_outcome',
+                    userId: selectedTraineeId,
+                    recipientName: currentSummary?.profile.name,
+                    data: {
+                        arcpOutcome: outcomeFormData.outcome,
+                        message: `Your ARCP outcome for ${reviewType} has been recorded as ${outcomeFormData.outcome}.`
+                    }
+                }).catch(err => console.warn('ARCP email failed:', err));
             }
 
             // 4. Refresh parent evidence list so that if we view this item, it exists in state

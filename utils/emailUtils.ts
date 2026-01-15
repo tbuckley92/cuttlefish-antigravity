@@ -88,3 +88,61 @@ export async function markMagicLinkUsed(token: string): Promise<void> {
         console.error('Error marking magic link as used:', err);
     }
 }
+
+export type NotificationType =
+    | 'welcome'
+    | 'form_signed_off'
+    | 'arcp_outcome'
+    | 'arcp_broadcast'
+    | 'edit_request_approved'
+    | 'edit_request_denied';
+
+export interface NotificationEmailParams {
+    type: NotificationType;
+    recipientEmail?: string;
+    userId?: string;
+    recipientName?: string;
+    data?: {
+        formType?: string;
+        formTitle?: string;
+        supervisorName?: string;
+        traineeName?: string;
+        arcpOutcome?: string;
+        message?: string;
+        evidenceId?: string;
+    };
+}
+
+/**
+ * Sends a notification email via the send-notification-email Edge Function
+ * @param params - Notification type, recipient (email or userId), and contextual data
+ * @returns Promise with success status
+ */
+export async function sendNotificationEmail(params: NotificationEmailParams): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured || !supabase) {
+        return { success: false, error: 'Supabase not configured' };
+    }
+
+    try {
+        const { data, error } = await supabase.functions.invoke('send-notification-email', {
+            body: {
+                type: params.type,
+                recipient_email: params.recipientEmail,
+                user_id: params.userId,
+                recipient_name: params.recipientName,
+                ...params.data
+            }
+        });
+
+        if (error) {
+            console.error('Notification email error:', error);
+            return { success: false, error: error.message };
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error('sendNotificationEmail error:', err);
+        return { success: false, error: err.message };
+    }
+}
+
