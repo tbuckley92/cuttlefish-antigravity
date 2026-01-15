@@ -151,8 +151,7 @@ Level,Specialty,Section,Type,Content,HasBlurb,ShowCommentsAlways,Order
 4,Ocular Motility,C,Criterion,Complex strabismus assessment and management,TRUE,TRUE,2
 4,Ocular Motility,C,Criterion,Ability to supervise and train trainees and other health professionals in ocular motility disease surgery to Level 3 in a clinic setting,TRUE,TRUE,3
 4,Ocular Motility,D,Criterion,OSATS Extraocular Muscle Surgery,FALSE,TRUE,1
-4,Ocular Motility,D,Criterion,OSATS Microsurgical skills - vitreoretinal surgery,FALSE,TRUE,2
-4,Ocular Motility,D,Criterion,EPA L4 Operating List,FALSE,TRUE,3
+4,Ocular Motility,D,Criterion,EPA L4 Operating List,FALSE,TRUE,2
 4,Ocular Motility,E,Criterion,Management of complications of strabismus surgery and re-do surgery - either in Outpatients or Theatre,TRUE,TRUE,1
 4,Ocular Motility,E,Criterion,DOPS Botulinum Toxin injection to extraocular muscles - either in Outpatients or Theatre,TRUE,TRUE,2
 4,Ocular Motility,F,Criterion,Longitudinal observation by consultant assessor in the outpatient and/or on call setting,FALSE,TRUE,1

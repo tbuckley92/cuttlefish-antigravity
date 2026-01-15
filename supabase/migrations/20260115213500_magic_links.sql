@@ -23,16 +23,19 @@ CREATE INDEX IF NOT EXISTS idx_magic_links_recipient_email ON magic_links(recipi
 ALTER TABLE magic_links ENABLE ROW LEVEL SECURITY;
 
 -- Users can view magic links they created
+DROP POLICY IF EXISTS "Users can view own magic links" ON magic_links;
 CREATE POLICY "Users can view own magic links"
   ON magic_links FOR SELECT
   USING (created_by = auth.uid());
 
 -- Authenticated users can create magic links
+DROP POLICY IF EXISTS "Authenticated users can create magic links" ON magic_links;
 CREATE POLICY "Authenticated users can create magic links"
   ON magic_links FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Allow public read access for token validation (used by Edge Functions)
+DROP POLICY IF EXISTS "Public can validate magic links by token" ON magic_links;
 CREATE POLICY "Public can validate magic links by token"
   ON magic_links FOR SELECT
   USING (true);

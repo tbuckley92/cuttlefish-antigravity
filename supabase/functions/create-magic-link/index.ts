@@ -11,6 +11,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+    console.log("Create Magic Link Function Invoked");
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
@@ -48,13 +49,20 @@ serve(async (req) => {
 
         const traineeName = traineeProfile?.name || 'a trainee'
 
-        // Get auth user for created_by
+        // Get auth user (MANDATORY)
         const authHeader = req.headers.get('Authorization')
-        let createdBy = null
-        if (authHeader) {
-            const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''))
-            createdBy = user?.id
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: corsHeaders })
         }
+
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''))
+
+        if (authError || !user) {
+            console.error('Auth failed:', authError)
+            return new Response(JSON.stringify({ error: 'Unauthorized', details: authError?.message }), { status: 401, headers: corsHeaders })
+        }
+
+        const createdBy = user.id
 
         // Store magic link in database
         const { error: insertError } = await supabaseAdmin

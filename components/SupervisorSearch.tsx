@@ -89,16 +89,23 @@ export const SupervisorSearch: React.FC<SupervisorSearchProps> = ({
         return () => clearTimeout(timer);
     }, [searchQuery, currentDeanery]);
 
+    // Use ref for onSelect to avoid dependency cycles
+    const onSelectRef = React.useRef(onSelect);
+
+    useEffect(() => {
+        onSelectRef.current = onSelect;
+    }, [onSelect]);
+
     // Notify parent when manual fields change
     useEffect(() => {
         if (isManualEntry && (manualName || manualEmail)) {
-            onSelect({
+            onSelectRef.current({
                 name: manualName,
                 email: manualEmail,
                 gmcNumber: ''
             });
         }
-    }, [manualName, manualEmail, isManualEntry, onSelect]);
+    }, [manualName, manualEmail, isManualEntry]);
 
     const handleSelectSupervisor = (user: SearchResult) => {
         setManualName(user.name);

@@ -57,6 +57,47 @@ serve(async (req) => {
 
         if (evidenceError) throw evidenceError
 
+        // Parse linked evidence IDs if they exist
+        let linkedEvidenceItems: any[] = []
+        try {
+            const formData = evidence.data?.epaFormData
+            if (formData?.linkedEvidence) {
+                const linkedIds = Object.values(formData.linkedEvidence)
+                    .flat()
+                    .filter((id): id is string => typeof id === 'string')
+
+                if (linkedIds.length > 0) {
+                    const { data: linkedData } = await supabaseAdmin
+                        .from('evidence')
+                        .select('*')
+                        .in('id', linkedIds)
+
+                    if (linkedData) {
+                        linkedEvidenceItems = linkedData
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching linked evidence:', e)
+        }
+
+        // Capture debug info
+        const linkedEvidenceMap = evidence.data?.epaFormData?.linkedEvidence;
+        const linkedKeys = linkedEvidenceMap ? Object.keys(linkedEvidenceMap) : [];
+        const sampleValue = linkedKeys.length > 0 ? linkedEvidenceMap[linkedKeys[0]] : null;
+
+        const debugInfo = {
+            hasFormData: !!evidence.data?.epaFormData,
+            hasLinkedEvidence: !!linkedEvidenceMap,
+            linkedIds: linkedEvidenceMap ? Object.values(linkedEvidenceMap).flat() : [],
+            linkedItemsFound: linkedEvidenceItems.length,
+            linkedKeys: linkedKeys,
+            linkedEvidenceType: typeof linkedEvidenceMap,
+            sampleValueType: sampleValue ? typeof sampleValue : 'null',
+            sampleValueIsArray: Array.isArray(sampleValue),
+            sampleValueContent: sampleValue
+        };
+
         // Get trainee profile for context
         const { data: traineeProfile } = await supabaseAdmin
             .from('user_profile')
@@ -68,6 +109,8 @@ serve(async (req) => {
             JSON.stringify({
                 valid: true,
                 evidence,
+                linked_evidence: linkedEvidenceItems,
+                debug_info: debugInfo,
                 form_type: link.form_type,
                 recipient_email: link.recipient_email,
                 trainee_name: traineeProfile?.name || 'Unknown',

@@ -50,11 +50,13 @@ export async function sendMagicLinkEmail(params: EmailFormParams): Promise<{ suc
 export async function validateMagicLinkToken(token: string): Promise<{
     valid: boolean;
     evidence?: any;
+    linkedEvidence?: any[];
     formType?: string;
     recipientEmail?: string;
     traineeName?: string;
     requiresGmc?: boolean;
     error?: string;
+    debugInfo?: any;
 }> {
     if (!isSupabaseConfigured || !supabase) {
         return { valid: false, error: 'Supabase not configured' };
@@ -69,7 +71,17 @@ export async function validateMagicLinkToken(token: string): Promise<{
             return { valid: false, error: error.message };
         }
 
-        return data;
+        return {
+            valid: data.valid,
+            evidence: data.evidence,
+            linkedEvidence: data.linked_evidence,
+            formType: data.form_type || data.formType,
+            recipientEmail: data.recipient_email || data.recipientEmail,
+            traineeName: data.trainee_name || data.traineeName,
+            requiresGmc: data.requires_gmc || data.requiresGmc,
+            error: data.error,
+            debugInfo: data.debug_info
+        };
     } catch (err: any) {
         return { valid: false, error: err.message };
     }

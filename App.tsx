@@ -207,7 +207,13 @@ const App: React.FC = () => {
   // Initial check is now triggered by profile load or role change, not just session
 
 
-  const [currentView, setCurrentView] = useState<View>(View.Dashboard);
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('token') || urlParams.get('magic_token')) {
+      return View.MagicLinkForm;
+    }
+    return View.Dashboard;
+  });
   const [inboxRoleContext, setInboxRoleContext] = useState<RoleContext>('trainee');
   const [returnView, setReturnView] = useState<View>(View.Dashboard);
   const [selectedFormParams, setSelectedFormParams] = useState<FormParams | null>(null);
@@ -217,7 +223,10 @@ const App: React.FC = () => {
   const [supervisorActiveTab, setSupervisorActiveTab] = useState<'dashboard' | 'signoffs'>('dashboard');
 
   // Magic link token state (for unauthenticated form access)
-  const [magicLinkToken, setMagicLinkToken] = useState<string | null>(null);
+  const [magicLinkToken, setMagicLinkToken] = useState<string | null>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('token') || urlParams.get('magic_token');
+  });
 
   // Reset inboxRoleContext when session changes (e.g. logout/login)
   useEffect(() => {
@@ -225,12 +234,11 @@ const App: React.FC = () => {
   }, [session?.user?.id]);
 
   // Check for magic link token in URL on mount
+  // Check for magic link token in URL on mount and clean URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('magic_token');
+    const token = urlParams.get('token') || urlParams.get('magic_token');
     if (token) {
-      setMagicLinkToken(token);
-      setCurrentView(View.MagicLinkForm);
       // Clean the URL without reloading the page
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -508,23 +516,26 @@ const App: React.FC = () => {
         setCurrentRole(initialRole);
 
         // Redirect to appropriate dashboard and check unread messages for that context
+        // ONLY if not viewing a magic link
         let targetContext: RoleContext = 'trainee';
 
-        if (initialRole === UserRole.Admin) {
-          setCurrentView(View.AdminDashboard);
-          targetContext = 'admin';
-        } else if (initialRole === UserRole.ARCPSuperuser) {
-          setCurrentView(View.ARCPSuperuserDashboard);
-          targetContext = 'admin'; // Or supervisor? usually admin/superuser context
-        } else if (initialRole === UserRole.ARCPPanelMember) {
-          setCurrentView(View.ARCPPanelDashboard);
-          targetContext = 'arcp_panel';
-        } else if (initialRole === UserRole.EducationalSupervisor || initialRole === UserRole.Supervisor) {
-          setCurrentView(View.SupervisorDashboard);
-          targetContext = 'supervisor';
-        } else {
-          setCurrentView(View.Dashboard);
-          targetContext = 'trainee';
+        if (currentView !== View.MagicLinkForm) {
+          if (initialRole === UserRole.Admin) {
+            setCurrentView(View.AdminDashboard);
+            targetContext = 'admin';
+          } else if (initialRole === UserRole.ARCPSuperuser) {
+            setCurrentView(View.ARCPSuperuserDashboard);
+            targetContext = 'admin'; // Or supervisor? usually admin/superuser context
+          } else if (initialRole === UserRole.ARCPPanelMember) {
+            setCurrentView(View.ARCPPanelDashboard);
+            targetContext = 'arcp_panel';
+          } else if (initialRole === UserRole.EducationalSupervisor || initialRole === UserRole.Supervisor) {
+            setCurrentView(View.SupervisorDashboard);
+            targetContext = 'supervisor';
+          } else {
+            setCurrentView(View.Dashboard);
+            targetContext = 'trainee';
+          }
         }
 
         // Check unread messages for this initial context
@@ -3075,7 +3086,7 @@ const App: React.FC = () => {
 
   if (isSupabaseConfigured) {
     if (!authReady) return <LoadingScreen label="Connecting to Supabase" />;
-    if (!session) return <Auth />;
+    if (!session && currentView !== View.MagicLinkForm) return <Auth />;
     if (!profileReady) return <LoadingScreen label="Loading your profile" />;
     if (profileSetupNeeded) {
       return (

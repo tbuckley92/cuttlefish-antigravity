@@ -1960,7 +1960,7 @@ inline - flex items - center gap - 1 px - 2 py - 0.5 rounded - full text - [9px]
 
             {isSupervisor && status === EvidenceStatus.Submitted && (
               <button
-                onClick={handleSupervisorSignOff}
+                onClick={() => setIsSignOffOpen(true)}
                 className="h-10 px-6 rounded-xl bg-green-600 text-white text-xs font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all flex items-center gap-2 whitespace-nowrap"
               >
                 <ShieldCheck size={18} /> <span>SIGN OFF</span>
@@ -2133,6 +2133,19 @@ inline - flex items - center gap - 1.5 px - 3 py - 1 rounded - full text - xs fo
           </div>
         </div>
       )}
+      {/* Sign Off Dialog */}
+      <SignOffDialog
+        isOpen={isSignOffOpen}
+        onClose={() => setIsSignOffOpen(false)}
+        onConfirm={handleSignOffConfirm}
+        formInfo={{
+          type: "EPA Assessment",
+          traineeName: traineeName || "Trainee",
+          date: new Date().toLocaleDateString(),
+          supervisorName: supervisorName || "",
+          supervisorEmail: supervisorEmail || ""
+        }}
+      />
     </div>
   );
 };

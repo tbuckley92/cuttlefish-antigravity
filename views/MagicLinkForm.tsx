@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabaseClient';
 import { GlassCard } from '../components/GlassCard';
-import { ShieldCheck, AlertCircle, CheckCircle2, Mail } from '../components/Icons';
+import { ShieldCheck, AlertCircle, CheckCircle2, Mail, X, FileText, Eye, Clock } from '../components/Icons';
 import { validateMagicLinkToken, markMagicLinkUsed } from '../utils/emailUtils';
+import { mapRowToEvidenceItem } from '../utils/evidenceMapper';
 import { EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 
 // Import form components
@@ -27,6 +29,7 @@ interface MagicLinkData {
     formType: string;
     isValid: boolean;
     evidenceData?: EvidenceItem;
+    linkedEvidence?: EvidenceItem[];
 }
 
 type ValidationState = 'loading' | 'valid' | 'invalid' | 'expired' | 'used' | 'error';
@@ -37,12 +40,15 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
     const [error, setError] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
+    const [viewingEvidence, setViewingEvidence] = useState<EvidenceItem | null>(null);
+    const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
 
     // Validate the magic link on mount
     useEffect(() => {
         const validate = async () => {
             try {
                 const result = await validateMagicLinkToken(token);
+                console.log('Magic Link Validation Result:', result); // DEBUG LOG
 
                 if (!result.valid) {
                     setValidationState('error');
@@ -55,7 +61,10 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                     recipientEmail: result.recipientEmail || '',
                     formType: result.formType || '',
                     isValid: true,
-                    evidenceData: result.evidence
+                    evidenceData: result.evidence,
+                    linkedEvidence: result.linkedEvidence
+                        ? result.linkedEvidence.map((item: any) => mapRowToEvidenceItem(item))
+                        : []
                 });
                 setValidationState('valid');
             } catch (err) {
@@ -73,8 +82,8 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
 
         setIsSubmitting(true);
         try {
-            // Mark magic link as used
-            await markMagicLinkUsed(token);
+            // Mark magic link as used - Handled by edge function
+            // await markMagicLinkUsed(token);
 
             // The form component handles saving the data via its own save mechanism
             setIsComplete(true);
@@ -193,15 +202,66 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
             }
         },
         onSubmitted: () => {
+            // Redirection handled by onComplete
             handleFormSubmit({});
         },
         onSave: async (evidence: Partial<EvidenceItem>) => {
-            // In magic link mode, we need to save via API instead of direct Supabase
-            // For now, this is handled by the form's internal save mechanism
-            console.log('Magic link save:', evidence);
+            try {
+                const isComplete = evidence.status === EvidenceStatus.SignedOff;
+
+                const { error } = await supabase.functions.invoke('submit-magic-link-form', {
+                    body: {
+                        token: token,
+                        evidenceId: evidenceId,
+                        updates: evidence,
+                        complete: isComplete
+                    }
+                });
+
+                if (error) {
+                    console.error('Magic link save failed:', error);
+                } else {
+                    console.log('Magic link saved successfully');
+                }
+            } catch (err) {
+                console.error('Error saving magic form:', err);
+            }
         },
-        allEvidence: evidenceData ? [evidenceData] : [],
+        allEvidence: [] as EvidenceItem[],
+        linkedEvidenceData: {} as Record<string, string[]>,
+        onLinkRequested: () => { },
+        onRemoveLink: () => { },
+        onViewLinkedEvidence: (evidenceId: string) => {
+            // Find the evidence in allEvidence and open dialog
+            const allEv = commonFormProps.allEvidence;
+            const ev = allEv.find(e => e.id === evidenceId);
+            if (ev) {
+                setViewingEvidence(ev);
+                setIsEvidenceDialogOpen(true);
+            } else {
+                console.warn('Evidence not found:', evidenceId);
+            }
+        },
     };
+
+    // Combine main evidence with linked evidence for form context
+    // AND extract the linkedEvidence map from epaFormData
+    if (evidenceData) {
+        const mainItem = mapRowToEvidenceItem(evidenceData as any);
+        const linkedItems = magicLinkData.linkedEvidence || [];
+        commonFormProps.allEvidence = [mainItem, ...linkedItems];
+
+        // CRITICAL: Extract the linkedEvidence map from the evidence data
+        // This map contains { criterionKey: [evidenceId1, evidenceId2, ...] }
+        const rawEvidence = evidenceData as any;
+        if (rawEvidence.data?.epaFormData?.linkedEvidence) {
+            commonFormProps.linkedEvidenceData = rawEvidence.data.epaFormData.linkedEvidence;
+        } else if (rawEvidence.epaFormData?.linkedEvidence) {
+            // Fallback: already mapped via mapRowToEvidenceItem
+            commonFormProps.linkedEvidenceData = rawEvidence.epaFormData.linkedEvidence;
+        }
+        console.log('Magic Link - linkedEvidenceData passed to form:', commonFormProps.linkedEvidenceData);
+    }
 
     // Header for magic link forms
     const MagicLinkHeader = () => (
@@ -228,11 +288,17 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
     const renderForm = () => {
         switch (formType) {
             case 'EPA':
+                // Extract supervisor name from evidence data
+                const supervisorName = (evidenceData as any)?.supervisorName
+                    || (evidenceData as any)?.epaFormData?.supervisorName
+                    || (evidenceData as any)?.data?.epaFormData?.supervisorName
+                    || '';
                 return (
                     <>
                         <MagicLinkHeader />
                         <EPAForm
                             {...commonFormProps}
+                            initialSupervisorName={supervisorName}
                             initialSupervisorEmail={recipientEmail}
                         />
                     </>
@@ -360,6 +426,143 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
             {renderForm()}
+
+            {/* Full Form Viewer Modal */}
+            {isEvidenceDialogOpen && viewingEvidence && (
+                <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+                    {/* Header */}
+                    <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-white/10">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <button
+                                onClick={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                            >
+                                <X size={16} />
+                                Back to Form
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tight bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                    {viewingEvidence.type}
+                                </span>
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${viewingEvidence.status === EvidenceStatus.SignedOff
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                    : viewingEvidence.status === EvidenceStatus.Submitted
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                    }`}>
+                                    {viewingEvidence.status === EvidenceStatus.SignedOff ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                                    {viewingEvidence.status}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Form Content */}
+                    <div className="max-w-7xl mx-auto p-4">
+                        {viewingEvidence.type === EvidenceType.CRS && (
+                            <CRSForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                            />
+                        )}
+
+                        {viewingEvidence.type === EvidenceType.DOPs && (
+                            <DOPsForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                            />
+                        )}
+
+                        {viewingEvidence.type === EvidenceType.OSATs && (
+                            <OSATSForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                            />
+                        )}
+
+                        {viewingEvidence.type === EvidenceType.CbD && (
+                            <CBDForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                            />
+                        )}
+
+                        {viewingEvidence.type === EvidenceType.GSAT && (
+                            <GSATForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                                linkedEvidenceData={{}}
+                                onLinkRequested={() => { }}
+                                onRemoveLink={() => { }}
+                            />
+                        )}
+
+                        {viewingEvidence.type === EvidenceType.MAR && (
+                            <MARForm
+                                id={viewingEvidence.id}
+                                initialStatus={EvidenceStatus.SignedOff}
+                                onBack={() => {
+                                    setIsEvidenceDialogOpen(false);
+                                    setViewingEvidence(null);
+                                }}
+                                onSave={async () => { }}
+                                allEvidence={commonFormProps.allEvidence}
+                            />
+                        )}
+
+                        {/* Fallback for unsupported types */}
+                        {![EvidenceType.CRS, EvidenceType.DOPs, EvidenceType.OSATs, EvidenceType.CbD, EvidenceType.GSAT, EvidenceType.MAR].includes(viewingEvidence.type) && (
+                            <GlassCard className="p-8 text-center">
+                                <FileText size={48} className="mx-auto text-slate-300 dark:text-white/20 mb-4" />
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                                    {viewingEvidence.title}
+                                </h3>
+                                <p className="text-sm text-slate-500 dark:text-white/50 mb-4">
+                                    {viewingEvidence.type} - {viewingEvidence.date}
+                                </p>
+                                {viewingEvidence.notes && (
+                                    <p className="text-sm text-slate-600 dark:text-white/70 bg-slate-50 dark:bg-white/5 rounded-lg p-4">
+                                        {viewingEvidence.notes}
+                                    </p>
+                                )}
+                            </GlassCard>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
