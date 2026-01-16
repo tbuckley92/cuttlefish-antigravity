@@ -25,6 +25,7 @@ export interface SupabaseEvidenceRow {
     submitted_at?: string | null;
     signed_off_at?: string | null;
     signed_off_by?: string | null;
+    supervisor_id?: string | null;
     supervisor_gmc?: string | null;
     supervisor_name?: string | null;
     supervisor_email?: string | null;
@@ -59,6 +60,7 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
         sia: baseFields.sia || undefined,
         level: baseFields.level || undefined,
         notes: baseFields.notes || undefined,
+        supervisorId: baseFields.supervisor_id || undefined,
         supervisorGmc: baseFields.supervisor_gmc || undefined,
         supervisorName: baseFields.supervisor_name || undefined,
         supervisorEmail: baseFields.supervisor_email || undefined,
@@ -88,6 +90,7 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
         sia,
         level,
         notes,
+        supervisorId,
         supervisorGmc,
         supervisorName,
         supervisorEmail,
@@ -98,6 +101,7 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
 
     return {
         id,
+        supervisor_id: supervisorId,
         type: type,
         status: status,
         title: title,

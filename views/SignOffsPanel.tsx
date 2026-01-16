@@ -42,7 +42,11 @@ export const SignOffsPanel: React.FC<SignOffsPanelProps> = ({ supervisor, onView
                 const conditions = [];
                 if (identifier) conditions.push(`supervisor_gmc.eq.${identifier}`);
                 if (email) conditions.push(`supervisor_email.ilike.${email}`); // ilike for case-insensitivity
-                if (supervisorId) conditions.push(`signed_off_by.eq.${supervisorId}`);
+                if (supervisorId) {
+                    conditions.push(`signed_off_by.eq.${supervisorId}`);
+                    // Also check likely new column 'supervisor_id' for explicit assignment
+                    conditions.push(`supervisor_id.eq.${supervisorId}`);
+                }
 
                 filter = conditions.join(',');
 

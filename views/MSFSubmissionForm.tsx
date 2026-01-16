@@ -8,6 +8,7 @@ import {
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { MSFRespondent, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
+import { supabase } from '../utils/supabaseClient';
 
 interface MSFSubmissionFormProps {
   evidence?: EvidenceItem;
@@ -58,18 +59,71 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
   const [status, setStatus] = useState<EvidenceStatus>(evidence?.status || EvidenceStatus.Draft);
   const [lastSaved, setLastSaved] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [isSaving, setIsSaving] = useState(false);
+  const [supervisorDetails, setSupervisorDetails] = useState<{
+    id?: string;
+    name: string;
+    email: string;
+    gmc: string;
+    items?: any;
+    isLoading: boolean;
+  }>({ name: '', email: '', gmc: '', isLoading: true });
+
+  useEffect(() => {
+    const fetchSupervisor = async () => {
+      if (!supabase) return;
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (session?.session?.user) {
+          const { data: traineeProfile } = await supabase
+            .from('user_profile')
+            .select('educational_supervisor_id, name')
+            .eq('user_id', session.session.user.id)
+            .single();
+
+          if (traineeProfile?.educational_supervisor_id) {
+            // Try to fetch supervisor details
+            const { data: supervisorProfile } = await supabase
+              .from('user_profile')
+              .select('name, email, gmc_number')
+              .eq('user_id', traineeProfile.educational_supervisor_id)
+              .single();
+
+            setSupervisorDetails({
+              id: traineeProfile.educational_supervisor_id,
+              name: supervisorProfile?.name || 'Unknown Supervisor',
+              email: supervisorProfile?.email || '',
+              gmc: supervisorProfile?.gmc_number || '',
+              isLoading: false
+            });
+          } else {
+            setSupervisorDetails(prev => ({ ...prev, isLoading: false }));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching supervisor:', err);
+        setSupervisorDetails(prev => ({ ...prev, isLoading: false }));
+      }
+    };
+
+    fetchSupervisor();
+  }, []);
 
   useEffect(() => {
     if (status === EvidenceStatus.SignedOff) return;
-    const timer = setInterval(() => {
+    const timer = setInterval(async () => {
       setIsSaving(true);
-      setTimeout(() => {
-        setIsSaving(false);
+      try {
+        // Actually save respondent data to database
+        await onSave({ msfRespondents: respondents, title, status, type: EvidenceType.MSF });
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      }, 800);
+      } catch (err) {
+        console.error('Autosave failed:', err);
+      } finally {
+        setIsSaving(false);
+      }
     }, 15000);
     return () => clearInterval(timer);
-  }, [status]);
+  }, [status, respondents, title, onSave]);
 
   const handleUpdateRespondent = (id: string, field: keyof MSFRespondent, value: any) => {
     if (status === EvidenceStatus.SignedOff) return;
@@ -95,12 +149,53 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     setRespondents(prev => prev.filter(res => res.id !== id));
   };
 
-  const sendInvite = (id: string) => {
-    setRespondents(prev => prev.map(r =>
-      r.id === id ? { ...r, inviteSent: true, status: 'Awaiting response' } : r
-    ));
-    if (status === EvidenceStatus.Draft) {
-      setStatus(EvidenceStatus.Submitted);
+  const sendInvite = async (id: string) => {
+    const respondent = respondents.find(r => r.id === id);
+    if (!respondent || !respondent.name || !respondent.email) {
+      alert('Please fill in both name and email before sending invite');
+      return;
+    }
+
+    if (!evidence?.id) {
+      alert('Evidence must be saved before sending invites');
+      return;
+    }
+
+    try {
+      // Update local state first
+      const updatedRespondents = respondents.map(r =>
+        r.id === id ? { ...r, inviteSent: true, status: 'Awaiting response' as const } : r
+      );
+      setRespondents(updatedRespondents);
+
+      // Call Supabase edge function to create and send magic link
+      const { data, error } = await supabase!.functions.invoke('create-magic-link', {
+        body: {
+          evidence_id: evidence.id,
+          recipient_email: respondent.email,
+          recipient_gmc: null,
+          form_type: 'MSF_RESPONSE'
+        }
+      });
+
+      if (error) {
+        console.error('Error creating magic link:', error);
+        alert(`Failed to send invite to ${respondent.name}: ${error.message}`);
+        setRespondents(prev => prev.map(r =>
+          r.id === id ? { ...r, inviteSent: false, status: 'Awaiting response' } : r
+        ));
+        return;
+      }
+
+      // Save updated respondent data to database immediately (keep status unchanged)
+      await onSave({ msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
+      console.log('Magic link created and data saved successfully:', data);
+    } catch (err: any) {
+      console.error('Unexpected error sending invite:', err);
+      alert(`Unexpected error: ${err.message}`);
+      setRespondents(prev => prev.map(r =>
+        r.id === id ? { ...r, inviteSent: false, status: 'Awaiting response' } : r
+      ));
     }
   };
 
@@ -110,22 +205,146 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     ));
   };
 
-  const bulkSend = () => {
+  const bulkSend = async () => {
     const validRespondents = respondents.filter(r => r.name && r.email && !r.inviteSent);
-    if (validRespondents.length === 0) return;
+    if (validRespondents.length === 0) {
+      alert('No valid respondents to send invites to');
+      return;
+    }
 
-    setRespondents(prev => prev.map(r =>
-      (r.name && r.email && !r.inviteSent) ? { ...r, inviteSent: true } : r
-    ));
-    setStatus(EvidenceStatus.Submitted);
-    alert(`MSF invitations sent to ${validRespondents.length} respondents`);
+    if (!evidence?.id) {
+      alert('Evidence must be saved before sending invites');
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    let updatedRespondents = [...respondents];
+
+    for (const respondent of validRespondents) {
+      try {
+        const { data, error } = await supabase!.functions.invoke('create-magic-link', {
+          body: {
+            evidence_id: evidence.id,
+            recipient_email: respondent.email,
+            recipient_gmc: null,
+            form_type: 'MSF_RESPONSE'
+          }
+        });
+
+        if (error) {
+          console.error(`Error sending invite to ${respondent.name}:`, error);
+          failCount++;
+        } else {
+          console.log(`Magic link sent to ${respondent.name}`);
+          successCount++;
+          updatedRespondents = updatedRespondents.map(r =>
+            r.id === respondent.id ? { ...r, inviteSent: true, status: 'Awaiting response' as const } : r
+          );
+          setRespondents(updatedRespondents);
+        }
+      } catch (err: any) {
+        console.error(`Unexpected error sending to ${respondent.name}:`, err);
+        failCount++;
+      }
+    }
+
+    // Save all updates to database (keep status unchanged)
+    if (successCount > 0) {
+      await onSave({ msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
+    }
+
+    if (failCount > 0) {
+      alert(`Sent ${successCount} invitations successfully. ${failCount} failed.`);
+    } else {
+      alert(`MSF invitations sent successfully to ${successCount} respondents`);
+    }
   };
 
-  const handleCloseMSF = async () => {
-    if (window.confirm("Are you sure you want to close this MSF? You won't be able to send more invites.")) {
-      setStatus(EvidenceStatus.SignedOff);
-      await onSave({ status: EvidenceStatus.SignedOff, msfRespondents: respondents });
+  const handleSubmitForReview = async () => {
+    const completedResponses = respondents.filter(r => r.status === 'Completed').length;
+
+    // Warn if less than minimum responses
+    if (completedResponses < 11) {
+      const proceed = window.confirm(
+        `You only have ${completedResponses} completed responses. The recommended minimum is 11. Do you still want to submit for supervisor review?`
+      );
+      if (!proceed) return;
     }
+
+    if (!window.confirm("Are you sure you want to submit this MSF for supervisor review? You won't be able to send more invites after this.")) {
+      return;
+    }
+
+    // 1. Validation 
+    // We expect supervisorDetails to be pre-loaded from the useEffect
+    // We still allow submission even if supervisor is missing (handled by optional chaining), 
+    // but the ID is crucial for robust routing.
+
+    setStatus(EvidenceStatus.Submitted);
+
+    // 2. Save evidence
+    // User requested to rely on text parameters, so we do not save supervisorId
+    await onSave({
+      status: EvidenceStatus.Submitted,
+      msfRespondents: respondents,
+      title,
+      type: EvidenceType.MSF,
+      supervisorName: supervisorDetails.name || undefined,
+      supervisorEmail: supervisorDetails.email || undefined,
+      supervisorGmc: supervisorDetails.gmc || undefined
+    });
+
+    // 3. Notify Supervisor
+    if (evidence?.id && supabase && supervisorDetails.id) {
+      // ... notification logic continues below ...
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const notificationId = uuidv4();
+        const notificationTitle = 'MSF Submitted for Review';
+
+        // Fetch trainee name again just to be sure
+        const { data: traineeProfile } = await supabase
+          .from('user_profile')
+          .select('name')
+          .eq('user_id', session?.session?.user.id)
+          .single();
+
+        const notificationBody = `${traineeProfile?.name || 'A trainee'} has submitted their Multi-Source Feedback for your review.`;
+
+        // Create in-app notification
+        await supabase.from('notifications').insert({
+          id: notificationId,
+          user_id: supervisorDetails.id,
+          role_context: 'supervisor',
+          type: 'msf_submitted',
+          title: notificationTitle,
+          body: notificationBody,
+          reference_id: evidence.id,
+          created_at: new Date().toISOString()
+        });
+
+        // Send email notification
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            notification_id: notificationId,
+            user_id: supervisorDetails.id,
+            type: 'msf_submitted',
+            title: notificationTitle,
+            body: notificationBody
+          }
+        });
+
+        console.log('Supervisor notified successfully');
+
+      } catch (err) {
+        console.error('Error notifying supervisor:', err);
+      }
+    } else {
+      console.warn('No supervisor found for trainee - notification not sent');
+    }
+
+    alert('MSF submitted for supervisor review. Your supervisor will be notified.');
   };
 
   const completedCount = respondents.filter(r => r.status === 'Completed').length;
@@ -161,12 +380,12 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
           </div>
         </div>
 
-        {status === EvidenceStatus.Submitted && (
+        {status === EvidenceStatus.Draft && (
           <button
-            onClick={handleCloseMSF}
-            className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+            onClick={handleSubmitForReview}
+            className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2"
           >
-            <CheckCircle2 size={14} /> Close MSF
+            <CheckCircle2 size={14} /> Submit for Review
           </button>
         )}
       </div>
@@ -187,7 +406,40 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
         {/* Left Column: Metadata */}
         <div className="lg:col-span-4 space-y-6">
           <GlassCard className="p-6 space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Progress Overview</h3>
+            {/* Assigned Supervisor Card */}
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Assigned Supervisor</label>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                {supervisorDetails.isLoading ? (
+                  <div className="flex items-center gap-3 animate-pulse">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-white/10"></div>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-3 w-2/3 bg-slate-200 dark:bg-white/10 rounded"></div>
+                      <div className="h-2 w-1/2 bg-slate-200 dark:bg-white/10 rounded"></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      {supervisorDetails.name ? supervisorDetails.name.split(' ').map(n => n[0]).join('').substring(0, 2) : <Users size={16} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {supervisorDetails.name || "No Supervisor Assigned"}
+                      </p>
+                      {supervisorDetails.email && (
+                        <p className="text-xs text-slate-500 dark:text-white/60">{supervisorDetails.email}</p>
+                      )}
+                      {!supervisorDetails.id && (
+                        <p className="text-[10px] text-amber-500 mt-1">Please contact admin to assign an Educational Supervisor.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 pt-4 border-t border-slate-100 dark:border-white/5">Progress Overview</h3>
 
             <div className="space-y-4">
               <div>

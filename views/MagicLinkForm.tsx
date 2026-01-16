@@ -417,14 +417,61 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                     </>
                 );
             case 'MSF_RESPONSE':
+                // Get trainee name from evidence data
+                const getTraineeName = () => {
+                    const ed = evidenceData as any;
+                    // Try various paths to find the trainee name
+                    if (ed?.trainee_profile?.name) return ed.trainee_profile.name;
+                    if (ed?.data?.traineeName) return ed.data.traineeName;
+                    if (ed?.title) {
+                        // Try to extract name from title like "MSF - Dr John Smith - January 2026"
+                        const match = ed.title.match(/MSF - (.+?) -/);
+                        if (match) return match[1];
+                    }
+                    return 'the trainee';
+                };
+
                 return (
                     <>
                         <MagicLinkHeader />
                         <MSFResponseForm
-                            evidenceId={evidenceId}
-                            respondentEmail={recipientEmail}
-                            onSubmit={handleFormSubmit}
-                            onCancel={commonFormProps.onBack}
+                            traineeName={getTraineeName()}
+                            onBack={() => {
+                                if (confirm('Are you sure you want to leave? Your feedback will not be saved.')) {
+                                    onComplete();
+                                }
+                            }}
+                            onSubmitted={async (responseData: any) => {
+                                // Save the MSF response via edge function
+                                try {
+                                    const { error } = await supabase.functions.invoke('submit-magic-link-form', {
+                                        body: {
+                                            token: token,
+                                            evidenceId: evidenceId,
+                                            updates: {
+                                                msfResponse: {
+                                                    respondentEmail: recipientEmail,
+                                                    ...responseData,
+                                                    submittedAt: new Date().toISOString()
+                                                }
+                                            },
+                                            complete: true,
+                                            formType: 'MSF_RESPONSE'
+                                        }
+                                    });
+
+                                    if (error) {
+                                        console.error('Failed to save MSF response:', error);
+                                        alert('Failed to save your response. Please try again.');
+                                        return;
+                                    }
+
+                                    handleFormSubmit(responseData);
+                                } catch (err) {
+                                    console.error('Error saving MSF response:', err);
+                                    alert('An error occurred. Please try again.');
+                                }
+                            }}
                         />
                     </>
                 );

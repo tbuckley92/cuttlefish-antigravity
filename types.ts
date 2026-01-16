@@ -288,6 +288,7 @@ export interface EvidenceItem {
   fileType?: string;
   fileUrl?: string;
   // Sign-off specifics (in-person)
+  supervisorId?: string;
   supervisorGmc?: string;
   traineeId?: string;
   supervisorName?: string;

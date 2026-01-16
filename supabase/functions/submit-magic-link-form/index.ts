@@ -11,7 +11,7 @@ serve(async (req) => {
     }
 
     try {
-        const { token, evidenceId, updates, complete } = await req.json()
+        const { token, evidenceId, updates, complete, formType } = await req.json()
 
         if (!token || !evidenceId || !updates) {
             return new Response(
@@ -50,7 +50,69 @@ serve(async (req) => {
             )
         }
 
-        // 3. Update Evidence
+        // 3. Handle MSF Response specially
+        if (formType === 'MSF_RESPONSE' && updates.msfResponse) {
+            console.log('Processing MSF response from:', updates.msfResponse.respondentEmail);
+
+            // Fetch current evidence to update respondent status
+            const { data: currentEvidence, error: fetchError } = await supabaseAdmin
+                .from('evidence')
+                .select('data')
+                .eq('id', evidenceId)
+                .single()
+
+            if (fetchError) throw fetchError;
+
+            const currentData = currentEvidence?.data || {};
+            const msfRespondents = currentData.msfRespondents || [];
+
+            // Find and update the respondent by email
+            const respondentEmail = updates.msfResponse.respondentEmail;
+            const updatedRespondents = msfRespondents.map((r: any) => {
+                if (r.email === respondentEmail) {
+                    return {
+                        ...r,
+                        status: 'Completed',
+                        response: {
+                            selections: updates.msfResponse.selections,
+                            comments: updates.msfResponse.comments,
+                            overallComments: updates.msfResponse.overallComments,
+                            submittedAt: updates.msfResponse.submittedAt
+                        }
+                    };
+                }
+                return r;
+            });
+
+            // Update the evidence with the new respondent data
+            const { error: updateError } = await supabaseAdmin
+                .from('evidence')
+                .update({
+                    updated_at: new Date().toISOString(),
+                    data: {
+                        ...currentData,
+                        msfRespondents: updatedRespondents
+                    }
+                })
+                .eq('id', evidenceId);
+
+            if (updateError) throw updateError;
+
+            // Mark link as used
+            if (complete) {
+                await supabaseAdmin
+                    .from('magic_links')
+                    .update({ used_at: new Date().toISOString() })
+                    .eq('token', token)
+            }
+
+            return new Response(
+                JSON.stringify({ success: true }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // 4. Update Evidence (standard form path)
         // We separate top-level fields from JSONB data
         const { id, type, status, title, sia, level, notes, supervisorGmc, supervisorName, supervisorEmail, signedOffBy, signedOffAt, epaFormData, ...restData } = updates
 
@@ -70,24 +132,13 @@ serve(async (req) => {
         if (signedOffBy) updatePayload.signed_off_by = signedOffBy
         if (signedOffAt) updatePayload.signed_off_at = signedOffAt
 
-        // Construct data column
-        // We need to fetch existing data first to merge? Or assume 'updates' contains full data?
-        // EPAForm sends partial updates on save?
-        // Actually EPAForm usually sends the FULL object in onSave.
-        // Let's assume full object or merge.
-        // Safer to fetch current data and merge if we want to be careful, but efficient to just write if frontend sends full.
-        // FrontEnd onSave sends: epaFormData: { ... } (full object usually).
-
         if (epaFormData) {
-            // We need to fetch existing to merge if we want to be safe, BUT supabase update merges columns.
-            // But 'data' is a JSONB column. Updating it overwrites the whole column unless we use jsonb_set (complex).
-            // Simpler: Fetch current, merge, save.
             const { data: currentEvidence } = await supabaseAdmin.from('evidence').select('data').eq('id', evidenceId).single()
             const currentData = currentEvidence?.data || {}
 
             updatePayload.data = {
                 ...currentData,
-                ...restData, // any other random fields
+                ...restData,
                 epaFormData: {
                     ...(currentData.epaFormData || {}),
                     ...epaFormData

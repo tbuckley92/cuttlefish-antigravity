@@ -21,6 +21,7 @@ import ARCPPanelDashboard from './views/ARCPPanelDashboard';
 import EyeLogbook from './views/EyeLogbook';
 import { MSFSubmissionForm } from './views/MSFSubmissionForm';
 import { MSFResponseForm } from './views/MSFResponseForm';
+import { MSFSummaryForm } from './views/MSFSummaryForm';
 import { RefractiveAudit } from './views/RefractiveAudit';
 import { MyRefractiveAudit } from './views/MyRefractiveAudit';
 import { RefractiveAuditOpticianForm } from './views/RefractiveAuditOpticianForm';
@@ -69,6 +70,7 @@ enum View {
   MSFForm = 'msf-form',
   MSFSubmission = 'msf-submission',
   MSFResponse = 'msf-response',
+  MSFSummary = 'msf-summary',
   ARCPPrep = 'arcp-prep',
   SupervisorDashboard = 'supervisor-dashboard',
   EyeLogbook = 'eye-logbook',
@@ -1178,7 +1180,13 @@ const App: React.FC = () => {
   const handleEditEvidence = async (item: EvidenceItem) => {
     setEditingEvidence(item);
     if (item.type === EvidenceType.MSF) {
-      setCurrentView(View.MSFSubmission);
+      // Supervisors viewing a trainee's MSF go to summary view
+      // Trainees editing their own MSF go to submission view
+      if (viewingTraineeId && item.status === EvidenceStatus.Submitted) {
+        setCurrentView(View.MSFSummary);
+      } else {
+        setCurrentView(View.MSFSubmission);
+      }
     } else if (item.type === EvidenceType.EPA) {
       setSelectedFormParams({ sia: item.sia || '', level: item.level || 1, id: item.id, status: item.status, originView: currentView });
       setCurrentView(View.EPAForm);
@@ -1263,7 +1271,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigateToMSF = () => {
+  const handleNavigateToMSF = async () => {
     const existingActiveMSF = allEvidence.find(e =>
       e.type === EvidenceType.MSF &&
       (e.status === EvidenceStatus.Draft || e.status === EvidenceStatus.Submitted)
@@ -1277,7 +1285,7 @@ const App: React.FC = () => {
       const newMSF: EvidenceItem = {
         id: uuidv4(),
         type: EvidenceType.MSF,
-        title: `MSF - ${INITIAL_PROFILE.name} - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+        title: `MSF - ${profile.name || 'Trainee'} - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
         date: new Date().toISOString().split('T')[0],
         status: EvidenceStatus.Draft,
         msfRespondents: Array.from({ length: 11 }, () => ({
@@ -1289,7 +1297,8 @@ const App: React.FC = () => {
           inviteSent: false
         }))
       };
-      setAllEvidence(prev => [newMSF, ...prev]);
+      // Save to database FIRST so edge functions can find it
+      await handleUpsertEvidence(newMSF);
       setEditingEvidence(newMSF);
       setCurrentView(View.MSFSubmission);
     }
@@ -2339,7 +2348,10 @@ const App: React.FC = () => {
               handleBackToOrigin();
             }}
             onSave={(data) => {
-              if (editingEvidence) handleUpsertEvidence({ ...data, id: editingEvidence.id });
+              // Check if the evidence still exists (not deleted)
+              if (editingEvidence && allEvidence.some(e => e.id === editingEvidence.id)) {
+                handleUpsertEvidence({ ...data, id: editingEvidence.id });
+              }
             }}
             onViewResponse={(id) => {
               setActiveRespondentId(id);
@@ -2362,6 +2374,21 @@ const App: React.FC = () => {
               alert("Thank you! Your response has been submitted.");
               setCurrentView(View.MSFSubmission);
             }}
+          />
+        );
+      case View.MSFSummary:
+        return (
+          <MSFSummaryForm
+            evidence={editingEvidence!}
+            traineeName={viewingTraineeId ? 'Trainee' : profile.name}
+            onBack={() => {
+              setEditingEvidence(null);
+              handleBackToOrigin();
+            }}
+            onSave={(data) => {
+              if (editingEvidence) handleUpsertEvidence({ ...data, id: editingEvidence.id });
+            }}
+            isSupervisor={!!viewingTraineeId}
           />
         );
       case View.RecordForm:
@@ -2754,6 +2781,9 @@ const App: React.FC = () => {
 
               // Navigate
               switch (item.type) {
+                case EvidenceType.MSF:
+                  setCurrentView(View.MSFSummary);
+                  break;
                 case EvidenceType.EPA:
                   setCurrentView(View.EPAForm);
                   break;

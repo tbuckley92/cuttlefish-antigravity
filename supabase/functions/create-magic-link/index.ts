@@ -18,16 +18,19 @@ serve(async (req) => {
 
     try {
         const { evidence_id, recipient_email, recipient_gmc, form_type } = await req.json()
+        console.log("Request body parsed:", { evidence_id, recipient_email, form_type });
 
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL')!,
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         )
+        console.log("Supabase client created");
 
         // Generate secure token (64 character hex string)
         const tokenArray = new Uint8Array(32)
         crypto.getRandomValues(tokenArray)
         const token = Array.from(tokenArray, byte => byte.toString(16).padStart(2, '0')).join('')
+        console.log("Token generated");
 
         // Get evidence details for email
         const { data: evidence, error: evidenceError } = await supabaseAdmin
@@ -37,8 +40,10 @@ serve(async (req) => {
             .single()
 
         if (evidenceError || !evidence) {
+            console.error("Evidence lookup failed:", evidenceError);
             throw new Error(`Evidence not found: ${evidenceError?.message}`)
         }
+        console.log("Evidence found:", evidence.title);
 
         // Get trainee name for email
         const { data: traineeProfile } = await supabaseAdmin
@@ -48,6 +53,7 @@ serve(async (req) => {
             .single()
 
         const traineeName = traineeProfile?.name || 'a trainee'
+        console.log("Trainee name:", traineeName);
 
         // Get auth user (MANDATORY)
         const authHeader = req.headers.get('Authorization')
