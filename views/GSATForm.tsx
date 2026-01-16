@@ -171,14 +171,9 @@ const GSATForm: React.FC<GSATFormProps> = ({
     }
   };
 
-  const handleSupervisorSignOff = async () => {
-    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
-      setStatus(EvidenceStatus.SignedOff);
-      await saveToParent(EvidenceStatus.SignedOff);
-      if (onSubmitted) onSubmitted();
-      alert("Form signed off successfully.");
-      if (onBack) onBack();
-    }
+  const handleSupervisorSignOff = () => {
+    // Open the SignOffDialog instead of using confirm()
+    setIsSignOffOpen(true);
   };
 
   const handleSignOffConfirm = async (gmc: string, name: string, email: string, signature: string) => {

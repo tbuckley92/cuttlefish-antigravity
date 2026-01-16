@@ -262,14 +262,9 @@ const CRSForm: React.FC<CRSFormProps> = ({
     if (onSubmitted) onSubmitted();
   };
 
-  const handleSupervisorSignOff = async () => {
-    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
-      setStatus(EvidenceStatus.SignedOff);
-      await saveToParent(EvidenceStatus.SignedOff);
-      if (onSubmitted) onSubmitted();
-      alert("Form signed off successfully.");
-      onBack();
-    }
+  const handleSupervisorSignOff = () => {
+    // Open the SignOffDialog instead of using confirm()
+    setIsSignOffOpen(true);
   };
 
   const handleRatingChange = (sectionId: string, criterionKey: string, value: string) => {

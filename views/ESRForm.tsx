@@ -169,16 +169,9 @@ const ESRForm: React.FC<ESRFormProps> = ({
         setIsSignOffOpen(false);
     };
 
-    const handleSupervisorSignOff = async () => {
-        if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
-            // For ESR, ensure supervisor comments are there?
-            if (!comments.supervisor) {
-                alert('Please add Supervisor Comments before signing off.');
-                return;
-            }
-            await handleSave(EvidenceStatus.SignedOff);
-            // handleSave calls onBack()
-        }
+    const handleSupervisorSignOff = () => {
+        // Open the SignOffDialog instead of using confirm()
+        setIsSignOffOpen(true);
     };
 
     const handleEmailForm = async () => {

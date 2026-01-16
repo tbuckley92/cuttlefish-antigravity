@@ -286,13 +286,28 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
 
     // Render the form based on type
     const renderForm = () => {
+        // Extract supervisor name from evidence data (works for all form types)
+        const getSupervisorName = () => {
+            const ed = evidenceData as any;
+            return ed?.supervisor_name
+                || ed?.supervisorName
+                || ed?.data?.supervisorName
+                || ed?.epaFormData?.supervisorName
+                || ed?.data?.epaFormData?.supervisorName
+                || ed?.cbdFormData?.supervisorName
+                || ed?.dopsFormData?.supervisorName
+                || ed?.osatsFormData?.supervisorName
+                || ed?.crsFormData?.assessorName
+                || ed?.gsatFormData?.supervisorName
+                || ed?.marFormData?.assessorName
+                || ed?.epaOperatingListFormData?.supervisorName
+                || '';
+        };
+
+        const supervisorName = getSupervisorName();
+
         switch (formType) {
             case 'EPA':
-                // Extract supervisor name from evidence data
-                const supervisorName = (evidenceData as any)?.supervisorName
-                    || (evidenceData as any)?.epaFormData?.supervisorName
-                    || (evidenceData as any)?.data?.epaFormData?.supervisorName
-                    || '';
                 return (
                     <>
                         <MagicLinkHeader />
@@ -309,7 +324,8 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <CBDForm
                             {...commonFormProps}
-                            initialSupervisorEmail={recipientEmail}
+                            initialAssessorName={supervisorName}
+                            initialAssessorEmail={recipientEmail}
                         />
                     </>
                 );
@@ -319,6 +335,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <DOPsForm
                             {...commonFormProps}
+                            initialSupervisorName={supervisorName}
                             initialSupervisorEmail={recipientEmail}
                         />
                     </>
@@ -329,6 +346,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <OSATSForm
                             {...commonFormProps}
+                            initialAssessorName={supervisorName}
                             initialAssessorEmail={recipientEmail}
                         />
                     </>
@@ -339,6 +357,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <CRSForm
                             {...commonFormProps}
+                            initialAssessorName={supervisorName}
                             initialAssessorEmail={recipientEmail}
                         />
                     </>
@@ -349,6 +368,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <GSATForm
                             {...commonFormProps}
+                            initialSupervisorName={supervisorName}
                             initialSupervisorEmail={recipientEmail}
                             linkedEvidenceData={{}}
                             onLinkRequested={() => { }}
@@ -362,6 +382,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <MARForm
                             {...commonFormProps}
+                            initialAssessorName={supervisorName}
                             initialAssessorEmail={recipientEmail}
                         />
                     </>
@@ -390,6 +411,7 @@ const MagicLinkForm: React.FC<MagicLinkFormProps> = ({ token, onComplete }) => {
                         <MagicLinkHeader />
                         <EPAOperatingListForm
                             {...commonFormProps}
+                            initialSupervisorName={supervisorName}
                             initialSupervisorEmail={recipientEmail}
                         />
                     </>

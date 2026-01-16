@@ -339,15 +339,9 @@ const CBDForm: React.FC<CBDFormProps> = ({
     if (onSubmitted) onSubmitted();
   };
 
-  const handleSupervisorSignOff = async () => {
-    if (confirm("Are you sure you want to sign off this form as 'Complete'?")) {
-      setStatus(EvidenceStatus.SignedOff);
-      await saveToParent(EvidenceStatus.SignedOff);
-      // Logic handled in saveToParent/onSave
-      if (onSubmitted) onSubmitted();
-      alert("Form signed off successfully.");
-      onBack();
-    }
+  const handleSupervisorSignOff = () => {
+    // Open the SignOffDialog instead of using confirm()
+    setIsSignOffOpen(true);
   };
 
   const handleRatingChange = (key: string, value: string) => {
