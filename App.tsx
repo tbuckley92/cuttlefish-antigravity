@@ -3306,7 +3306,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  {viewingTraineeId ? (
+                  {viewingTraineeId && selectedFormParams?.originView !== View.ARCPPanelDashboard ? (
                     <>
                       <NavTab
                         active={currentView === View.Progress}

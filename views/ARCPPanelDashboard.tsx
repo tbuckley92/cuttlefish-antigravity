@@ -1192,10 +1192,13 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                 {items.slice(0, 3).map(item => (
                                                     <div
                                                         key={item.id}
-                                                        className="flex items-center gap-2 text-xs font-semibold text-slate-700 truncate cursor-pointer hover:text-indigo-600 group"
+                                                        className="flex items-center gap-2 text-xs truncate cursor-pointer hover:text-indigo-600 group"
                                                         onClick={() => handleViewEvidenceItem(item)}
                                                     >
-                                                        <span className="truncate flex-1">• {item.title}</span>
+                                                        <span className="truncate flex-1 font-semibold text-slate-700">• {item.title}</span>
+                                                        {item.date && (
+                                                            <span className="shrink-0 text-[9px] text-slate-400">{formatDate(item.date)}</span>
+                                                        )}
                                                         {item.status === EvidenceStatus.SignedOff && (
                                                             <span className="shrink-0 px-1.5 py-0.5 rounded-[4px] bg-emerald-100 text-emerald-800 text-[9px] font-bold uppercase tracking-wider">
                                                                 COMPLETE
@@ -1338,10 +1341,10 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                         <div className="mb-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <BarChart2 size={16} className="text-slate-400" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CATARACT CASES (P/PS)</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CATARACT CASES (PHACO/IOL)</span>
                             </div>
                             <div className="mb-2">
-                                <span className="text-3xl font-bold text-slate-900">{cases.performed}</span>
+                                <span className="text-3xl font-bold text-slate-900">{cases.total}</span>
                                 <p className="text-[10px] text-slate-500 mt-0.5">Phacoemulsification with IOL</p>
                             </div>
                             {/* PCR Rate */}
@@ -1356,26 +1359,58 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
 
                             <div className="mt-3 space-y-1.5">
                                 <div className="flex items-center gap-2 text-xs">
-                                    <span className="text-[10px] font-bold text-indigo-600">SOLE BREAKDOWNS</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">ROLE BREAKDOWN</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                                    <span className="text-xs text-slate-600">Performed</span>
-                                    <span className="ml-auto font-bold text-slate-900">{cases.performed}</span>
-                                    <span className="text-slate-400 text-[10px]">({cases.total ? Math.round(cases.performed / cases.total * 100) : 0}%)</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full bg-indigo-500"></span>
-                                    <span className="text-xs text-slate-600">Supervised</span>
-                                    <span className="ml-auto font-bold text-slate-900">{cases.supervised}</span>
-                                    <span className="text-slate-400 text-[10px]">({cases.total ? Math.round(cases.supervised / cases.total * 100) : 0}%)</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                                    <span className="text-xs text-slate-600">Assisted</span>
-                                    <span className="ml-auto font-bold text-slate-900">{cases.assisted}</span>
-                                    <span className="text-slate-400 text-[10px]">({cases.total ? Math.round(cases.assisted / cases.total * 100) : 0}%)</span>
-                                </div>
+                                {/* P/PS Combined */}
+                                {(() => {
+                                    const pCount = cases.performed;
+                                    const percentage = cases.total > 0 ? Math.round((pCount / cases.total) * 100) : 0;
+                                    if (pCount === 0) return null;
+                                    return (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
+                                                    P/PS
+                                                </span>
+                                                <span className="text-xs text-slate-600">Performed</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-900">{pCount}</span>
+                                                <span className="text-xs text-slate-400">({percentage}%)</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                {/* SJ */}
+                                {(cases.supervised || 0) > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700">
+                                                SJ
+                                            </span>
+                                            <span className="text-xs text-slate-600">Supervised Junior</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-slate-900">{cases.supervised}</span>
+                                            <span className="text-xs text-slate-400">({Math.round(((cases.supervised || 0) / cases.total) * 100)}%)</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* A */}
+                                {(cases.assisted || 0) > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
+                                                A
+                                            </span>
+                                            <span className="text-xs text-slate-600">Assisted</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-slate-900">{cases.assisted}</span>
+                                            <span className="text-xs text-slate-400">({Math.round(((cases.assisted || 0) / cases.total) * 100)}%)</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
