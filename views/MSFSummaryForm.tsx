@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import {
     ArrowLeft, Users, BarChart2, MessageSquare, CheckCircle2,
-    ShieldCheck, Clock, AlertCircle
+    ShieldCheck, Clock, AlertCircle, RotateCcw
 } from '../components/Icons';
 import { MSFRespondent, EvidenceItem, EvidenceStatus, EvidenceType } from '../types';
 import { supabase } from '../utils/supabaseClient';
@@ -72,6 +72,7 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
         evidence?.data?.supervisorComments || ''
     );
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSendingBack, setIsSendingBack] = useState(false);
 
     // Check both locations for respondents (top-level or in data object)
     const respondents = evidence?.msfRespondents || evidence?.data?.msfRespondents || [];
@@ -159,6 +160,51 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
             alert('Failed to sign off MSF. Please try again.');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleSendBack = async () => {
+        if (!window.confirm('Are you sure you want to send this MSF back to the trainee? They will be able to add more respondents and re-submit.')) {
+            return;
+        }
+
+        setIsSendingBack(true);
+
+        try {
+            await onSave({
+                id: evidence.id,
+                title: evidence.title,
+                status: EvidenceStatus.Draft,
+                type: EvidenceType.MSF,
+                msfRespondents: respondents, // Preserve all respondent data
+                data: {
+                    ...evidence.data,
+                    supervisorComments, // Keep any comments in progress
+                },
+                linkedEvidence: evidence.linkedEvidence || evidence.data?.linkedEvidence || {}
+            });
+
+            // Create notification for trainee
+            if (supabase && evidence.traineeId) {
+                await supabase.from('notifications').insert({
+                    id: uuidv4(),
+                    user_id: evidence.traineeId,
+                    role_context: 'trainee',
+                    type: 'msf_sent_back',
+                    title: 'MSF Sent Back for Revision',
+                    body: 'Your Multi-Source Feedback has been sent back by your supervisor. You can add more respondents and re-submit.',
+                    reference_id: evidence.id,
+                    created_at: new Date().toISOString()
+                });
+            }
+
+            alert('MSF sent back to trainee. They have been notified and can now add more respondents.');
+            onBack(); // Navigate back after sending
+        } catch (err) {
+            console.error('Error sending MSF back:', err);
+            alert('Failed to send MSF back. Please try again.');
+        } finally {
+            setIsSendingBack(false);
         }
     };
 
@@ -331,23 +377,46 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
                     </div>
 
                     {!isLocked && (
-                        <button
-                            onClick={handleSignOff}
-                            disabled={isSubmitting}
-                            className="w-full py-4 rounded-xl bg-indigo-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Signing Off...
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle2 size={18} />
-                                    Sign Off MSF
-                                </>
+                        <div className="flex gap-3">
+                            {/* Send Back Button - only show for Submitted status */}
+                            {evidence.status === EvidenceStatus.Submitted && (
+                                <button
+                                    onClick={handleSendBack}
+                                    disabled={isSendingBack || isSubmitting}
+                                    className="flex-1 py-4 rounded-xl bg-amber-500 text-white font-bold text-sm uppercase tracking-widest hover:bg-amber-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isSendingBack ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Sending Back...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <RotateCcw size={18} />
+                                            Send Back to Trainee
+                                        </>
+                                    )}
+                                </button>
                             )}
-                        </button>
+                            {/* Sign Off Button */}
+                            <button
+                                onClick={handleSignOff}
+                                disabled={isSubmitting || isSendingBack}
+                                className="flex-1 py-4 rounded-xl bg-indigo-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Signing Off...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 size={18} />
+                                        Sign Off MSF
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     )}
 
                     {isLocked && (

@@ -11,7 +11,7 @@ import {
   FileDown, Download, Lock, Unlock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut, Ban,
   Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus,
-  CheckSquare, Square, UserPlus, Shield, MousePointerClick, MousePointer2
+  CheckSquare, Square, UserPlus, Shield, MousePointerClick, MousePointer2, RotateCcw
 } from 'lucide-react';
 
 
@@ -27,7 +27,7 @@ export {
   FileDown, Download, Lock, Unlock, ScrollText, Fish, Grid, List, PieChart, AlertTriangle,
   MessageSquare, Zap, Settings, LogOut, Ban,
   Bell, Check, CheckCheck, HelpCircle, XCircle, Inbox, RefreshCw, Paperclip, UserMinus,
-  CheckSquare, Square, UserPlus, Shield, MousePointerClick, MousePointer2
+  CheckSquare, Square, UserPlus, Shield, MousePointerClick, MousePointer2, RotateCcw
 };
 
 
