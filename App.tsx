@@ -826,10 +826,11 @@ const App: React.FC = () => {
             .eq('id', item.id);
           error = result.error;
         } else {
-          // New record (not in state yet) - use INSERT
+          // New record (not in state yet) - use UPSERT to handle race conditions
+          // where evidence might be saved twice in quick succession (e.g., form submission flows)
           const result = await supabase
             .from('evidence')
-            .insert(payload);
+            .upsert(payload, { onConflict: 'id' });
           error = result.error;
         }
 

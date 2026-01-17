@@ -82,7 +82,10 @@ serve(async (req) => {
                 created_by: createdBy
             })
 
-        if (insertError) throw insertError
+        if (insertError) {
+            console.error("Magic link insert failed:", insertError);
+            throw new Error(`Magic link insert failed: ${insertError.message}`);
+        }
 
         // Create magic link URL
         const magicLinkUrl = `${APP_URL}?token=${token}`

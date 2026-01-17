@@ -28,8 +28,32 @@ export async function sendMagicLinkEmail(params: EmailFormParams): Promise<{ suc
         });
 
         if (error) {
-            console.error('Magic link creation error:', error);
-            return { success: false, error: error.message };
+            console.error('Magic link creation error object:', error);
+
+            // Try to extract the detailed JSON error from the context if available
+            // This bypasses the masking of 500 errors by the Supabase client
+            let detailedError = error.message;
+            try {
+                if (error.context && typeof error.context.json === 'function') {
+                    // Start reading the stream
+                    const errorJsonPromise = error.context.json();
+
+                    // Race against a timeout to prevent hanging if stream is broken
+                    const errorBody = await Promise.race([
+                        errorJsonPromise,
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout parsing error body')), 1000))
+                    ]);
+
+                    if (errorBody && errorBody.error) {
+                        detailedError = errorBody.error;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to extract JSON error from response context:', e);
+                // Fallback to text if possible or just keep original message
+            }
+
+            return { success: false, error: detailedError };
         }
 
         return {
@@ -38,7 +62,7 @@ export async function sendMagicLinkEmail(params: EmailFormParams): Promise<{ suc
         };
     } catch (err: any) {
         console.error('sendMagicLinkEmail error:', err);
-        return { success: false, error: err.message };
+        return { success: false, error: err.message || 'Unknown error occurred' };
     }
 }
 
@@ -157,4 +181,3 @@ export async function sendNotificationEmail(params: NotificationEmailParams): Pr
         return { success: false, error: err.message };
     }
 }
-
