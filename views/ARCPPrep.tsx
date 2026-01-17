@@ -5,7 +5,7 @@ import {
   ArrowLeft, ChevronRight, CheckCircle2,
   Clock, FileText, BookOpen, Users, User,
   ClipboardCheck, Activity, X,
-  UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon, Search
+  UploadCloud, Calendar, Save, Edit2, Trash2, Link as LinkIcon, Search, AlertTriangle
 } from '../components/Icons';
 import { uuidv4 } from '../utils/uuid';
 import { EvidenceItem, EvidenceType, EvidenceStatus, SIA, UserProfile, ARCPPrepData, ARCPReviewType, PDPGoal } from '../types';
@@ -47,6 +47,10 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
   const [localLastArcpDate, setLocalLastArcpDate] = useState(arcpPrepData?.last_arcp_date || '');
   const [localLastArcpType, setLocalLastArcpType] = useState(arcpPrepData?.last_arcp_type || ARCPReviewType.FullARCP);
   const [localNoMsfPlanned, setLocalNoMsfPlanned] = useState(arcpPrepData?.no_msf_planned || false);
+
+  // Current ARCP state (will update profile)
+  const [localCurrentArcpDate, setLocalCurrentArcpDate] = useState(profile.arcpDate || '');
+  const [localCurrentArcpType, setLocalCurrentArcpType] = useState(profile.arcpInterimFull || 'Full ARCP');
 
   // Educational Supervisor State
   const [localLastESName, setLocalLastESName] = useState(arcpPrepData?.last_es?.name || '');
@@ -115,7 +119,9 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     setLocalLastESName(arcpPrepData?.last_es?.name || '');
     setLocalLastESEmail(arcpPrepData?.last_es?.email || '');
     setLocalLastESGmc(arcpPrepData?.last_es?.gmc || '');
-  }, [arcpPrepData]);
+    setLocalCurrentArcpDate(profile.arcpDate || '');
+    setLocalCurrentArcpType(profile.arcpInterimFull || 'Full ARCP');
+  }, [arcpPrepData, profile.arcpDate, profile.arcpInterimFull]);
 
   // Autosave every 15 seconds
   useEffect(() => {
@@ -140,11 +146,19 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
       };
 
       onUpdateARCPPrep(autosavePayload);
+
+      // Also autosave current ARCP changes to profile
+      onUpdateProfile({
+        ...profile,
+        arcpDate: localCurrentArcpDate,
+        arcpInterimFull: localCurrentArcpType
+      });
+
       setLastAutosave(new Date());
     }, 15000); // 15 seconds
 
     return () => clearInterval(autosaveInterval);
-  }, [localTootDays, localLastArcpDate, localLastArcpType, localNoMsfPlanned, localLastESName, localLastESEmail, localLastESGmc, profile.supervisorName, profile.supervisorEmail, profile.supervisorGmc, onUpdateARCPPrep]);
+  }, [localTootDays, localLastArcpDate, localLastArcpType, localNoMsfPlanned, localLastESName, localLastESEmail, localLastESGmc, localCurrentArcpDate, localCurrentArcpType, profile, onUpdateARCPPrep, onUpdateProfile]);
 
   // Form R State
   const [isFormRDialogOpen, setIsFormRDialogOpen] = useState(false);
@@ -273,6 +287,14 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
     };
 
     onUpdateARCPPrep(updates);
+
+    // Update profile with current ARCP changes
+    onUpdateProfile({
+      ...profile,
+      arcpDate: localCurrentArcpDate,
+      arcpInterimFull: localCurrentArcpType
+    });
+
     setLastManualSave(new Date());
     setIsEditingLastES(false);
   };
@@ -288,6 +310,14 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
 
   const handleLastARCPTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLocalLastArcpType(e.target.value);
+  };
+
+  const handleCurrentARCPDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalCurrentArcpDate(e.target.value);
+  };
+
+  const handleCurrentARCPTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLocalCurrentArcpType(e.target.value);
   };
 
   // Link Evidence
@@ -458,7 +488,10 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
               <h2 className="text-sm font-bold text-slate-900">Mandatory Artifacts</h2>
             </div>
 
-            <GlassCard className="p-0 overflow-hidden">
+            <GlassCard className={`p-0 overflow-hidden transition-all duration-300 ${pdpStatus === 'Completed' && eyeLogbookLastUpdated && formRItems.length > 0
+                ? 'border-2 border-green-500/30 bg-green-50/10 shadow-lg shadow-green-500/10'
+                : 'border-2 border-amber-400/40 bg-amber-50/10'
+              }`}>
               <div className="divide-y divide-slate-100">
 
                 {/* PDP */}
@@ -480,17 +513,32 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                 </div>
 
                 {/* EyeLogbook */}
-                <div className="p-3 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors" onClick={onNavigateEyeLogbook}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
-                      <BookOpen size={12} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">EyeLogbook & Complications</p>
-                      {eyeLogbookLastUpdated && <p className="text-[9px] text-slate-400">Last: {eyeLogbookLastUpdated}</p>}
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                        <BookOpen size={12} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">EyeLogbook & Complications</p>
+                        {eyeLogbookLastUpdated && <p className="text-[9px] text-slate-400">Last Updated: {eyeLogbookLastUpdated}</p>}
+                      </div>
                     </div>
                   </div>
-                  <ChevronRight size={12} className="text-slate-300" />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={onNavigateEyeLogbook}
+                      className="flex-1 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-[9px] font-bold uppercase tracking-wider transition-colors"
+                    >
+                      Eyelogbook
+                    </button>
+                    <button
+                      onClick={onNavigateEyeLogbook}
+                      className="flex-1 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider transition-colors"
+                    >
+                      Complications
+                    </button>
+                  </div>
                 </div>
 
                 {/* Form R */}
@@ -509,24 +557,26 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (!onLinkRequested) return;
-                          const existingIds = formRItems.map(e => e.id);
-                          onLinkRequested('ARCP_PREP_FORMR', existingIds);
-                        }}
-                        className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
-                      >
-                        <LinkIcon size={10} /> Link
-                      </button>
-                      <button
-                        onClick={() => setIsFormRDialogOpen(true)}
-                        className="text-[9px] font-bold text-green-600 flex items-center gap-1 hover:underline"
-                      >
-                        <UploadCloud size={10} /> Add
-                      </button>
-                    </div>
+                    {formRItems.length === 0 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (!onLinkRequested) return;
+                            const existingIds = formRItems.map(e => e.id);
+                            onLinkRequested('ARCP_PREP_FORMR', existingIds);
+                          }}
+                          className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+                        >
+                          <LinkIcon size={10} /> Link
+                        </button>
+                        <button
+                          onClick={() => setIsFormRDialogOpen(true)}
+                          className="text-[9px] font-bold text-green-600 flex items-center gap-1 hover:underline"
+                        >
+                          <UploadCloud size={10} /> Add
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Linked Form R items */}
@@ -588,13 +638,31 @@ const ARCPPrep: React.FC<ARCPPrepProps> = ({
               <h2 className="text-sm font-bold text-slate-900">ARCP Details</h2>
             </div>
 
-            <GlassCard className="p-3 space-y-3">
-              {/* Current ARCP - Read from profile */}
-              <div>
-                <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Current ARCP</label>
-                <div className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
-                  <span className="text-xs font-bold text-slate-900">{profile.arcpDate || 'Not Set'}</span>
-                  <span className="text-[10px] font-medium text-slate-500">{profile.arcpInterimFull || 'Full ARCP'}</span>
+            <GlassCard className={`p-3 space-y-3 transition-all duration-300 ${localCurrentArcpDate && localLastArcpDate
+                ? 'border-2 border-green-500/30 bg-green-50/10 shadow-lg shadow-green-500/10'
+                : 'border-2 border-amber-400/40 bg-amber-50/10'
+              }`}>
+              {/* Current ARCP - Editable */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">Current ARCP Date</label>
+                  <input
+                    type="date"
+                    value={localCurrentArcpDate}
+                    onChange={handleCurrentARCPDateChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-1 block">ARCP Type</label>
+                  <select
+                    value={localCurrentArcpType}
+                    onChange={handleCurrentARCPTypeChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none focus:border-purple-500"
+                  >
+                    <option value="Full ARCP">Full ARCP</option>
+                    <option value="Interim Review">Interim</option>
+                  </select>
                 </div>
               </div>
 
@@ -1074,9 +1142,19 @@ const EvidenceSection: React.FC<{
 
       <div className="grid grid-cols-2 gap-3">
         {/* Last ARCP */}
-        <GlassCard className="p-3">
+        <GlassCard className={`p-3 transition-all duration-300 ${lastItems.length > 0
+          ? 'border-2 border-green-500/30 bg-green-50/30 shadow-lg shadow-green-500/10'
+          : 'border-2 border-amber-400/40 bg-amber-50/30'
+          }`}>
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last ARCP</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Last ARCP</h3>
+              {lastItems.length > 0 ? (
+                <CheckCircle2 size={12} className="text-green-600" />
+              ) : (
+                <AlertTriangle size={12} className="text-amber-500 animate-pulse" />
+              )}
+            </div>
             <button onClick={onLinkLast} className="text-[9px] font-bold text-indigo-600 flex items-center gap-1 hover:underline">
               <LinkIcon size={10} /> Link
             </button>
@@ -1111,11 +1189,21 @@ const EvidenceSection: React.FC<{
         </GlassCard>
 
         {/* Current ARCP */}
-        <GlassCard className="p-3 bg-gradient-to-b from-white to-slate-50">
+        <GlassCard className={`p-3 bg-gradient-to-b from-white to-slate-50 transition-all duration-300 ${currentItems.length > 0
+          ? 'border-2 border-green-500/30 bg-green-50/30 shadow-lg shadow-green-500/10'
+          : 'border-2 border-amber-400/40 bg-amber-50/30'
+          }`}>
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-[9px] font-black uppercase tracking-widest text-teal-600">
-              Current {isCurrentDefault && <span className="text-slate-400">(Default)</span>}
-            </h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[9px] font-black uppercase tracking-widest text-teal-600">
+                Current ARCP {isCurrentDefault && <span className="text-slate-400">(Default)</span>}
+              </h3>
+              {currentItems.length > 0 ? (
+                <CheckCircle2 size={12} className="text-green-600" />
+              ) : (
+                <AlertTriangle size={12} className="text-amber-500 animate-pulse" />
+              )}
+            </div>
             <div className="flex items-center gap-1">
               {!isCurrentDefault && (
                 <button onClick={onResetCurrent} className="text-[9px] font-bold text-slate-400 hover:text-slate-600" title="Reset to defaults">
