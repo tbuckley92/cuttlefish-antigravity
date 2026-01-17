@@ -114,8 +114,8 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
     const timer = setInterval(async () => {
       setIsSaving(true);
       try {
-        // Actually save respondent data to database
-        await onSave({ msfRespondents: respondents, title, status, type: EvidenceType.MSF });
+        // Actually save respondent data to database - include ID to update existing record
+        await onSave({ id: evidence?.id, msfRespondents: respondents, title, status, type: EvidenceType.MSF });
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       } catch (err) {
         console.error('Autosave failed:', err);
@@ -189,7 +189,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
       }
 
       // Save updated respondent data to database immediately (keep status unchanged)
-      await onSave({ msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
+      await onSave({ id: evidence?.id, msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
       console.log('Magic link created and data saved successfully:', data);
     } catch (err: any) {
       console.error('Unexpected error sending invite:', err);
@@ -252,7 +252,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
 
     // Save all updates to database (keep status unchanged)
     if (successCount > 0) {
-      await onSave({ msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
+      await onSave({ id: evidence?.id, msfRespondents: updatedRespondents, status, title, type: EvidenceType.MSF });
     }
 
     if (failCount > 0) {
@@ -286,6 +286,7 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
 
     // 2. Save evidence - include supervisorId for supervisor queue lookup
     await onSave({
+      id: evidence?.id,
       status: EvidenceStatus.Submitted,
       msfRespondents: respondents,
       title,
