@@ -21,7 +21,7 @@ interface ARCPPanelDashboardProps {
     onViewTraineeEvidence: (traineeId: string) => void;
     onViewESR: (traineeId: string) => void;
     onUpdateARCPOutcome: (traineeId: string, outcome: ARCPOutcome) => void;
-    onViewEvidenceItem?: (item: EvidenceItem) => void;
+    onViewEvidenceItem?: (item: EvidenceItem, onConfirmOutcome?: (outcomeId: string, evidenceId?: string) => Promise<void>) => void;
     onEditEvidenceItem?: (item: EvidenceItem) => void;
     onRefreshEvidence?: () => void;
 }
@@ -864,7 +864,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                     traineeId: fullItem.trainee_id,
                     ...(fullItem.data || {})
                 };
-                onViewEvidenceItem(mappedItem);
+                onViewEvidenceItem(mappedItem, handleConfirmIndividualOutcome);
             }
         } catch (e) {
             console.error("Failed to load evidence details:", e);
@@ -1846,7 +1846,7 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                 </p>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-2">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -1867,10 +1867,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                         setViewMode('overview');
                                                     }
                                                 }}
-                                                className="p-2 hover:bg-white rounded-lg transition-colors"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors text-xs font-semibold"
                                                 title="Edit"
                                             >
-                                                <Edit2 size={14} className="text-slate-500" />
+                                                <Edit2 size={14} />
+                                                Edit
                                             </button>
 
                                             {/* Confirm Button */}
@@ -1880,10 +1881,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                         e.stopPropagation();
                                                         handleConfirmIndividualOutcome(outcome.id, outcome.evidenceId);
                                                     }}
-                                                    className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors text-xs font-semibold"
                                                     title="Confirm / Sign Off"
                                                 >
-                                                    <CheckCircle2 size={14} className="text-green-600" />
+                                                    <CheckCircle2 size={14} />
+                                                    Confirm
                                                 </button>
                                             )}
 
@@ -1892,20 +1894,11 @@ const ARCPPanelDashboard: React.FC<ARCPPanelDashboardProps> = ({
                                                     e.stopPropagation();
                                                     handleDeleteOutcome(outcome.id);
                                                 }}
-                                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors text-xs font-semibold"
                                                 title="Delete"
                                             >
-                                                <Trash2 size={14} className="text-red-500" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDownloadOutcomePDF(outcome);
-                                                }}
-                                                className="p-2 hover:bg-white rounded-lg transition-colors"
-                                                title="Download PDF"
-                                            >
-                                                <Download size={14} className="text-slate-500" />
+                                                <Trash2 size={14} />
+                                                Delete
                                             </button>
                                         </div>
                                     </div>

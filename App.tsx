@@ -147,6 +147,7 @@ const App: React.FC = () => {
   const [profileSetupNeeded, setProfileSetupNeeded] = useState(false);
   const [authEmail, setAuthEmail] = useState<string>('');
   const [profileReloadKey, setProfileReloadKey] = useState(0);
+  const [arcpOutcomeConfirmHandler, setArcpOutcomeConfirmHandler] = useState<((outcomeId: string, evidenceId?: string) => Promise<void>) | undefined>(undefined);
 
   const clearLegacyLocalData = () => {
     // Important: prevents new accounts from inheriting demo/local data.
@@ -2960,6 +2961,7 @@ const App: React.FC = () => {
             traineeName={targetTraineeId ? getTraineeSummary(targetTraineeId)?.profile.name : profile.name}
             canEdit={profile.roles?.some(r => ['Admin', 'EducationalSupervisor', 'ARCPPanelMember', 'ARCPSuperuser'].includes(r))}
             initialEditMode={selectedFormParams?.editMode}
+            onConfirmOutcome={arcpOutcomeConfirmHandler}
           />
         );
       case View.ARCPPanelDashboard:
@@ -3005,7 +3007,14 @@ const App: React.FC = () => {
                 summary.profile.arcpOutcome = outcome;
               }
             }}
-            onViewEvidenceItem={async (item: any) => {
+            onViewEvidenceItem={async (item: any, onConfirmOutcome?: (outcomeId: string, evidenceId?: string) => Promise<void>) => {
+              // Store the confirm handler if provided
+              if (onConfirmOutcome) {
+                setArcpOutcomeConfirmHandler(() => onConfirmOutcome);
+              } else {
+                setArcpOutcomeConfirmHandler(undefined);
+              }
+
               // Context switching for different trainee
               if (item.traineeId && item.traineeId !== viewingTraineeId) {
                 setViewingTraineeId(item.traineeId);

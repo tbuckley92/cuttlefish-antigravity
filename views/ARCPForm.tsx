@@ -10,15 +10,17 @@ interface ARCPFormProps {
     traineeName?: string;
     canEdit?: boolean;
     initialEditMode?: boolean;
+    onConfirmOutcome?: (outcomeId: string, evidenceId?: string) => Promise<void>;
 }
 
 import { supabase } from '../utils/supabaseClient';
 
-export const ARCPForm: React.FC<ARCPFormProps> = ({ initialData, onBack, traineeName, canEdit = false, initialEditMode = false }) => {
+export const ARCPForm: React.FC<ARCPFormProps> = ({ initialData, onBack, traineeName, canEdit = false, initialEditMode = false, onConfirmOutcome }) => {
     // Cast initialData to ARCPOutcomeData shape
     const [data, setData] = React.useState<ARCPOutcomeData | null>(initialData as ARCPOutcomeData);
     const [isEditing, setIsEditing] = React.useState(initialEditMode);
     const [saving, setSaving] = React.useState(false);
+    const [confirming, setConfirming] = React.useState(false);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -97,6 +99,34 @@ export const ARCPForm: React.FC<ARCPFormProps> = ({ initialData, onBack, trainee
             alert('Failed to save changes. Please try again.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleConfirmOutcome = async () => {
+        if (!data || !onConfirmOutcome) return;
+        setConfirming(true);
+        try {
+            // Find the arcp_outcome record by evidence_id to get its ID
+            const { data: outcomeRecord, error: fetchError } = await supabase
+                .from('arcp_outcome')
+                .select('id')
+                .eq('evidence_id', data.id)
+                .single();
+
+            if (fetchError || !outcomeRecord) {
+                console.error('Error fetching outcome:', fetchError);
+                alert('Failed to find outcome record.');
+                return;
+            }
+
+            await onConfirmOutcome(outcomeRecord.id, data.id);
+            // Update local state
+            setData({ ...data, status: ARCPOutcomeStatus.Confirmed });
+        } catch (err) {
+            console.error('Error confirming outcome:', err);
+            alert('Failed to confirm outcome. Please try again.');
+        } finally {
+            setConfirming(false);
         }
     };
 
@@ -365,6 +395,23 @@ export const ARCPForm: React.FC<ARCPFormProps> = ({ initialData, onBack, trainee
                     </GlassCard>
                 )}
             </div>
+
+            {/* Confirm Outcome Button (Only for Pending status) */}
+            {data.status === ARCPOutcomeStatus.Pending && onConfirmOutcome && (
+                <div className="mt-8 pt-6 border-t border-slate-200">
+                    <button
+                        onClick={handleConfirmOutcome}
+                        disabled={confirming}
+                        className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-base transition-all shadow-lg shadow-green-600/20 hover:shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <CheckCircle2 size={24} />
+                        {confirming ? 'Confirming...' : 'CONFIRM OUTCOME'}
+                    </button>
+                    <p className="text-xs text-slate-500 mt-3 text-center">
+                        Confirming this outcome will sign it off and notify the trainee.
+                    </p>
+                </div>
+            )}
         </div >
     );
 };
