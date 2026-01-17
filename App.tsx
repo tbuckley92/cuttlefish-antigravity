@@ -1712,7 +1712,17 @@ const App: React.FC = () => {
   };
 
   const handleFormSubmitted = () => {
-    setCurrentView(View.Evidence);
+    // If acting as supervisor, redirect back to Sign Offs tab
+    const isActingAsSupervisor = inboxRoleContext === 'supervisor' ||
+      ['Supervisor', 'EducationalSupervisor', 'Admin', 'ARCPPanelMember'].includes(currentRole);
+
+    if (isActingAsSupervisor) {
+      setViewingTraineeId(null);
+      setSupervisorActiveTab('signoffs');
+      setCurrentView(View.SupervisorDashboard);
+    } else {
+      setCurrentView(View.Evidence);
+    }
   };
 
   // Handler for launching mandatory CRS/OSATS/EPAOperatingList from EPA
