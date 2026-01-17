@@ -1001,7 +1001,7 @@ const App: React.FC = () => {
       id: idToUse,
       user_id: session.user.id,
       toot_days: data.toot_days ?? arcpPrepData?.toot_days ?? 0,
-      last_arcp_date: data.last_arcp_date ?? arcpPrepData?.last_arcp_date,
+      last_arcp_date: (data.last_arcp_date || arcpPrepData?.last_arcp_date) || null, // Empty string -> null for date type
       last_arcp_type: data.last_arcp_type ?? arcpPrepData?.last_arcp_type,
       linked_form_r: data.linked_form_r ?? arcpPrepData?.linked_form_r ?? [],
       last_evidence_epas: data.last_evidence_epas ?? arcpPrepData?.last_evidence_epas ?? [],
@@ -1014,9 +1014,13 @@ const App: React.FC = () => {
       current_evidence_esr: data.current_evidence_esr !== undefined ? data.current_evidence_esr : arcpPrepData?.current_evidence_esr,
       current_es: data.current_es !== undefined ? data.current_es : arcpPrepData?.current_es,
       last_es: data.last_es !== undefined ? data.last_es : arcpPrepData?.last_es,
+      last_arcp_evidence: data.last_arcp_evidence ?? arcpPrepData?.last_arcp_evidence ?? [],
+      no_msf_planned: data.no_msf_planned ?? arcpPrepData?.no_msf_planned ?? false,
       status: data.status ?? arcpPrepData?.status ?? 'DRAFT',
       updated_at: new Date().toISOString()
     };
+
+    console.log('handleUpdateARCPPrep - Payload:', payload);
 
     // Update local with explicit ID
     setArcpPrepData(prev => ({
@@ -1029,22 +1033,36 @@ const App: React.FC = () => {
 
     if (existingId) {
       // Update existing row
-      const { error } = await supabase
+      console.log('Updating existing arcp_prep row with ID:', existingId);
+      const { data: resultData, error } = await supabase
         .from('arcp_prep')
         .update(payload)
-        .eq('id', existingId);
+        .eq('id', existingId)
+        .select();
 
       if (error) {
         console.error("Error updating ARCP prep:", error);
+        alert(`Failed to save ARCP Prep data: ${error.message}`);
+      } else {
+        console.log('Successfully updated arcp_prep:', resultData);
       }
     } else {
       // Insert new row
-      const { error } = await supabase
+      console.log('Inserting new arcp_prep row');
+      const { data: resultData, error } = await supabase
         .from('arcp_prep')
-        .insert(payload);
+        .insert(payload)
+        .select();
 
       if (error) {
         console.error("Error inserting ARCP prep:", error);
+        alert(`Failed to save ARCP Prep data: ${error.message}`);
+      } else {
+        console.log('Successfully inserted arcp_prep:', resultData);
+        // Update local state with returned data including database-generated ID
+        if (resultData && resultData[0]) {
+          setArcpPrepData(resultData[0] as ARCPPrepData);
+        }
       }
     }
   };
