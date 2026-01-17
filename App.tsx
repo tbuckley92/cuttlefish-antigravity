@@ -48,6 +48,7 @@ import { Auth } from './views/Auth';
 import { ProfileSetup } from './views/ProfileSetup';
 import { isSupabaseConfigured, supabase } from './utils/supabaseClient';
 import { uuidv4 } from './utils/uuid';
+import { mapEvidenceItemToRow } from './utils/evidenceMapper';
 import { ThemeProvider, useTheme, THEME_OPTIONS } from './utils/ThemeContext';
 import { uploadEvidenceFile } from './utils/storageUtils';
 import { sendNotificationEmail } from './utils/emailUtils';
@@ -699,35 +700,37 @@ const App: React.FC = () => {
       currentRole === UserRole.Admin ||
       currentRole === UserRole.ARCPPanelMember;
 
-    if (itemToSave.status === EvidenceStatus.SignedOff && isActingAsSupervisor && viewingTraineeId) {
+    // Relaxed condition: If acting as supervisor and signing off, we should stamp details
+    // even if viewingTraineeId is not set (e.g. from dashboard view)
+    if (itemToSave.status === EvidenceStatus.SignedOff && isActingAsSupervisor) {
       // We are a supervisor signing off someone else's evidence
       // Fetch our recent profile data to ensure accuracy
       const { data: myProfile } = await supabase!.from('user_profile').select('*').eq('user_id', session.user.id).single();
-      if (myProfile) {
-        const svName = myProfile.name;
-        const svEmail = session.user.email || myProfile.supervisorEmail; // Fallback to auth email
-        const svGmc = myProfile.gmc_number;
 
-        console.log("Auto-stamping Supervisor Details:", svName, svGmc);
+      const svName = myProfile?.name || session.user.user_metadata?.full_name || session.user.email;
+      const svEmail = session.user.email;
+      const svGmc = myProfile?.gmc_number;
 
-        itemToSave.supervisorName = svName;
-        itemToSave.supervisorEmail = svEmail;
-        itemToSave.supervisorGmc = svGmc;
-        itemToSave.signedOffBy = session.user.id;
-        itemToSave.signedOffAt = new Date().toISOString();
+      console.log("Auto-stamping Supervisor Details:", svName, svGmc, session.user.id);
 
-        // Also update internal form data if structure matches known types
-        if (itemToSave.epaFormData) {
-          itemToSave.epaFormData.supervisorName = svName;
-          itemToSave.epaFormData.supervisorEmail = svEmail;
-          // epaFormData doesn't usually store GMC, but we update the top-level which is key
-        }
-        if (itemToSave.dopsFormData) {
-          // Update DOPS specific fields if needed
-        }
-        // Similar pattern for other forms if they store supervisor details internally
-        // Most forms rely on the top level EvidenceItem fields for display in tables
+      itemToSave.supervisorName = svName;
+      itemToSave.supervisorEmail = svEmail;
+      itemToSave.supervisorGmc = svGmc;
+      itemToSave.signedOffBy = session.user.id;
+      itemToSave.signedOffAt = new Date().toISOString();
+      itemToSave.supervisorId = session.user.id; // Correctly link the supervisor ID for RLS policies
+
+      // Also update internal form data if structure matches known types
+      if (itemToSave.epaFormData) {
+        itemToSave.epaFormData.supervisorName = svName;
+        itemToSave.epaFormData.supervisorEmail = svEmail;
+        // epaFormData doesn't usually store GMC, but we update the top-level which is key
       }
+      if (itemToSave.dopsFormData) {
+        // Update DOPS specific fields if needed
+      }
+      // Similar pattern for other forms if they store supervisor details internally
+      // Most forms rely on the top level EvidenceItem fields for display in tables
     }
     // Capture ID for mandatory form context (CRS/OSATS launched from EPA)
     const ctx = mandatoryContext;
@@ -756,13 +759,23 @@ const App: React.FC = () => {
       mandatoryCreatedIdRef.current = newItemId;
     }
 
+    // For updates, merge with existing evidence to preserve all fields
+    // Check both allEvidence (own evidence) and viewingTraineeEvidence (trainee's evidence when supervisor views)
+    const existingEvidence = item.id
+      ? (allEvidence.find(e => e.id === item.id) || viewingTraineeEvidence.find(e => e.id === item.id))
+      : null;
+
     const optimisticItem: EvidenceItem = {
-      ...item,
+      // 1. Start with existing evidence (if updating)
+      ...(existingEvidence || {}),
+      // 2. Apply the new partial data (including auto-stamped supervisor details)
+      ...itemToSave,
+      // 3. Ensure required fields have values
       id: newItemId,
-      date: item.date || new Date().toISOString().split('T')[0],
-      status: item.status || EvidenceStatus.Draft,
-      title: item.title || 'Untitled Evidence',
-      type: item.type || EvidenceType.Other,
+      date: itemToSave.date || existingEvidence?.date || new Date().toISOString().split('T')[0],
+      status: itemToSave.status || existingEvidence?.status || EvidenceStatus.Draft,
+      title: itemToSave.title || existingEvidence?.title || 'Untitled Evidence',
+      type: itemToSave.type || existingEvidence?.type || EvidenceType.Other,
     } as EvidenceItem;
 
     // Update local state immediately
@@ -778,22 +791,47 @@ const App: React.FC = () => {
     // Supabase Persistence
     if (isSupabaseConfigured && supabase && session?.user) {
       try {
-        const { mapEvidenceItemToRow } = await import('./utils/evidenceMapper');
         const rowData = mapEvidenceItemToRow(optimisticItem);
 
         // ensure trainee_id is set correctly
         // If we are a supervisor viewing a trainee, use that trainee's ID.
         // Otherwise fallback to session user (we are the trainee or logging for ourselves)
-        const targetTraineeId = viewingTraineeId || session.user.id;
+        // Use existing traineeId if available (Update), otherwise viewingTraineeId (Create for other), otherwise session (Create for self)
+        const targetTraineeId = optimisticItem.traineeId || viewingTraineeId || session.user.id;
 
         const payload = {
           ...rowData,
           trainee_id: targetTraineeId
         };
 
-        const { error } = await supabase
-          .from('evidence')
-          .upsert(payload);
+        // DEBUG RLS: Log exact values being sent and current user context
+        console.log('DEBUG RLS UPDATE:', {
+          itemId: item.id,
+          payloadSupervisorId: payload.supervisor_id,
+          payloadGmc: payload.supervisor_gmc,
+          payloadEmail: payload.supervisor_email,
+          currentUserId: session.user.id,
+          targetTraineeId: targetTraineeId
+        });
+
+        // Use update() for existing records (allows supervisors with UPDATE policy),
+        // insert() for new records (requires trainee's INSERT policy)
+        // Check if existingEvidence is truthy to determine if record exists in DB
+        let error;
+        if (existingEvidence) {
+          // Record exists in state (and thus DB) - use UPDATE
+          const result = await supabase
+            .from('evidence')
+            .update(payload)
+            .eq('id', item.id);
+          error = result.error;
+        } else {
+          // New record (not in state yet) - use INSERT
+          const result = await supabase
+            .from('evidence')
+            .insert(payload);
+          error = result.error;
+        }
 
         if (error) {
           console.error('Error saving evidence to Supabase:', error);
@@ -1180,11 +1218,18 @@ const App: React.FC = () => {
   const handleEditEvidence = async (item: EvidenceItem) => {
     setEditingEvidence(item);
     if (item.type === EvidenceType.MSF) {
-      // Supervisors viewing a trainee's MSF go to summary view
-      // Trainees editing their own MSF go to submission view
-      if (viewingTraineeId && item.status === EvidenceStatus.Submitted) {
+      // MSF viewing logic:
+      // - SignedOff: Always show Summary (read-only for everyone)
+      // - Submitted + Supervisor viewing: Show Summary (for sign-off)
+      // - Draft or Submitted (trainee viewing own): Show Submission form
+      if (item.status === EvidenceStatus.SignedOff) {
+        // Completed MSF - show summary for both trainee and supervisor
+        setCurrentView(View.MSFSummary);
+      } else if (viewingTraineeId && item.status === EvidenceStatus.Submitted) {
+        // Supervisor viewing submitted MSF
         setCurrentView(View.MSFSummary);
       } else {
+        // Trainee viewing their own Draft/Submitted MSF
         setCurrentView(View.MSFSubmission);
       }
     } else if (item.type === EvidenceType.EPA) {
@@ -2782,6 +2827,30 @@ const App: React.FC = () => {
               // Navigate
               switch (item.type) {
                 case EvidenceType.MSF:
+                  // Fetch fresh MSF data to get latest respondent responses
+                  if (supabase && isSupabaseConfigured) {
+                    try {
+                      const { data: freshMsfData, error } = await supabase
+                        .from('evidence')
+                        .select('*')
+                        .eq('id', item.id)
+                        .single();
+
+                      if (!error && freshMsfData) {
+                        const { mapRowToEvidenceItem } = await import('./utils/evidenceMapper');
+                        const freshItem = mapRowToEvidenceItem(freshMsfData);
+                        setEditingEvidence(freshItem);
+                      } else {
+                        // Fallback to item from cache
+                        setEditingEvidence(item);
+                      }
+                    } catch (e) {
+                      console.error('Error fetching fresh MSF data:', e);
+                      setEditingEvidence(item);
+                    }
+                  } else {
+                    setEditingEvidence(item);
+                  }
                   setCurrentView(View.MSFSummary);
                   break;
                 case EvidenceType.EPA:
@@ -2802,13 +2871,19 @@ const App: React.FC = () => {
                 case EvidenceType.CRS:
                   setCurrentView(View.CRSForm);
                   break;
+                case EvidenceType.EPAOperatingList:
+                  setCurrentView(View.EPAOperatingListForm);
+                  break;
+                case EvidenceType.ESR:
+                  setCurrentView(View.ESRForm);
+                  break;
                 case EvidenceType.ARCPFullReview:
                 case EvidenceType.ARCPInterimReview:
                   setCurrentView(View.ARCPForm);
                   break;
                 default:
-                  setEditingEvidence(item);
-                  setCurrentView(View.AddEvidence);
+                  // For unknown types, try generic handleEditEvidence
+                  handleEditEvidence(item);
                   break;
               }
             }}

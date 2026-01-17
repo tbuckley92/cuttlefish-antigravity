@@ -33,9 +33,6 @@ export interface SupabaseEvidenceRow {
     updated_at?: string;
 }
 
-/**
- * Maps a Supabase DB row to the application's EvidenceItem type.
- */
 export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => {
     const { data, ...baseFields } = row;
 
@@ -72,6 +69,14 @@ export const mapRowToEvidenceItem = (row: SupabaseEvidenceRow): EvidenceItem => 
     // Ensure arrays are initialized if missing in data (safety fallback)
     if (!item.linkedEvidence) item.linkedEvidence = {};
 
+    // Normalize msfRespondents - find them at any nesting level (legacy bug fix)
+    if (data && !item.msfRespondents) {
+        item.msfRespondents = data.msfRespondents
+            || data.data?.msfRespondents
+            || data.data?.data?.msfRespondents
+            || undefined;
+    }
+
     return item as EvidenceItem;
 };
 
@@ -96,8 +101,19 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
         supervisorEmail,
         signedOffBy,
         signedOffAt,
+        data: _existingData, // Exclude existing 'data' field to prevent nesting
+        traineeId: _traineeId, // Exclude traineeId (it's a DB column, not JSONB)
         ...rest // Everything else goes into the 'data' JSONB column
-    } = item;
+    } = item as any;
+
+    // Critical: For MSF and other forms, supervisorComments are often stored in the data JSONB.
+    // Ensure we don't lose them if they were passed at the top level OR inside the data object.
+    // The _existingData contains the 'data' object passed to the mapper, which may have supervisorComments inside.
+    const finalData = {
+        ...rest,
+        ...(_existingData || {}), // Merge the passed 'data' object contents
+        supervisorComments: (item as any).supervisorComments || _existingData?.supervisorComments || rest.supervisorComments
+    };
 
     return {
         id,
@@ -114,6 +130,6 @@ export const mapEvidenceItemToRow = (item: Partial<EvidenceItem>): Partial<Supab
         supervisor_email: supervisorEmail || null,
         signed_off_by: signedOffBy || null,
         signed_off_at: signedOffAt || null,
-        data: rest // Store form-specific data in the JSONB column
+        data: finalData // Store form-specific data in the JSONB column
     };
 };

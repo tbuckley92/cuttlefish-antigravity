@@ -74,25 +74,26 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
       try {
         const { data: session } = await supabase.auth.getSession();
         if (session?.session?.user) {
+          // Fetch trainee's profile to get supervisor text fields
           const { data: traineeProfile } = await supabase
             .from('user_profile')
-            .select('educational_supervisor_id, name')
+            .select('supervisor_name, supervisor_email, supervisor_gmc')
             .eq('user_id', session.session.user.id)
             .single();
 
-          if (traineeProfile?.educational_supervisor_id) {
-            // Try to fetch supervisor details
+          if (traineeProfile?.supervisor_email) {
+            // Look up the supervisor's user_id by matching their email
             const { data: supervisorProfile } = await supabase
               .from('user_profile')
-              .select('name, email, gmc_number')
-              .eq('user_id', traineeProfile.educational_supervisor_id)
-              .single();
+              .select('user_id, name, email, gmc_number')
+              .eq('email', traineeProfile.supervisor_email)
+              .maybeSingle();
 
             setSupervisorDetails({
-              id: traineeProfile.educational_supervisor_id,
-              name: supervisorProfile?.name || 'Unknown Supervisor',
-              email: supervisorProfile?.email || '',
-              gmc: supervisorProfile?.gmc_number || '',
+              id: supervisorProfile?.user_id || undefined,
+              name: traineeProfile.supervisor_name || supervisorProfile?.name || 'Unknown Supervisor',
+              email: traineeProfile.supervisor_email || supervisorProfile?.email || '',
+              gmc: traineeProfile.supervisor_gmc || supervisorProfile?.gmc_number || '',
               isLoading: false
             });
           } else {
@@ -283,13 +284,13 @@ export const MSFSubmissionForm: React.FC<MSFSubmissionFormProps> = ({
 
     setStatus(EvidenceStatus.Submitted);
 
-    // 2. Save evidence
-    // User requested to rely on text parameters, so we do not save supervisorId
+    // 2. Save evidence - include supervisorId for supervisor queue lookup
     await onSave({
       status: EvidenceStatus.Submitted,
       msfRespondents: respondents,
       title,
       type: EvidenceType.MSF,
+      supervisorId: supervisorDetails.id || undefined,
       supervisorName: supervisorDetails.name || undefined,
       supervisorEmail: supervisorDetails.email || undefined,
       supervisorGmc: supervisorDetails.gmc || undefined

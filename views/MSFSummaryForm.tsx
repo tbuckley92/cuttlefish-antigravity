@@ -73,7 +73,8 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
     );
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const respondents = evidence?.msfRespondents || [];
+    // Check both locations for respondents (top-level or in data object)
+    const respondents = evidence?.msfRespondents || evidence?.data?.msfRespondents || [];
     const completedRespondents = respondents.filter(r => r.status === 'Completed');
     const isLocked = evidence?.status === EvidenceStatus.SignedOff;
 
@@ -124,13 +125,18 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
 
         try {
             await onSave({
+                id: evidence.id,
+                title: evidence.title,
                 status: EvidenceStatus.SignedOff,
                 type: EvidenceType.MSF,
+                msfRespondents: respondents, // Preserve at top level
                 data: {
                     ...evidence.data,
                     supervisorComments,
-                    signedOffAt: new Date().toISOString()
-                }
+                },
+                supervisorComments, // Redundant but safe for some access patterns
+                signedOffAt: new Date().toISOString(),
+                linkedEvidence: evidence.linkedEvidence || evidence.data?.linkedEvidence || {}
             });
 
             // Create notification for trainee
@@ -177,8 +183,8 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
                     </p>
                 </div>
                 <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${isLocked
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                     }`}>
                     {evidence.status}
                 </span>
@@ -352,6 +358,41 @@ export const MSFSummaryForm: React.FC<MSFSummaryFormProps> = ({
                             </p>
                         </div>
                     )}
+                </GlassCard>
+            )}
+
+            {/* Trainee View of Supervisor Comments (read-only, when signed off) */}
+            {!isSupervisor && isLocked && supervisorComments && (
+                <GlassCard className="p-6 border-green-200 dark:border-green-500/30">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <ShieldCheck size={20} className="text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                                Supervisor Review
+                            </h2>
+                            <p className="text-xs text-slate-500 dark:text-white/50">
+                                Signed off on {evidence.signedOffAt ? new Date(evidence.signedOffAt).toLocaleDateString() : 'N/A'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl">
+                        <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">
+                            Supervisor Comments
+                        </p>
+                        <p className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                            {supervisorComments}
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 mt-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                        <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
+                        <p className="text-sm text-green-700 dark:text-green-400">
+                            This MSF has been reviewed and signed off by your supervisor.
+                        </p>
+                    </div>
                 </GlassCard>
             )}
         </div>

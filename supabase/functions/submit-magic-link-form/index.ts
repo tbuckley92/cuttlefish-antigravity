@@ -64,12 +64,25 @@ serve(async (req) => {
             if (fetchError) throw fetchError;
 
             const currentData = currentEvidence?.data || {};
-            const msfRespondents = currentData.msfRespondents || [];
 
-            // Find and update the respondent by email
-            const respondentEmail = updates.msfResponse.respondentEmail;
+            // Handle potential nested data structures (legacy bug fix)
+            // Try to find msfRespondents at various levels
+            const msfRespondents = currentData.msfRespondents
+                || currentData.data?.msfRespondents
+                || currentData.data?.data?.msfRespondents
+                || [];
+
+            // Find and update the respondent by email (case-insensitive)
+            const respondentEmail = updates.msfResponse.respondentEmail?.toLowerCase().trim();
+            console.log('Looking for respondent with email:', respondentEmail);
+            console.log('Available respondents:', msfRespondents.map((r: any) => r.email));
+
+            let foundMatch = false;
             const updatedRespondents = msfRespondents.map((r: any) => {
-                if (r.email === respondentEmail) {
+                const currentEmail = r.email?.toLowerCase().trim();
+                if (currentEmail === respondentEmail) {
+                    foundMatch = true;
+                    console.log('Found matching respondent:', r.name, r.email);
                     return {
                         ...r,
                         status: 'Completed',
@@ -84,15 +97,31 @@ serve(async (req) => {
                 return r;
             });
 
+            if (!foundMatch) {
+                console.warn('No matching respondent found for email:', respondentEmail);
+            }
+
             // Update the evidence with the new respondent data
+            // Use a base object that flattens any legacy nesting but preserves other fields
+            let baseData = { ...currentData };
+
+            // Handle legacy "data.data" nesting if present
+            if (!baseData.msfRespondents && baseData.data?.msfRespondents) {
+                baseData = { ...baseData.data };
+            } else if (!baseData.msfRespondents && baseData.data?.data?.msfRespondents) {
+                baseData = { ...baseData.data.data };
+            }
+
+            const cleanedData = {
+                ...baseData,
+                msfRespondents: updatedRespondents
+            };
+
             const { error: updateError } = await supabaseAdmin
                 .from('evidence')
                 .update({
                     updated_at: new Date().toISOString(),
-                    data: {
-                        ...currentData,
-                        msfRespondents: updatedRespondents
-                    }
+                    data: cleanedData
                 })
                 .eq('id', evidenceId);
 

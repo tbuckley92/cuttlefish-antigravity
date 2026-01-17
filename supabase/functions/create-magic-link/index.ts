@@ -113,6 +113,7 @@ serve(async (req) => {
     `
 
         // Send email via Resend
+        console.log(`Sending email via Resend to: ${recipient_email}, from: ${RESEND_FROM_EMAIL}`);
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -127,9 +128,12 @@ serve(async (req) => {
             })
         })
 
+        const responseBody = await response.text()
+        console.log(`Resend API response status: ${response.status}, body: ${responseBody}`);
+
         if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(`Resend API error: ${errorText}`)
+            console.error(`Resend API failed with status ${response.status}: ${responseBody}`);
+            throw new Error(`Email service error (${response.status}): ${responseBody}`)
         }
 
         return new Response(
